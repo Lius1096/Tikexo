@@ -1,0 +1,30 @@
+# Middlewares dynamiques Traefik — TIKEXO
+http:
+  middlewares:
+    tikexo-security:
+      headers:
+        frameDeny: true
+        sslRedirect: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(self)"
+        customResponseHeaders:
+          X-Powered-By: ""
+          Server: ""
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+
+    tikexo-compress:
+      compress: {}
+
+    tikexo-rate-limit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1m
+
+    tikexo-auth-basic:
+      basicAuth:
+        users:
+          - "${TRAEFIK_DASHBOARD_USER}:${TRAEFIK_DASHBOARD_PASSWORD_HASH}"
