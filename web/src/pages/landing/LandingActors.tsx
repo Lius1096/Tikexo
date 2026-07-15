@@ -60,11 +60,13 @@ export default function LandingActors() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div
+        className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-3 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-3 md:overflow-visible"
+      >
         {ACTORS.map(a => (
           <div
             key={a.name}
-            className="group relative overflow-hidden rounded-3xl flex flex-col"
+            className="flex-none w-[82vw] snap-start md:w-full group relative overflow-hidden rounded-3xl flex flex-col"
             style={{ background: '#0D1F35' }}
           >
             {/* Accent line */}
