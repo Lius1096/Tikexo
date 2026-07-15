@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Wallet, TrendingUp, Clock, ArrowDownLeft } from 'lucide-react';
+import { Wallet, TrendingUp, Clock, ArrowDownLeft, Sparkles } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt } from '../../utils/format';
@@ -25,8 +25,9 @@ export default function BeneficiaireDashboard() {
     <div className="p-6 space-y-5">
       {/* Header */}
       <div>
-        <div className="text-[15px] font-medium text-slate-900">
-          Bonjour, {user?.prenom} 👋
+        <div className="text-[15px] font-medium text-slate-900 flex items-center gap-2">
+          Bonjour, {user?.prenom}
+          <Sparkles size={15} className="text-tikexo-accent" />
         </div>
         <div className="text-xs text-slate-500">Votre espace repas TIKEXO</div>
       </div>
