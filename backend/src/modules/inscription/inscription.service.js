@@ -14,11 +14,17 @@ async function creerDossierKyb(prisma, entrepriseId) {
   });
 }
 
-const PLANS = {
-  Starter:  { prix: 15000, commission: 2.00 },
-  Growth:   { prix: 35000, commission: 1.80 },
-  Business: { prix: 75000, commission: 1.50 },
-};
+// Grille de frais de gestion mensuel selon le nombre de salariés couverts
+// La commission sur transactions est fixe : 5 % côté bénéficiaire + 5 % côté commerçant
+function calculerFraisGestion(nbEmployes) {
+  const n = parseInt(nbEmployes, 10) || 0;
+  if (n <= 50)  return { frais: 5000,      plan: 'PME_S' };
+  if (n <= 200) return { frais: 25000,     plan: 'PME_M' };
+  if (n <= 500) return { frais: 200 * n,   plan: 'ETI' };
+  return              { frais: 350 * n,   plan: 'GE' };
+}
+
+const TAUX_COMMISSION_TRANSACTION = 5.00; // appliqué côté benef ET côté commercant
 
 async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
   // Normaliser et valider le téléphone
@@ -76,7 +82,8 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
 
   const motDePasseHash = await bcrypt.hash(a.mot_de_passe, 12);
 
-  const planConfig = PLANS[plan] || PLANS.Growth;
+  const nbSalaries = e.nb_salaries || 0;
+  const { frais: fraisMensuel, plan: planLabel } = calculerFraisGestion(nbSalaries);
 
   // Transaction : entreprise + wallet + user + lien
   const { entreprise: ent, user } = await prisma.$transaction(async (tx) => {
@@ -90,9 +97,10 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
         ville: e.ville || 'Cotonou',
         telephone_rh: a.telephone,
         email_rh: a.email_rh || null,
-        plan: plan,
-        nb_employes: e.nb_salaries || null,
-        taux_commission_defaut: planConfig.commission,
+        plan: planLabel,
+        nb_employes: String(nbSalaries) || null,
+        frais_mensuel: fraisMensuel,
+        taux_commission_defaut: TAUX_COMMISSION_TRANSACTION,
         statut: 'EN_ATTENTE',
       },
     });

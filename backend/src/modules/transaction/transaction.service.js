@@ -7,7 +7,9 @@ const { verifierAccesTransaction } = require('../../utils/kyc');
 const { estEligible } = require('../../utils/jours-feries-benin');
 const { envoyerNotificationPush } = require('../../config/firebase');
 
-const COMMISSION_DEFAULT = parseFloat(process.env.TIKEXO_COMMISSION_DEFAULT || '2.00');
+// 5 % prélevés côté bénéficiaire + 5 % côté commerçant = 10 % plateforme
+const TAUX_FRAIS_BENEF       = 0.05;
+const TAUX_FRAIS_COMMERCANT  = 0.05;
 const PLAFOND_JOURNALIER = parseFloat(process.env.TIKEXO_PLAFOND_JOURNALIER_DEFAULT || '10000');
 
 async function creer(beneficiaireId, { commercantId, montantTotal, localisation }) {
@@ -61,10 +63,17 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   const walletCommercant = await prisma.wallet.findUniqueOrThrow({ where: { user_id: commercant.user_id } });
   const walletPlateforme = await prisma.wallet.findUnique({ where: { id: 'wallet-plateforme-tikexo' } });
 
-  // 7. Calculer la commission
-  const tauxCommission = parseFloat(commercant.taux_commission.toString()) / 100;
-  const commissionTikexo = Math.round(montantTotal * tauxCommission * 100) / 100;
-  const montantCommercant = montantTotal - commissionTikexo;
+  // 7. Calculer les frais
+  // - fraisBenef    : 5 % du montant, prélevé en plus sur le wallet bénéficiaire
+  // - fraisCommercant : 5 % du montant, déduit de ce que reçoit le commerçant
+  // - commissionTikexo (total) = fraisBenef + fraisCommercant = 10 %
+  // - Bénéficiaire débité    : montantTotal + fraisBenef  (× 1.05)
+  // - Commerçant crédité     : montantTotal − fraisCommercant (× 0.95)
+  // - Plateforme créditée    : fraisBenef + fraisCommercant  (× 0.10)
+  const fraisBenef       = Math.round(montantTotal * TAUX_FRAIS_BENEF       * 100) / 100;
+  const fraisCommercant  = Math.round(montantTotal * TAUX_FRAIS_COMMERCANT  * 100) / 100;
+  const commissionTikexo = fraisBenef + fraisCommercant;
+  const montantCommercant = montantTotal - fraisCommercant;
 
   // 8. Exécuter la transaction de manière atomique
   const transaction = await prisma.$transaction(async (tx) => {
@@ -81,7 +90,7 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
       },
     });
 
-    // Débit bénéficiaire → commerçant (montant net)
+    // Débit bénéficiaire → commerçant (montant net = nominal − 5 %)
     await transfererEntreWallets(
       tx,
       walletBenef.id,
@@ -91,7 +100,7 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
       { transaction_id: txn.id }
     );
 
-    // Débit bénéficiaire → plateforme (commission)
+    // Débit bénéficiaire → plateforme (frais benef 5 % + frais commercant 5 %)
     if (commissionTikexo > 0 && walletPlateforme) {
       await transfererEntreWallets(
         tx,

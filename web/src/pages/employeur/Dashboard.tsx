@@ -213,7 +213,7 @@ export default function EmployeurDashboard() {
               <FlowArrow label="0 frais" free />
               <FlowNode label="DÉPENSES SALARIÉS" value={fmtK(totalDepenses)} sub={`ce mois en cours`} accent />
               <FlowArrow label="payout 72h" />
-              <FlowNode label="COMMISSION TIKEXO" value="—" sub="2% sur transactions" earned />
+              <FlowNode label="REVENUS TIKEXO" value="—" sub="10% sur transactions" earned />
             </>
           )}
         </div>
