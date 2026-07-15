@@ -44,14 +44,22 @@ const DEFAULT_ACTORS = [
   },
 ];
 
+// Les cards de l'API sont du JSON pur — elles n'ont pas de composant Icon.
+// On injecte l'icône par index (ou en cherchant le défaut par nom) avant le rendu.
+const ACTOR_ICONS = [Building2, User, UtensilsCrossed];
+
 export default function LandingActors() {
   const navigate = useNavigate();
   const config = useLandingConfig();
   const actorsConfig = config?.actors;
-  const ACTORS = (actorsConfig?.cards ?? DEFAULT_ACTORS).map((a: any) => ({
-    ...a,
-    img: a.img || `${ASSETS}/landing/actor-${DEFAULT_ACTORS.findIndex(d => d.name === a.name) + 1}.jpg`,
-  }));
+  const ACTORS = (actorsConfig?.cards ?? DEFAULT_ACTORS).map((a: any, idx: number) => {
+    const defaultMatch = DEFAULT_ACTORS.find(d => d.name === a.name) ?? DEFAULT_ACTORS[idx];
+    return {
+      ...a,
+      Icon: defaultMatch?.Icon ?? ACTOR_ICONS[idx % ACTOR_ICONS.length],
+      img: a.img || `${ASSETS}/landing/actor-${idx + 1}.jpg`,
+    };
+  });
   const sectionTitle = actorsConfig?.title ?? 'Une solution pour chacun';
   const sectionSubtitle = actorsConfig?.subtitle ?? 'TIKEXO connecte employeurs, salariés et commerçants dans un système unifié où chaque partie y trouve son compte.';
 
