@@ -1,19 +1,22 @@
 import React from 'react';
 
+const LINKS = ['Mentions légales', 'Confidentialité', 'APD Bénin', 'Contact'];
+
 export default function LandingFooter() {
   return (
-    <footer className="footer">
+    <footer className="bg-[#030810] px-6 md:px-20 py-7 flex flex-wrap items-center justify-between gap-4">
       <div>
-        <div className="footer-logo">TIKEXO</div>
-        <div className="footer-sub">TITRE-RESTAURANT DIGITALISÉ · BÉNIN</div>
+        <div className="text-base font-black text-sky-500 tracking-widest">TIKEXO</div>
+        <div className="text-[10px] text-white/[0.18] tracking-widest mt-1">TITRE-RESTAURANT DIGITALISÉ · BÉNIN</div>
       </div>
-      <div className="footer-links">
-        <span className="footer-link">Mentions légales</span>
-        <span className="footer-link">Confidentialité</span>
-        <span className="footer-link">APD Bénin</span>
-        <span className="footer-link">Contact</span>
+      <div className="flex flex-wrap gap-6">
+        {LINKS.map(link => (
+          <span key={link} className="text-xs text-white/[0.22] cursor-pointer hover:text-white/60 transition-colors">
+            {link}
+          </span>
+        ))}
       </div>
-      <div className="footer-copy">© 2026 TIKEXO · tikexo.bj</div>
+      <div className="text-[11px] text-white/[0.14]">© 2026 TIKEXO · tikexo.bj</div>
     </footer>
   );
 }
