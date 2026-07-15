@@ -632,3 +632,12 @@ enum StatutKybDocument {
   VALIDE
   REJETE
 }
+
+model LandingConfig {
+  id         String   @id @default(cuid())
+  section    String   @unique
+  data       Json
+  updated_at DateTime @updatedAt
+
+  @@map("landing_config")
+}

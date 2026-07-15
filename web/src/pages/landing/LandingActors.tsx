@@ -1,12 +1,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, User, UtensilsCrossed, LogIn, Check } from 'lucide-react';
+import { useLandingConfig } from '../../context/LandingConfigContext';
 
 const ASSETS = import.meta.env.VITE_ASSETS_URL || 'http://localhost:9000/tikexo-documents';
 
-const ACTORS = [
+const DEFAULT_ACTORS = [
   {
-    img: `${ASSETS}/landing/actor-1.jpg`, imgAlt: 'Équipe RH en réunion',
+    img: `${ASSETS}/landing/actor-1.jpg` as string, imgAlt: 'Équipe RH en réunion',
     accentFrom: '#1A3C5E', accentTo: '#0EA5E9',
     Icon: Building2,
     name: 'Employeur', role: 'Direction RH / Finance', tag: 'Portail web',
@@ -18,7 +19,7 @@ const ACTORS = [
     ],
   },
   {
-    img: `${ASSETS}/landing/actor-2.jpg`, imgAlt: 'Salariés au déjeuner',
+    img: `${ASSETS}/landing/actor-2.jpg` as string, imgAlt: 'Salariés au déjeuner',
     accentFrom: '#065F46', accentTo: '#34d399',
     Icon: User,
     name: 'Salarié bénéficiaire', role: 'Application mobile & web', tag: 'App mobile',
@@ -30,7 +31,7 @@ const ACTORS = [
     ],
   },
   {
-    img: `${ASSETS}/landing/actor-3.jpg`, imgAlt: 'Commerçante partenaire TIKEXO',
+    img: `${ASSETS}/landing/actor-3.jpg` as string, imgAlt: 'Commerçante partenaire TIKEXO',
     accentFrom: '#78350F', accentTo: '#F59E0B',
     Icon: UtensilsCrossed,
     name: 'Commerçant partenaire', role: 'Caisse numérique TIKEXO', tag: 'Caisse TIKEXO',
@@ -45,25 +46,31 @@ const ACTORS = [
 
 export default function LandingActors() {
   const navigate = useNavigate();
+  const config = useLandingConfig();
+  const actorsConfig = config?.actors;
+  const ACTORS = (actorsConfig?.cards ?? DEFAULT_ACTORS).map((a: any) => ({
+    ...a,
+    img: a.img || `${ASSETS}/landing/actor-${DEFAULT_ACTORS.findIndex(d => d.name === a.name) + 1}.jpg`,
+  }));
+  const sectionTitle = actorsConfig?.title ?? 'Une solution pour chacun';
+  const sectionSubtitle = actorsConfig?.subtitle ?? 'TIKEXO connecte employeurs, salariés et commerçants dans un système unifié où chaque partie y trouve son compte.';
+
   return (
     <section className="bg-[#060E18] py-16 md:py-20 px-6 md:px-20">
       <div className="text-center mb-12">
         <div className="text-[11px] font-bold text-sky-500 tracking-[3px] uppercase mb-2.5">LA PLATEFORME</div>
         <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">
-          Une solution pour chacun{' '}
-          <span className="inline-block w-2 h-2 rounded-full bg-sky-500 align-middle mx-2" />
-          <br />
-          <span className="text-sky-500">trois rôles, un seul écosystème.</span>
+          {sectionTitle}
         </h2>
         <p className="text-base text-white/35 mt-3.5 mx-auto max-w-xl leading-relaxed">
-          TIKEXO connecte employeurs, salariés et commerçants dans un système unifié où chaque partie y trouve son compte.
+          {sectionSubtitle}
         </p>
       </div>
 
       <div
         className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-3 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-3 md:overflow-visible"
       >
-        {ACTORS.map(a => (
+        {ACTORS.map((a: any) => (
           <div
             key={a.name}
             className="flex-none w-[82vw] snap-start md:w-full group relative overflow-hidden rounded-3xl flex flex-col"

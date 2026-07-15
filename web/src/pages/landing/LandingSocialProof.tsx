@@ -1,6 +1,7 @@
 import React from 'react';
+import { useLandingConfig } from '../../context/LandingConfigContext';
 
-const STATS = [
+const DEFAULT_STATS = [
   { val: '38',        label: 'Entreprises actives' },
   { val: '1 247',     label: 'Salariés bénéficiaires' },
   { val: '142',       label: 'Restaurants partenaires' },
@@ -15,6 +16,8 @@ const OPERATORS = [
 ];
 
 export default function LandingSocialProof() {
+  const config = useLandingConfig();
+  const STATS = config?.stats?.items ?? DEFAULT_STATS;
   return (
     <div className="bg-[#060E18] px-6 md:px-20 py-6 flex flex-wrap gap-6 items-center justify-between border-b border-white/5">
       <div className="flex flex-wrap items-center gap-8 md:gap-14">

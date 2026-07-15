@@ -38,6 +38,7 @@ import AdminAntiFraude from './pages/admin/AntiFraude';
 import AdminAuditLog from './pages/admin/AuditLog';
 import AdminStatistiques from './pages/admin/Statistiques';
 import AdminConfiguration from './pages/admin/Configuration';
+import LandingCRM from './pages/admin/LandingCRM';
 
 // Pages Employeur
 import EmployeurDashboard from './pages/employeur/Dashboard';
@@ -144,6 +145,7 @@ export default function App() {
         <Route path="audit" element={<AdminAuditLog />} />
         <Route path="statistiques" element={<AdminStatistiques />} />
         <Route path="configuration" element={<AdminConfiguration />} />
+        <Route path="landing-crm" element={<LandingCRM />} />
       </Route>
 
       <Route

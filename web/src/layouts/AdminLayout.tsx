@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
   CreditCard, Banknote, ShieldAlert, FileText, BarChart2, Settings,
-  Bell, ChevronDown, LogOut,
+  Bell, ChevronDown, LogOut, Globe,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -37,6 +37,7 @@ const NAV = [
     section: 'PLATEFORME',
     items: [
       { path: '/admin/statistiques', label: 'Statistiques', icon: BarChart2 },
+      { path: '/admin/landing-crm', label: 'Landing CRM', icon: Globe },
       { path: '/admin/configuration', label: 'Configuration', icon: Settings },
     ],
   },

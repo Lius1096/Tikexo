@@ -1,4 +1,5 @@
 import React from 'react';
+import { LandingConfigProvider } from '../context/LandingConfigContext';
 import LandingNav from './landing/LandingNav';
 import LandingHero from './landing/LandingHero';
 import LandingSocialProof from './landing/LandingSocialProof';
@@ -10,15 +11,17 @@ import LandingFooter from './landing/LandingFooter';
 
 export default function Landing() {
   return (
-    <div className="font-sans bg-white text-slate-900 overflow-x-hidden antialiased">
-      <LandingNav />
-      <LandingHero />
-      <LandingSocialProof />
-      <LandingHowItWorks />
-      <LandingActors />
-      <LandingPricing />
-      <LandingCTA />
-      <LandingFooter />
-    </div>
+    <LandingConfigProvider>
+      <div className="font-sans bg-white text-slate-900 overflow-x-hidden antialiased">
+        <LandingNav />
+        <LandingHero />
+        <LandingSocialProof />
+        <LandingHowItWorks />
+        <LandingActors />
+        <LandingPricing />
+        <LandingCTA />
+        <LandingFooter />
+      </div>
+    </LandingConfigProvider>
   );
 }

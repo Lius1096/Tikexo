@@ -1,7 +1,8 @@
 import React from 'react';
 import { Check } from 'lucide-react';
+import { useLandingConfig } from '../../context/LandingConfigContext';
 
-const PLANS = [
+const DEFAULT_PLANS = [
   {
     name: 'Starter',
     price: '15 000',
@@ -26,21 +27,26 @@ const PLANS = [
 ];
 
 export default function LandingPricing() {
+  const config = useLandingConfig();
+  const pricingConfig = config?.pricing;
+  const PLANS = pricingConfig?.plans ?? DEFAULT_PLANS;
+  const title = pricingConfig?.title ?? 'Simple, transparent, rentable dès le 1er mois.';
+  const subtitle = pricingConfig?.subtitle ?? "Aucun frais d'installation, aucun engagement annuel obligatoire. Résiliez à tout moment.";
+
   return (
     <section className="bg-[#060E18] py-16 md:py-20 px-6 md:px-20" id="tarifs">
       <div className="text-center mb-12">
         <div className="text-[11px] font-bold text-sky-500 tracking-[3px] uppercase mb-2.5">TARIFS</div>
         <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">
-          Simple, transparent,<br />
-          <span className="text-sky-500">rentable dès le 1er mois.</span>
+          {title}
         </h2>
         <p className="text-base text-white/35 mt-3.5 mx-auto max-w-xl leading-relaxed">
-          Aucun frais d'installation, aucun engagement annuel obligatoire. Résiliez à tout moment.
+          {subtitle}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center max-w-4xl mx-auto">
-        {PLANS.map(p => (
+        {PLANS.map((p: any) => (
           <div
             key={p.name}
             className={`rounded-2xl p-7 transition-all duration-200 ${
