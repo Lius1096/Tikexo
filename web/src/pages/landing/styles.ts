@@ -538,4 +538,88 @@ export const LANDING_CSS = `
   .footer-link{font-size:11px;color:rgba(255,255,255,0.25);cursor:pointer;transition:color .2s;}
   .footer-link:hover{color:rgba(255,255,255,0.55);}
   .footer-copy{font-size:10px;color:rgba(255,255,255,0.2);}
+
+  /* ── RESPONSIVE TABLETTE (≤ 1024px) ─────────────────────────── */
+  @media(max-width:1024px){
+    .how-grid{grid-template-columns:repeat(2,1fr);}
+    .testimonials-grid{grid-template-columns:repeat(2,1fr);}
+    .actors-grid{grid-template-columns:repeat(2,1fr);}
+    .pricing-grid{grid-template-columns:repeat(2,1fr);}
+    .persona-grid{gap:36px;}
+    .hs-panel{max-width:360px;}
+  }
+
+  /* ── RESPONSIVE MOBILE (≤ 768px) ────────────────────────────── */
+  @media(max-width:768px){
+    /* Nav */
+    .nav{padding:0 16px;}
+    .nav-links{display:none;}
+    .nav-cta{font-size:11px;padding:8px 14px;}
+    .nav-badge{display:none;}
+
+    /* Hero */
+    .hero-slider{height:70vh;min-height:420px;}
+    .hs-content-wrap{padding:16px;align-items:flex-end;padding-bottom:64px;}
+    .hs-panel{max-width:100%;padding:20px 18px;border-radius:16px;}
+    .hs-title{font-size:22px;}
+    .hs-desc{font-size:13px;margin-bottom:18px;}
+    .hs-eyebrow{margin-bottom:10px;}
+    .hs-arrow{width:36px;height:36px;}
+    .hs-prev{left:10px;}
+    .hs-next{right:10px;}
+
+    /* Social proof */
+    .proof-band{flex-direction:column;gap:20px;padding:20px 16px;align-items:flex-start;}
+    .proof-stats{flex-wrap:wrap;gap:16px;}
+    .proof-sep{display:none;}
+    .proof-ops{flex-wrap:wrap;}
+
+    /* Sections communes */
+    .section{padding:48px 16px;}
+    .section-title{font-size:24px;}
+    .section-sub{font-size:14px;}
+
+    /* How it works */
+    .how-works{padding:48px 16px;}
+    .how-title{font-size:24px;}
+    .how-grid{grid-template-columns:1fr;}
+
+    /* Persona */
+    .persona-section{padding:48px 16px;}
+    .persona-grid{grid-template-columns:1fr;gap:28px;}
+    .persona-grid.reverse{direction:ltr;}
+    .persona-title{font-size:24px;}
+
+    /* Testimonials */
+    .testimonials-section{padding:48px 16px;}
+    .testimonials-grid{grid-template-columns:1fr;}
+
+    /* Actors */
+    .actors-section{padding:48px 16px;}
+    .actors-grid{grid-template-columns:1fr;}
+
+    /* Wallet */
+    .wallet-section{padding:48px 16px;}
+    .wallet-grid{grid-template-columns:1fr;gap:28px;}
+
+    /* Pricing */
+    .pricing-section{padding:48px 16px;}
+    .pricing-grid{grid-template-columns:1fr;}
+
+    /* Bénin */
+    .benin-section{padding:48px 16px;}
+    .benin-grid{grid-template-columns:1fr;gap:28px;}
+    .benin-title{font-size:24px;}
+    .benin-right{grid-template-columns:1fr 1fr;}
+
+    /* CTA */
+    .cta-section{padding:64px 16px;}
+    .cta-title{font-size:26px;}
+    .cta-btns{flex-direction:column;align-items:center;}
+    .cta-btn-main,.cta-btn-ghost{width:100%;max-width:280px;text-align:center;}
+
+    /* Footer */
+    .footer{flex-direction:column;gap:16px;text-align:center;padding:24px 16px;}
+    .footer-links{flex-wrap:wrap;justify-content:center;}
+  }
 `;
