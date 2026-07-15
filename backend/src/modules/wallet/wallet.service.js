@@ -127,4 +127,98 @@ async function degeler(walletId, adminId) {
   return { walletId, statut: 'ACTIF' };
 }
 
-module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler };
+// Rechargement individuel — wallet entreprise → wallet bénéficiaire
+async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
+  const montantNum = parseFloat(montant);
+  if (!montantNum || montantNum < 100) {
+    const err = new Error('Montant minimum : 100 XOF');
+    err.statusCode = 400; throw err;
+  }
+
+  const [walletEnt, walletBenef, ent] = await Promise.all([
+    prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
+    prisma.wallet.findUniqueOrThrow({ where: { user_id: beneficiaireId } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true } }),
+  ]);
+
+  if (!ent.kyb_valide) {
+    const err = new Error('KYB requis avant tout transfert'); err.statusCode = 403; err.code = 'KYB_REQUIS'; throw err;
+  }
+  const soldeDisponible = parseFloat(walletEnt.solde) - parseFloat(walletEnt.solde_reserve);
+  if (soldeDisponible < montantNum) {
+    const err = new Error('Solde disponible insuffisant dans le wallet entreprise'); err.statusCode = 400; err.code = 'SOLDE_INSUFFISANT'; throw err;
+  }
+
+  const { transfererEntreWallets } = require('../../utils/ledger');
+  await transfererEntreWallets(prisma, walletEnt.id, walletBenef.id, montantNum, 'DOTATION', {
+    source_entreprise_id: entrepriseId,
+    description: 'Rechargement individuel RH',
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'DOTATION_MANUELLE', entite: 'Wallet', entite_id: walletBenef.id, apres: { montant: montantNum, beneficiaireId, entrepriseId } },
+  });
+
+  return { montant: montantNum, beneficiaireId };
+}
+
+// Rechargement groupé — liste [{ beneficiaireId, montant }] ou upload CSV
+async function crediterGroupe(entrepriseId, credits, adminId) {
+  if (!Array.isArray(credits) || credits.length === 0) {
+    const err = new Error('La liste de crédits est vide'); err.statusCode = 400; throw err;
+  }
+  if (credits.length > 500) {
+    const err = new Error('Maximum 500 bénéficiaires par opération'); err.statusCode = 400; throw err;
+  }
+
+  const [walletEnt, ent] = await Promise.all([
+    prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true } }),
+  ]);
+
+  if (!ent.kyb_valide) {
+    const err = new Error('KYB requis'); err.statusCode = 403; err.code = 'KYB_REQUIS'; throw err;
+  }
+
+  const totalMontant = credits.reduce((s, c) => s + parseFloat(c.montant || 0), 0);
+  const soldeDisponible = parseFloat(walletEnt.solde) - parseFloat(walletEnt.solde_reserve);
+  if (soldeDisponible < totalMontant) {
+    const err = new Error(`Solde insuffisant. Nécessaire : ${totalMontant.toLocaleString('fr-FR')} XOF, disponible : ${Math.floor(soldeDisponible).toLocaleString('fr-FR')} XOF`);
+    err.statusCode = 400; err.code = 'SOLDE_INSUFFISANT'; throw err;
+  }
+
+  const benefIds = credits.map((c) => c.beneficiaireId).filter(Boolean);
+  const walletsBenef = await prisma.wallet.findMany({
+    where: { user_id: { in: benefIds } },
+    select: { id: true, user_id: true },
+  });
+  const walletMap = new Map(walletsBenef.map((w) => [w.user_id, w.id]));
+
+  const { transfererEntreWallets } = require('../../utils/ledger');
+  const resultats = [];
+  let totalTransfere = 0;
+
+  for (const credit of credits) {
+    const montantNum = parseFloat(credit.montant);
+    const walletDestId = walletMap.get(credit.beneficiaireId);
+    if (!walletDestId || !montantNum || montantNum < 100) {
+      resultats.push({ beneficiaireId: credit.beneficiaireId, statut: 'IGNORE', raison: !walletDestId ? 'Wallet introuvable' : 'Montant < 100' });
+      continue;
+    }
+    try {
+      await transfererEntreWallets(prisma, walletEnt.id, walletDestId, montantNum, 'DOTATION', { source_entreprise_id: entrepriseId, description: 'Rechargement groupé RH' });
+      resultats.push({ beneficiaireId: credit.beneficiaireId, montant: montantNum, statut: 'OK' });
+      totalTransfere += montantNum;
+    } catch {
+      resultats.push({ beneficiaireId: credit.beneficiaireId, statut: 'ERREUR' });
+    }
+  }
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'DOTATION_GROUPEE', entite: 'Wallet', entite_id: walletEnt.id, apres: { total: totalTransfere, nb: credits.length, entrepriseId } },
+  });
+
+  return { total: totalTransfere, nb_ok: resultats.filter((r) => r.statut === 'OK').length, nb_ignore: resultats.filter((r) => r.statut !== 'OK').length, resultats };
+}
+
+module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler, crediterBenef, crediterGroupe };

@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, CheckCircle, XCircle, Clock } from 'lucide-react';
 import api from '../../lib/api';
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n);
+import { fmt } from '../../utils/format';
 
 const STATUT_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
   VALIDEE:    { label: 'Validée',    color: 'text-tikexo-success', icon: CheckCircle },

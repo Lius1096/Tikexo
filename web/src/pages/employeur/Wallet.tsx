@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { Wallet, ArrowDown, ArrowUp, Plus, X, Phone, ExternalLink, AlertCircle } from 'lucide-react';
+import { Wallet, ArrowDown, ArrowUp, Plus, X, Phone, ExternalLink, AlertCircle, ShieldCheck, Users, Upload, CheckCircle2, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -47,11 +48,70 @@ export default function EmployeurWallet() {
     erreur: null,
   });
 
+  // Rechargement groupé
+  const [groupeOpen, setGroupeOpen] = useState(false);
+  const [groupeCredits, setGroupeCredits] = useState<Array<{ beneficiaireId: string; nom: string; prenom: string; montant: string }>>([]);
+  const [groupeResultat, setGroupeResultat] = useState<null | { nb_ok: number; nb_ignore: number; total: number; resultats: Array<{ beneficiaireId: string; statut: string; montant?: number; raison?: string }> }>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: benefsData } = useQuery({
+    queryKey: ['beneficiaires-entreprise', entrepriseId],
+    queryFn: () => api.get(`/entreprises/${entrepriseId}/beneficiaires`).then((r) => r.data.data),
+    enabled: !!entrepriseId && groupeOpen,
+  });
+  const benefs: Array<{ id: string; user: { id: string; nom: string; prenom: string; telephone: string } }> = benefsData ?? [];
+
+  const groupeMutation = useMutation({
+    mutationFn: (credits: Array<{ beneficiaireId: string; montant: number }>) =>
+      api.post('/wallet/crediter-groupe', { entrepriseId, credits }).then((r) => r.data.data),
+    onSuccess: (data) => {
+      setGroupeResultat(data);
+      queryClient.invalidateQueries({ queryKey: ['wallet-entreprise', entrepriseId] });
+      queryClient.invalidateQueries({ queryKey: ['employeur-wallet', entrepriseId] });
+      queryClient.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] });
+    },
+  });
+
+  function parseCsv(text: string) {
+    const lignes = text.trim().split('\n');
+    const credits: Array<{ beneficiaireId: string; nom: string; prenom: string; montant: string }> = [];
+    for (const ligne of lignes) {
+      const parts = ligne.split(';').map((p) => p.trim());
+      if (parts.length < 2) continue;
+      const [tel, montantStr] = parts;
+      const benef = benefs.find((b) => b.user.telephone === tel.replace(/\D/g, ''));
+      if (!benef) continue;
+      credits.push({ beneficiaireId: benef.user.id, nom: benef.user.nom, prenom: benef.user.prenom, montant: montantStr.replace(/\D/g, '') });
+    }
+    setGroupeCredits(credits);
+    setGroupeResultat(null);
+  }
+
+  function handleCsvFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => parseCsv(ev.target?.result as string);
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  const totalGroupe = groupeCredits.reduce((s, c) => s + (parseInt(c.montant, 10) || 0), 0);
+
   const { data: wallet, isLoading } = useQuery({
     queryKey: ['wallet-entreprise', entrepriseId],
     queryFn: () => api.get(`/entreprises/${entrepriseId}/wallet`).then((r) => r.data.data),
     enabled: !!entrepriseId,
   });
+
+  // Réutilise le cache du Layout — pas de requête supplémentaire
+  const { data: kybData } = useQuery({
+    queryKey: ['kyb-dossier', entrepriseId],
+    queryFn: () => api.get('/kyb/dossier').then((r) => r.data.data),
+    enabled: !!entrepriseId,
+    staleTime: 60_000,
+  });
+  const kybValide = kybData?.statut === 'VALIDE';
 
   const rechargeMutation = useMutation({
     mutationFn: (body: { entrepriseId: string; montant: number; telephonePayeur: string }) =>
@@ -117,11 +177,34 @@ export default function EmployeurWallet() {
 
   return (
     <div className="p-6">
+      {/* Bannière KYB — visible tant que le dossier n'est pas validé */}
+      {!kybValide && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+          <ShieldCheck size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-amber-800">Rechargement suspendu — KYB requis</div>
+            <div className="text-xs text-amber-700 mt-0.5">
+              Votre dossier de vérification KYB doit être validé par l'équipe TIKEXO avant que vous puissiez recharger le wallet.
+            </div>
+            <Link to="/employeur/kyb" className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 underline mt-1.5">
+              Accéder à mon dossier KYB →
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-4">
         <div className="text-[15px] font-medium text-slate-900">Wallet entreprise</div>
         <button
           onClick={ouvrirModal}
-          className="flex items-center gap-1.5 bg-tikexo-primary text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-tikexo-primary/90 transition-colors"
+          disabled={!kybValide}
+          title={!kybValide ? 'KYB requis avant tout rechargement' : undefined}
+          className={clsx(
+            'flex items-center gap-1.5 text-white text-xs font-medium px-4 py-2 rounded-lg transition-colors',
+            kybValide
+              ? 'bg-tikexo-primary hover:bg-tikexo-primary/90'
+              : 'bg-slate-300 cursor-not-allowed'
+          )}
         >
           <Plus size={14} />
           Recharger le wallet
@@ -191,6 +274,114 @@ export default function EmployeurWallet() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Section dotations groupées */}
+      <div className="bg-white border border-slate-100 rounded-lg mt-4">
+        <button
+          onClick={() => setGroupeOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+        >
+          <div className="text-[13px] font-medium text-slate-900 flex items-center gap-1.5">
+            <Users size={14} className="text-slate-400" />
+            Dotations groupées
+          </div>
+          <span className="text-xs text-slate-400">{groupeOpen ? '▲' : '▼'}</span>
+        </button>
+        {groupeOpen && (
+          <div className="border-t border-slate-100 px-4 py-4 space-y-4">
+            {!kybValide ? (
+              <div className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">KYB requis avant toute dotation.</div>
+            ) : groupeResultat ? (
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1 bg-[#EAF3DE] rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-[11px] text-[#3B6D11]">Succès</div>
+                    <div className="font-mono text-base font-semibold text-[#3B6D11]">{groupeResultat.nb_ok}</div>
+                  </div>
+                  <div className="flex-1 bg-[#FAEEDA] rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-[11px] text-[#854F0B]">Ignorés</div>
+                    <div className="font-mono text-base font-semibold text-[#854F0B]">{groupeResultat.nb_ignore}</div>
+                  </div>
+                  <div className="flex-1 bg-slate-50 rounded-lg px-3 py-2.5 text-center">
+                    <div className="text-[11px] text-slate-500">Total</div>
+                    <div className="font-mono text-base font-semibold text-slate-900">{groupeResultat.total.toLocaleString('fr-FR')}</div>
+                  </div>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {groupeResultat.resultats.map((r) => {
+                    const benef = groupeCredits.find((c) => c.beneficiaireId === r.beneficiaireId);
+                    return (
+                      <div key={r.beneficiaireId} className="flex items-center justify-between text-[11px] px-2 py-1.5 rounded-lg bg-slate-50">
+                        <span className="text-slate-700">{benef ? `${benef.prenom} ${benef.nom}` : r.beneficiaireId}</span>
+                        <div className="flex items-center gap-2">
+                          {r.montant && <span className="font-mono text-slate-600">{r.montant.toLocaleString('fr-FR')} XOF</span>}
+                          {r.statut === 'OK' ? <CheckCircle2 size={13} className="text-[#3B6D11]" /> : <XCircle size={13} className="text-red-400" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <button onClick={() => { setGroupeResultat(null); setGroupeCredits([]); }} className="w-full text-xs text-slate-500 border border-slate-200 rounded-lg py-2 hover:bg-slate-50">Nouvelle dotation</button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <input ref={fileInputRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleCsvFile} />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs border border-dashed border-slate-300 rounded-lg px-3 py-2.5 text-slate-600 hover:border-tikexo-primary hover:text-tikexo-primary transition-colors"
+                  >
+                    <Upload size={13} />
+                    Import CSV (téléphone;montant)
+                  </button>
+                  {groupeCredits.length > 0 && (
+                    <button onClick={() => setGroupeCredits([])} className="text-xs text-red-400 hover:text-red-600 px-2">Effacer</button>
+                  )}
+                </div>
+
+                {groupeCredits.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {groupeCredits.map((c, i) => (
+                        <div key={i} className="flex items-center gap-2 px-2 py-1.5 bg-slate-50 rounded-lg">
+                          <div className="flex-1 text-[11px] text-slate-700">{c.prenom} {c.nom}</div>
+                          <input
+                            type="text"
+                            value={c.montant}
+                            onChange={(e) => {
+                              const v = e.target.value.replace(/\D/g, '');
+                              setGroupeCredits((arr) => arr.map((x, j) => j === i ? { ...x, montant: v } : x));
+                            }}
+                            className="w-28 text-right font-mono text-[11px] border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-tikexo-primary"
+                            placeholder="Montant"
+                          />
+                          <span className="text-[10px] text-slate-400">XOF</span>
+                          <button onClick={() => setGroupeCredits((arr) => arr.filter((_, j) => j !== i))} className="text-slate-300 hover:text-red-400">
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <div className="text-[11px] text-slate-500">{groupeCredits.length} salarié{groupeCredits.length > 1 ? 's' : ''} · Total : <span className="font-mono font-medium text-slate-900">{totalGroupe.toLocaleString('fr-FR')} XOF</span></div>
+                      <button
+                        onClick={() => groupeMutation.mutate(groupeCredits.map((c) => ({ beneficiaireId: c.beneficiaireId, montant: parseInt(c.montant, 10) || 0 })))}
+                        disabled={groupeMutation.isPending || totalGroupe === 0}
+                        className="bg-tikexo-primary text-white text-xs font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:bg-tikexo-primary/90 transition-colors"
+                      >
+                        {groupeMutation.isPending ? 'Traitement…' : 'Confirmer les dotations'}
+                      </button>
+                    </div>
+                    {groupeMutation.isError && (
+                      <div className="text-[11px] text-red-500">{(groupeMutation.error as any)?.response?.data?.message || 'Erreur'}</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>

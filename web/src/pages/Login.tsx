@@ -1,232 +1,266 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Send, ArrowLeft, Clock, Delete } from 'lucide-react';
-import { clsx } from 'clsx';
-import { useAuth, ROLES_ADMIN, ROLES_EMPLOYEUR } from '../context/AuthContext';
+import { Wallet, Building2, Store, Lock, ArrowRight, UserCircle, AlertTriangle, Eye, EyeOff, Mail } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-type Step = 'phone' | 'otp';
+type Step = 'credentials' | 'wrong_portal';
 
-export default function Login() {
-  const { requestOtp, verifierOtp, isAuthenticated, user } = useAuth();
+interface WrongPortalInfo {
+  prenom: string;
+  nom: string;
+  entrepriseNom?: string;
+  role: string;
+  correctLabel: string;
+  correctHref: string;
+}
+
+function portalForRole(role: string): { label: string; href: string } | null {
+  if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(role)) return { label: 'Portail RH Employeur', href: '/entreprise/connexion' };
+  if (['SUPER_ADMIN', 'ADMIN_OPS'].includes(role))    return { label: 'Administration',        href: '/admin/connexion' };
+  if (role === 'BENEFICIAIRE')                         return { label: 'Espace Salarié',         href: '/login' };
+  if (role === 'COMMERCANT')                           return { label: 'Espace Commerçant',      href: '/restaurant/connexion' };
+  return null;
+}
+
+interface LoginProps {
+  allowedRoles: string[];
+  portalLabel: string;
+  portalSub: string;
+  redirectTo: string;
+}
+
+function iconForPortal(redirectTo: string) {
+  if (redirectTo.startsWith('/admin'))      return <Lock size={32} className="text-tikexo-accent" />;
+  if (redirectTo.startsWith('/employeur'))  return <Building2 size={32} className="text-tikexo-accent" />;
+  if (redirectTo.startsWith('/commercant')) return <Store size={32} className="text-tikexo-accent" />;
+  return <Wallet size={32} className="text-tikexo-accent" />;
+}
+
+export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo }: LoginProps) {
+  const { login, logout, isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
-  const [digits, setDigits] = useState<string[]>(['', '', '', '', '', '']);
-  const [countdown, setCountdown] = useState(120);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Redirect if already logged in
+  const [step, setStep]           = useState<Step>('credentials');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [showPwd, setShowPwd]     = useState(false);
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
+  const [wrongPortal, setWrongPortal] = useState<WrongPortalInfo | null>(null);
+
+  // Déjà authentifié au chargement
   useEffect(() => {
-    if (isAuthenticated && user) redirectUser(user.role);
-  }, [isAuthenticated, user]);
+    if (isLoading) return;
+    if (isAuthenticated && user) {
+      if (allowedRoles.includes(user.role)) {
+        window.location.href = redirectTo;
+      } else {
+        const correct = portalForRole(user.role);
+        setWrongPortal({
+          prenom: user.prenom,
+          nom: user.nom,
+          entrepriseNom: user.entrepriseNom,
+          role: user.role,
+          correctLabel: correct?.label ?? 'votre espace',
+          correctHref: correct?.href ?? '/',
+        });
+        setStep('wrong_portal');
+      }
+    }
+  }, [isAuthenticated, isLoading, user]);
 
-  function redirectUser(role: string) {
-    if (['SUPER_ADMIN', 'ADMIN_OPS'].includes(role)) { window.location.href = '/admin'; return; }
-    if (ROLES_EMPLOYEUR.includes(role)) { window.location.href = '/employeur'; return; }
-    if (role === 'BENEFICIAIRE') { window.location.href = '/beneficiaire'; return; }
-    if (role === 'COMMERCANT') { window.location.href = '/commercant'; return; }
-    setLoading(false);
-    setError('Accès non autorisé.');
+  async function handleRedirect(u: { role: string; prenom: string; nom: string; entrepriseNom?: string }) {
+    if (!allowedRoles.includes(u.role)) {
+      const correct = portalForRole(u.role);
+      setWrongPortal({
+        prenom: u.prenom,
+        nom: u.nom,
+        entrepriseNom: u.entrepriseNom,
+        role: u.role,
+        correctLabel: correct?.label ?? 'votre espace',
+        correctHref: correct?.href ?? '/',
+      });
+      setStep('wrong_portal');
+      return;
+    }
+    if (redirectTo === '/employeur') {
+      try {
+        const { data } = await import('../lib/api').then(m => m.default.get('/kyb/dossier'));
+        if (data?.data?.statut !== 'VALIDE') {
+          window.location.href = '/employeur/kyb';
+          return;
+        }
+      } catch { /* le layout gère la gate */ }
+    }
+    window.location.href = redirectTo;
   }
 
-  function startCountdown() {
-    setCountdown(120);
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setCountdown((c) => { if (c <= 1) { clearInterval(timerRef.current!); return 0; } return c - 1; });
-    }, 1000);
-  }
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) { setError('Entrez votre adresse email.'); return; }
+    if (!password)     { setError('Entrez votre mot de passe.'); return; }
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
-
-  async function handleRequestOtp() {
-    if (phone.replace(/\s/g, '').length < 8) { setError('Entrez un numéro valide — ex : 01 97 45 23 10'); return; }
-    setError('');
-    setLoading(true);
+    setError(''); setLoading(true);
     try {
-      await requestOtp(`+229${phone.replace(/\s/g, '')}`);
-      setStep('otp');
-      startCountdown();
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Impossible d\'envoyer le code. Vérifiez votre numéro.');
+      const u = await login(email.trim().toLowerCase(), password);
+      await handleRedirect(u);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Email ou mot de passe incorrect.');
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleVerifyOtp(codeParam?: string) {
-    const code = codeParam ?? digits.join('');
-    if (code.length < 6) { setError('Entrez les 6 chiffres du code.'); return; }
-    setError('');
-    setLoading(true);
-    try {
-      const u = await verifierOtp(`+229${phone.replace(/\s/g, '')}`, code);
-      redirectUser(u.role);
-    } catch (e: unknown) {
-      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg || 'Code incorrect ou expiré.');
-      setDigits(['', '', '', '', '', '']);
-      setLoading(false);
-    }
-  }
-
-  function handleKeyPress(key: string) {
-    if (key === 'del') {
-      const idx = digits.findLastIndex((d) => d !== '');
-      if (idx >= 0) {
-        const next = [...digits];
-        next[idx] = '';
-        setDigits(next);
-      }
-      return;
-    }
-    const idx = digits.findIndex((d) => d === '');
-    if (idx >= 0) {
-      const next = [...digits];
-      next[idx] = key;
-      setDigits(next);
-      if (idx === 5) setTimeout(() => handleVerifyOtp(next.join('')), 50);
-    }
-  }
-
-  const fmt = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-
   return (
     <div className="min-h-screen bg-tikexo-primary flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl">
-        {/* Hero */}
-        <div className="bg-tikexo-primary px-6 py-8 flex flex-col items-center">
-          <div className="text-2xl font-medium text-white tracking-[3px] mb-1">TIKEXO</div>
-          <div className="text-[11px] text-white/50 tracking-[1px] mb-6">TON REPAS, TON DROIT</div>
-          <div className="w-16 h-16 bg-tikexo-accent/20 rounded-[20px] flex items-center justify-center">
-            <Wallet size={32} className="text-tikexo-accent" />
-          </div>
-        </div>
 
-        {step === 'phone' ? (
-          <div className="px-6 py-6">
-            <div className="text-base font-medium text-slate-900 mb-1">Bienvenue</div>
+        {/* Hero */}
+        {step !== 'wrong_portal' && (
+          <div className="bg-tikexo-primary px-6 py-8 flex flex-col items-center">
+            <div className="text-2xl font-medium text-white tracking-[3px] mb-1">TIKEXO</div>
+            <div className="text-[11px] text-white/50 tracking-[1px] mb-6">{portalSub}</div>
+            <div className="w-16 h-16 bg-tikexo-accent/20 rounded-[20px] flex items-center justify-center">
+              {iconForPortal(redirectTo)}
+            </div>
+            <div className="text-[11px] text-white/40 mt-3 tracking-[0.5px]">{portalLabel}</div>
+          </div>
+        )}
+
+        {/* Bandeau compact mauvais portail */}
+        {step === 'wrong_portal' && (
+          <div className="bg-tikexo-primary px-6 py-4 flex items-center gap-3">
+            <div className="text-lg font-medium text-white tracking-[3px]">TIKEXO</div>
+            <div className="text-[10px] text-white/40 tracking-[1px]">MAUVAIS PORTAIL</div>
+          </div>
+        )}
+
+        {/* ── Formulaire email + mot de passe ── */}
+        {step === 'credentials' && (
+          <form onSubmit={handleSubmit} className="px-6 py-6" noValidate>
+            <div className="text-base font-medium text-slate-900 mb-1">Connexion</div>
             <div className="text-xs text-slate-500 leading-relaxed mb-5">
-              Entrez votre numéro de téléphone pour recevoir un code de connexion.
+              Entrez vos identifiants pour accéder à votre espace.
             </div>
 
-            <div className="mb-4">
-              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">NUMÉRO DE TÉLÉPHONE</div>
+            {/* Email */}
+            <div className="mb-3">
+              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">ADRESSE EMAIL</div>
               <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus-within:border-tikexo-accent focus-within:bg-white transition-colors">
-                <span className="text-xs text-slate-500 font-mono flex-shrink-0">+229</span>
+                <Mail size={15} className="text-slate-400 flex-shrink-0" />
                 <input
-                  type="tel"
-                  className="flex-1 bg-transparent text-sm font-mono text-slate-900 outline-none placeholder-slate-400"
-                  placeholder="01 97 45 23 10"
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value); setError(''); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleRequestOtp()}
-                  maxLength={14}
+                  type="email"
+                  className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder-slate-400"
+                  placeholder="vous@exemple.com"
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); setError(''); }}
                   autoFocus
+                  autoComplete="email"
                 />
               </div>
             </div>
 
-            {error && <div className="text-[11px] text-tikexo-danger mb-3">{error}</div>}
+            {/* Mot de passe */}
+            <div className="mb-5">
+              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">MOT DE PASSE</div>
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus-within:border-tikexo-accent focus-within:bg-white transition-colors">
+                <Lock size={15} className="text-slate-400 flex-shrink-0" />
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder-slate-400"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => { setPassword(e.target.value); setError(''); }}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd(v => !v)}
+                  className="text-slate-400 hover:text-slate-600 flex-shrink-0"
+                  tabIndex={-1}
+                >
+                  {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="text-[11px] text-tikexo-danger mb-4 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                {error}
+              </div>
+            )}
 
             <button
-              onClick={handleRequestOtp}
+              type="submit"
               disabled={loading}
               className="w-full bg-tikexo-primary text-white rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 hover:bg-tikexo-accent transition-colors disabled:opacity-60"
             >
-              <Send size={16} />
-              {loading ? 'Envoi en cours…' : 'Recevoir mon code'}
+              {loading ? 'Connexion en cours…' : 'Se connecter'}
+              {!loading && <ArrowRight size={16} />}
             </button>
 
             <div className="text-[10px] text-slate-400 text-center mt-4 leading-relaxed">
-              En continuant, vous acceptez les conditions d'utilisation et la politique de confidentialité TIKEXO.
+              En vous connectant, vous acceptez les conditions d'utilisation TIKEXO.
             </div>
-          </div>
-        ) : (
-          <div>
-            {/* OTP hero */}
-            <div className="bg-tikexo-primary px-5 py-4">
-              <button
-                onClick={() => { setStep('phone'); setDigits(['', '', '', '', '', '']); setError(''); }}
-                className="flex items-center gap-1.5 mb-4"
-              >
-                <ArrowLeft size={16} className="text-white/60" />
-                <span className="text-xs text-white/60">Retour</span>
-              </button>
-              <div className="text-[15px] font-medium text-white mb-1">Code de vérification</div>
-              <div className="text-[11px] text-white/55">Code envoyé par SMS au</div>
-              <div className="font-mono text-sm text-tikexo-accent mt-0.5">+229 {phone}</div>
+            {redirectTo === '/commercant' && (
+              <div className="text-[11px] text-slate-400 text-center mt-3">
+                Pas encore inscrit ?{' '}
+                <a href="/restaurant/inscription" className="text-tikexo-accent underline cursor-pointer">
+                  Soumettre une demande
+                </a>
+              </div>
+            )}
+            {redirectTo === '/employeur' && (
+              <div className="text-[11px] text-slate-400 text-center mt-3">
+                Pas encore inscrit ?{' '}
+                <a href="/inscription" className="text-tikexo-accent underline cursor-pointer">
+                  Inscrire mon entreprise
+                </a>
+              </div>
+            )}
+          </form>
+        )}
+
+        {/* ── Écran mauvais portail ── */}
+        {step === 'wrong_portal' && wrongPortal && (
+          <div className="px-6 py-8 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center mb-3">
+              <UserCircle size={34} className="text-slate-400" />
             </div>
-
-            <div className="px-5 py-5">
-              {/* Digits */}
-              <div className="flex gap-2 justify-center mb-4">
-                {digits.map((d, i) => {
-                  const filled = d !== '';
-                  const active = !filled && digits.slice(0, i).every((x) => x !== '');
-                  const done = digits.every((x) => x !== '');
-                  return (
-                    <div
-                      key={i}
-                      className={clsx(
-                        'w-9 h-11 rounded-lg border flex items-center justify-center font-mono text-xl font-medium transition-colors',
-                        done ? 'border-tikexo-success bg-[#EAF3DE] text-tikexo-success' :
-                        active ? 'border-tikexo-accent border-2' :
-                        filled ? 'border-tikexo-primary bg-white text-slate-900' :
-                        'border-slate-200 bg-slate-50 text-slate-900'
-                      )}
-                    >
-                      {d}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Timer */}
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 mb-4">
-                <Clock size={13} />
-                {countdown > 0 ? (
-                  <span>Renvoyer le code dans <span className="font-mono text-tikexo-accent">{fmt(countdown)}</span></span>
-                ) : (
-                  <button onClick={async () => { await requestOtp(`+229${phone}`); startCountdown(); }} className="text-tikexo-accent font-medium">
-                    Renvoyer le code
-                  </button>
-                )}
-              </div>
-
-              {error && <div className="text-[11px] text-tikexo-danger mb-3 text-center">{error}</div>}
-
-              {/* Keypad */}
-              <div className="grid grid-cols-3 gap-1.5">
-                {['1','2','3','4','5','6','7','8','9','','0','del'].map((k) => (
-                  <button
-                    key={k}
-                    disabled={loading || k === ''}
-                    onClick={() => k !== '' && handleKeyPress(k)}
-                    className={clsx(
-                      'h-11 rounded-lg border text-base font-medium font-mono flex items-center justify-center transition-colors',
-                      k === '' ? 'bg-transparent border-transparent' :
-                      'bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100 active:bg-slate-200'
-                    )}
-                  >
-                    {k === 'del' ? <Delete size={18} className="text-slate-500" /> : k}
-                  </button>
-                ))}
-              </div>
-
-              {loading && (
-                <div className="text-center text-xs text-slate-500 mt-3">Vérification en cours…</div>
-              )}
+            <div className="text-[13px] font-medium text-slate-800 mb-1">
+              Bonjour {wrongPortal.prenom} {wrongPortal.nom}
             </div>
+            {wrongPortal.entrepriseNom && (
+              <div className="text-[11px] text-slate-400 mb-3">
+                Membre de <span className="font-medium text-slate-600">{wrongPortal.entrepriseNom}</span>
+              </div>
+            )}
+            <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 mb-5 text-left">
+              <AlertTriangle size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <span className="text-[11px] text-amber-800 leading-relaxed">
+                Vous êtes au <span className="font-semibold">mauvais portail</span>. Ce portail est réservé à <span className="font-semibold">{portalLabel}</span>.
+              </span>
+            </div>
+            <a
+              href={wrongPortal.correctHref}
+              className="w-full flex items-center justify-center gap-2 bg-tikexo-primary text-white rounded-lg py-3 text-[13px] font-medium hover:bg-tikexo-accent transition-colors"
+            >
+              Accéder à <span className="font-semibold">{wrongPortal.correctLabel}</span>
+              <ArrowRight size={15} />
+            </a>
+            <button
+              type="button"
+              onClick={() => { logout(); setStep('credentials'); setWrongPortal(null); setEmail(''); setPassword(''); setError(''); }}
+              className="mt-3 text-[11px] text-slate-400 hover:text-slate-600 underline"
+            >
+              Se connecter avec un autre compte
+            </button>
           </div>
         )}
       </div>
 
       <div className="text-[10px] text-white/30 mt-6 text-center">
-        TIKEXO · tikexo.bj · Portail Administration
+        TIKEXO · tikexo.bj
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { LayoutDashboard, ArrowLeftRight, QrCode, User, LogOut, ShoppingBag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,9 @@ const NAV = [
 
 export function CommercantLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/restaurant/connexion'); };
 
   const initials = user
     ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() || '?'
@@ -61,7 +63,7 @@ export function CommercantLayout() {
               <div className="text-xs text-white/80 truncate">{displayName}</div>
               <div className="text-[10px] text-white/35">COMMERÇANT</div>
             </div>
-            <button onClick={logout} title="Déconnexion">
+            <button onClick={handleLogout} title="Déconnexion">
               <LogOut size={14} className="text-white/40 hover:text-white/80 cursor-pointer transition-colors flex-shrink-0" />
             </button>
           </div>

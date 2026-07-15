@@ -1,8 +1,7 @@
 // Middlewares KYB TIKEXO
 const prisma = require('../config/database');
 
-const RECHARGEMENT_MAX_SANS_KYB = 500000;
-
+// Tout rechargement de wallet est bloqué tant que le KYB n'est pas validé par l'admin
 async function checkRechargementLimit(req, res, next) {
   try {
     const entrepriseId = req.user?.entrepriseId || req.body?.entrepriseId;
@@ -15,18 +14,12 @@ async function checkRechargementLimit(req, res, next) {
 
     if (!entreprise || entreprise.kyb_valide) return next();
 
-    const montant = parseFloat(req.body?.montant || 0);
-    if (montant > RECHARGEMENT_MAX_SANS_KYB) {
-      return res.status(403).json({
-        success: false,
-        error: 'KYB_REQUIS',
-        message: `Rechargements supérieurs à ${RECHARGEMENT_MAX_SANS_KYB.toLocaleString('fr-FR')} XOF nécessitent un KYB validé`,
-        redirect: '/employeur/kyb',
-        rechargement_max: RECHARGEMENT_MAX_SANS_KYB,
-      });
-    }
-
-    next();
+    return res.status(403).json({
+      success: false,
+      error: 'KYB_REQUIS',
+      message: 'Votre dossier KYB doit être validé par un administrateur TIKEXO avant de pouvoir recharger le wallet',
+      redirect: '/employeur/kyb',
+    });
   } catch (err) {
     next(err);
   }

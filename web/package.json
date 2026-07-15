@@ -12,19 +12,20 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tabler/icons-webfont": "^3.44.0",
     "@tanstack/react-query": "^5.45.1",
     "axios": "^1.7.2",
     "clsx": "^2.1.1",
+    "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.395.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.52.0",
+    "react-qr-code": "^2.0.15",
     "react-router-dom": "^6.24.0",
     "recharts": "^2.12.7",
     "socket.io-client": "^4.7.5",
-    "zod": "^3.23.8",
-    "html5-qrcode": "^2.3.8",
-    "react-qr-code": "^2.0.15"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",

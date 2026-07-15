@@ -1,29 +1,38 @@
 import React from 'react';
+import { Building2, Users, QrCode } from 'lucide-react';
+
+const Dot = () => (
+  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#0EA5E9', margin: '0 8px', verticalAlign: 'middle' }} />
+);
+
+const STEPS: { num: string; Icon: React.FC<{ size?: number; color?: string }>; title: string; desc: string; highlight?: boolean; tag?: string }[] = [
+  { num: '01', Icon: Building2, title: "L'entreprise recharge son wallet", desc: "Le DRH effectue un virement Mobile Money (MTN, Moov, Celtis) vers le wallet TIKEXO de l'entreprise. L'argent est disponible immédiatement." },
+  { num: '02', Icon: Users,     title: 'TIKEXO dote les salariés',        desc: 'En un clic, les dotations sont réparties selon les niveaux hiérarchiques. Chaque salarié reçoit son solde mensuel — sans aucun frais interne.', highlight: true, tag: '0 frais interne' },
+  { num: '03', Icon: QrCode,    title: 'Le salarié paie avec son téléphone', desc: "Chez le restaurant partenaire, le salarié scanne le QR code et confirme. Le paiement est validé en 3 secondes, le commerçant est crédité." },
+];
 
 export default function LandingHowItWorks() {
   return (
-    <section className="how-works">
-      <div className="how-title">Comment <strong>TIKEXO</strong> fonctionne</div>
-      <div className="how-sub">Trois acteurs, un seul système, zéro friction.</div>
+    <section className="how-works" id="comment-ca-marche">
+      <div className="how-title">
+        Simple comme un déjeuner <Dot />
+        <br /><strong>3 étapes, c'est tout.</strong>
+      </div>
+      <p className="how-sub">
+        De la dotation au paiement, tout se passe dans l'écosystème TIKEXO. Pas de banque intermédiaire, pas de délais.
+      </p>
       <div className="how-grid">
-        <div className="how-card">
-          <div className="how-num">01</div>
-          <div className="how-card-title">L'entreprise recharge</div>
-          <div className="how-card-desc">L'Admin RH alimente le wallet entreprise via Mobile Money MTN, Moov ou Celtis. Un seul virement pour tous les salariés du mois.</div>
-          <div className="how-tag">1 appel FedaPay</div>
-        </div>
-        <div className="how-card how-highlight">
-          <div className="how-num">02</div>
-          <div className="how-card-title">TIKEXO dote les salariés</div>
-          <div className="how-card-desc">Le système calcule automatiquement les dotations selon les jours travaillés et crédite chaque wallet salarié instantanément.</div>
-          <div className="how-tag">0 frais · Ledger interne</div>
-        </div>
-        <div className="how-card">
-          <div className="how-num">03</div>
-          <div className="how-card-title">Le salarié paie en QR code</div>
-          <div className="how-card-desc">Scan du QR code du restaurant depuis l'app. Débit instantané. Le commerçant reçoit son reversement automatiquement toutes les 72h.</div>
-          <div className="how-tag">MTN · Moov · Celtis</div>
-        </div>
+        {STEPS.map((s) => (
+          <div key={s.num} className={`how-card${s.highlight ? ' how-highlight' : ''}`}>
+            <div className="how-num">{s.num}</div>
+            <div className="how-icon">
+              <s.Icon size={20} color="#0EA5E9" />
+            </div>
+            <div className="how-card-title">{s.title}</div>
+            <div className="how-card-desc">{s.desc}</div>
+            {s.tag && <div className="how-tag">{s.tag}</div>}
+          </div>
+        ))}
       </div>
     </section>
   );

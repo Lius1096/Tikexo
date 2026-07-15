@@ -23,4 +23,17 @@ async function degeler(req, res, next) {
   try { res.json({ success: true, data: await service.degeler(req.params.walletId, req.user.id) }); } catch (e) { next(e); }
 }
 
-module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler };
+async function crediterBenef(req, res, next) {
+  try {
+    const { entrepriseId, beneficiaireId, montant } = req.body;
+    res.json({ success: true, data: await service.crediterBenef(entrepriseId, beneficiaireId, montant, req.user.id) });
+  } catch (e) { next(e); }
+}
+async function crediterGroupe(req, res, next) {
+  try {
+    const { entrepriseId, credits } = req.body;
+    res.json({ success: true, data: await service.crediterGroupe(entrepriseId, credits, req.user.id) });
+  } catch (e) { next(e); }
+}
+
+module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler, crediterBenef, crediterGroupe };

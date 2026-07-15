@@ -6,6 +6,7 @@ export interface TikexoUser {
   nom: string;
   prenom: string;
   telephone: string;
+  email?: string;
   role: string;
   entrepriseId?: string;
   entrepriseNom?: string;
@@ -17,8 +18,7 @@ interface AuthCtx {
   user: TikexoUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  requestOtp: (telephone: string) => Promise<void>;
-  verifierOtp: (telephone: string, code: string) => Promise<TikexoUser>;
+  login: (email: string, motDePasse: string) => Promise<TikexoUser>;
   logout: () => void;
 }
 
@@ -29,56 +29,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const raw = localStorage.getItem('tikexo_user');
-    if (raw && localStorage.getItem('tikexo_access_token')) {
-      try { setUser(JSON.parse(raw)); } catch { localStorage.clear(); }
-    }
-    setIsLoading(false);
+    function onSessionExpired() { setUser(null); }
+    window.addEventListener('tikexo:session-expired', onSessionExpired);
+    return () => window.removeEventListener('tikexo:session-expired', onSessionExpired);
   }, []);
 
-  async function requestOtp(telephone: string) {
-    await api.post('/auth/otp/demander', { telephone });
-  }
+  // Vérification de session au montage via le cookie existant
+  useEffect(() => {
+    api.get('/auth/profil')
+      .then(async ({ data }) => {
+        const p = data.data;
+        const u: TikexoUser = {
+          id: p.id,
+          nom: p.nom,
+          prenom: p.prenom,
+          telephone: p.telephone,
+          email: p.email_perso,
+          role: p.role,
+        };
+        const lien = p.liensBeneficiaire?.[0];
+        if (lien) {
+          u.entrepriseId  = lien.entreprise_id;
+          u.entrepriseNom = lien.entreprise?.nom;
+        }
+        if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(p.role) && p.entrepriseAdmin) {
+          u.entrepriseId  = p.entrepriseAdmin.entreprise_id;
+          u.entrepriseNom = p.entrepriseAdmin.entreprise?.nom;
+        }
+        if (p.role === 'COMMERCANT') {
+          try {
+            const { data: cd } = await api.get('/commercants/moi');
+            u.commercantId  = cd.data.id;
+            u.commercantNom = cd.data.nom;
+          } catch { /* enrichissement commerçant optionnel */ }
+        }
+        setUser(u);
+      })
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
+  }, []);
 
-  async function verifierOtp(telephone: string, code: string): Promise<TikexoUser> {
-    const { data } = await api.post('/auth/otp/verifier', { telephone, code });
-    const { accessToken, refreshToken, user: u } = data.data;
-    localStorage.setItem('tikexo_access_token', accessToken);
-    localStorage.setItem('tikexo_refresh_token', refreshToken);
+  async function _enrichir(raw: { id: string; role: string; nom: string; prenom: string; email?: string }): Promise<TikexoUser> {
+    const u: TikexoUser = { id: raw.id, nom: raw.nom, prenom: raw.prenom, telephone: '', email: raw.email, role: raw.role };
 
-    let enriched: TikexoUser = { ...u };
     try {
       const { data: profil } = await api.get('/auth/profil');
       const p = profil.data;
+      u.telephone = p.telephone;
+      u.email = p.email_perso;
+
       const lien = p.liensBeneficiaire?.[0];
       if (lien) {
-        enriched.entrepriseId = lien.entreprise_id;
-        enriched.entrepriseNom = lien.entreprise?.nom;
+        u.entrepriseId  = lien.entreprise_id;
+        u.entrepriseNom = lien.entreprise?.nom;
       }
-    } catch { /* profil enrichissement échoué, on continue */ }
+      if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(p.role) && p.entrepriseAdmin) {
+        u.entrepriseId  = p.entrepriseAdmin.entreprise_id;
+        u.entrepriseNom = p.entrepriseAdmin.entreprise?.nom;
+      }
+    } catch { /* enrichissement optionnel */ }
 
-    if (u.role === 'COMMERCANT') {
+    if (raw.role === 'COMMERCANT') {
       try {
-        const { data: commData } = await api.get('/commercants/moi');
-        enriched.commercantId = commData.data.id;
-        enriched.commercantNom = commData.data.nom;
-      } catch { /* enrichissement commerçant échoué */ }
+        const { data: cd } = await api.get('/commercants/moi');
+        u.commercantId  = cd.data.id;
+        u.commercantNom = cd.data.nom;
+      } catch { /* enrichissement commerçant optionnel */ }
     }
 
-    localStorage.setItem('tikexo_user', JSON.stringify(enriched));
-    setUser(enriched);
-    return enriched;
+    setUser(u);
+    return u;
+  }
+
+  async function login(email: string, motDePasse: string): Promise<TikexoUser> {
+    const { data } = await api.post('/auth/login', { email, mot_de_passe: motDePasse });
+    const { user: raw } = data.data;
+    return _enrichir(raw);
   }
 
   function logout() {
     api.post('/auth/logout').catch(() => {});
-    localStorage.clear();
     setUser(null);
-    window.location.href = '/login';
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, requestOtp, verifierOtp, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, isAuthenticated: !!user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -90,5 +125,5 @@ export function useAuth() {
   return ctx;
 }
 
-export const ROLES_ADMIN = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
+export const ROLES_ADMIN    = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
 export const ROLES_EMPLOYEUR = ['ADMIN_RH', 'GESTIONNAIRE_RH'];

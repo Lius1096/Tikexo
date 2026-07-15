@@ -2,7 +2,7 @@
 const prisma = require('../../config/database');
 const { calculerSoldeSegmente } = require('../../utils/ledger');
 const { cascadeKYCApresDepart, validerKYCViaBeneficiaire } = require('../../utils/kyc');
-const { declencherPayout } = require('../fedapay/fedapay.service');
+const { payoutQueue } = require('../../queues/index');
 
 const JOURS_LIMBO = 90;
 
@@ -76,18 +76,14 @@ async function traiterSortie(userId, entrepriseId, adminId, { optionSolde }) {
   // Cascade KYC après départ
   await cascadeKYCApresDepart(prisma, userId);
 
-  // Si remboursement, déclencher payout FedaPay
+  // Si remboursement, mettre en queue — non-bloquant, retry automatique
   if (optionSolde === 'REMBOURSEMENT' && montantConcerne > 0) {
-    try {
-      await declencherPayout(prisma, {
-        userId,
-        montant: montantConcerne,
-        entrepriseId,
-        motif: 'Remboursement départ employé',
-      });
-    } catch (e) {
-      // Non-bloquant — le payout peut être retenté plus tard
-    }
+    await payoutQueue.add('remboursement-mutation', {
+      type: 'user_refund',
+      userId,
+      montant: montantConcerne,
+      motif: 'Remboursement départ employé',
+    }, { priority: 1 });
   }
 
   return { sortie: true, optionSolde, montantConcerne };
@@ -105,21 +101,35 @@ async function detecterRattachement(userId, lienBId, entrepriseBId) {
 
   if (!mutation) return null;
 
-  await prisma.$executeRaw`
-    UPDATE "Mutation"
-    SET statut = 'DETECTE',
-        entreprise_b_id = ${entrepriseBId},
-        lien_b_id = ${lienBId},
-        "updatedAt" = NOW()
-    WHERE id = ${mutation.id}
-  `;
+  // Ré-embauche dans la même entreprise → résolution automatique, pas d'action admin
+  const memeEntreprise = mutation.entreprise_a_id === entrepriseBId;
+
+  if (memeEntreprise) {
+    await prisma.$executeRaw`
+      UPDATE "Mutation"
+      SET statut = 'REEMBAUCHE'::"StatutMutation",
+          entreprise_b_id = ${entrepriseBId},
+          lien_b_id = ${lienBId},
+          "updatedAt" = NOW()
+      WHERE id = ${mutation.id}
+    `;
+  } else {
+    await prisma.$executeRaw`
+      UPDATE "Mutation"
+      SET statut = 'DETECTE'::"StatutMutation",
+          entreprise_b_id = ${entrepriseBId},
+          lien_b_id = ${lienBId},
+          "updatedAt" = NOW()
+      WHERE id = ${mutation.id}
+    `;
+  }
 
   await prisma.auditLog.create({
     data: {
-      action: 'MUTATION_DETECTEE',
-      entite: 'Mutation',
+      action   : memeEntreprise ? 'MUTATION_REEMBAUCHE' : 'MUTATION_DETECTEE',
+      entite   : 'Mutation',
       entite_id: mutation.id,
-      apres: { entrepriseBId, lienBId },
+      apres    : { entrepriseBId, lienBId, memeEntreprise },
     },
   });
 
@@ -186,26 +196,40 @@ async function archiverExpirees() {
     select: { id: true, user_id: true },
   });
 
-  for (const m of mutations) {
-    await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`
-        UPDATE "Mutation" SET statut = 'EXPIRE', "updatedAt" = NOW() WHERE id = ${m.id}
-      `;
-      await tx.$executeRaw`
-        UPDATE "User" SET statut = 'ARCHIVE', "updatedAt" = NOW() WHERE id = ${m.user_id}
-      `;
-      await tx.auditLog.create({
-        data: {
-          action: 'MUTATION_EXPIREE',
-          entite: 'Mutation',
-          entite_id: m.id,
-          apres: { userId: m.user_id, raison: 'Limbo 90 jours dépassé' },
-        },
-      });
-    });
+  const BATCH = 20;
+  let expires = 0;
+  let erreurs = 0;
+
+  for (let i = 0; i < mutations.length; i += BATCH) {
+    const lot = mutations.slice(i, i + BATCH);
+    const resultats = await Promise.allSettled(
+      lot.map((m) =>
+        prisma.$transaction(async (tx) => {
+          await tx.$executeRaw`
+            UPDATE "Mutation" SET statut = 'EXPIRE', "updatedAt" = NOW() WHERE id = ${m.id}
+          `;
+          await tx.$executeRaw`
+            UPDATE "User" SET statut = 'ARCHIVE', "updatedAt" = NOW() WHERE id = ${m.user_id}
+          `;
+          await tx.auditLog.create({
+            data: {
+              action: 'MUTATION_EXPIREE',
+              entite: 'Mutation',
+              entite_id: m.id,
+              apres: { userId: m.user_id, raison: 'Limbo 90 jours dépassé' },
+            },
+          });
+        })
+      )
+    );
+
+    for (const r of resultats) {
+      if (r.status === 'fulfilled') expires++;
+      else erreurs++;
+    }
   }
 
-  return { expires: mutations.length };
+  return { expires, erreurs };
 }
 
 async function lister(filtres = {}) {

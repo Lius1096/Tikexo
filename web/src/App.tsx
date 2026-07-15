@@ -5,9 +5,11 @@ import { AdminLayout } from './layouts/AdminLayout';
 import { EmployeurLayout } from './layouts/EmployeurLayout';
 import { BeneficiaireLayout } from './layouts/BeneficiaireLayout';
 import { CommercantLayout } from './layouts/CommercantLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Inscription from './pages/Inscription';
+import InscriptionCommercant from './pages/InscriptionCommercant';
 
 // Pages Bénéficiaire
 import BeneficiaireDashboard from './pages/beneficiaire/Dashboard';
@@ -15,6 +17,7 @@ import BeneficiaireTransactions from './pages/beneficiaire/Transactions';
 import BeneficiaireProfil from './pages/beneficiaire/Profil';
 import BeneficiaireCommercants from './pages/beneficiaire/Commercants';
 import BeneficiaireScanner from './pages/beneficiaire/Scanner';
+import BeneficiaireCarte from './pages/beneficiaire/Carte';
 
 // Pages Commerçant
 import CommercantDashboard from './pages/commercant/Dashboard';
@@ -67,15 +70,31 @@ function RequireAuth({ roles, children }: { roles: string[]; children: ReactNode
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      {/* Portails de connexion séparés par rôle */}
+      <Route path="/login" element={
+        <Login allowedRoles={['BENEFICIAIRE']} portalLabel="Espace Salarié" portalSub="MON WALLET REPAS" redirectTo="/beneficiaire" />
+      } />
+      <Route path="/entreprise/connexion" element={
+        <Login allowedRoles={['ADMIN_RH', 'GESTIONNAIRE_RH']} portalLabel="Portail RH" portalSub="ESPACE EMPLOYEUR" redirectTo="/employeur" />
+      } />
+      <Route path="/restaurant/connexion" element={
+        <Login allowedRoles={['COMMERCANT']} portalLabel="Caisse TIKEXO" portalSub="ESPACE COMMERÇANT" redirectTo="/commercant" />
+      } />
+      <Route path="/admin/connexion" element={
+        <Login allowedRoles={['SUPER_ADMIN', 'ADMIN_OPS']} portalLabel="Backoffice" portalSub="ADMINISTRATION" redirectTo="/admin" />
+      } />
+
       <Route path="/inscription" element={<Inscription />} />
+      <Route path="/restaurant/inscription" element={<InscriptionCommercant />} />
       <Route path="/" element={<Landing />} />
 
       <Route
         path="/beneficiaire"
         element={
           <RequireAuth roles={ROLES_BENEFICIAIRE}>
-            <BeneficiaireLayout />
+            <ErrorBoundary>
+              <BeneficiaireLayout />
+            </ErrorBoundary>
           </RequireAuth>
         }
       >
@@ -84,13 +103,16 @@ export default function App() {
         <Route path="profil" element={<BeneficiaireProfil />} />
         <Route path="commercants" element={<BeneficiaireCommercants />} />
         <Route path="scanner" element={<BeneficiaireScanner />} />
+        <Route path="carte" element={<BeneficiaireCarte />} />
       </Route>
 
       <Route
         path="/commercant"
         element={
           <RequireAuth roles={ROLES_COMMERCANT}>
-            <CommercantLayout />
+            <ErrorBoundary>
+              <CommercantLayout />
+            </ErrorBoundary>
           </RequireAuth>
         }
       >
@@ -105,7 +127,9 @@ export default function App() {
         path="/admin"
         element={
           <RequireAuth roles={ROLES_ADMIN}>
-            <AdminLayout />
+            <ErrorBoundary>
+              <AdminLayout />
+            </ErrorBoundary>
           </RequireAuth>
         }
       >
@@ -126,7 +150,9 @@ export default function App() {
         path="/employeur"
         element={
           <RequireAuth roles={ROLES_EMPLOYEUR}>
-            <EmployeurLayout />
+            <ErrorBoundary>
+              <EmployeurLayout />
+            </ErrorBoundary>
           </RequireAuth>
         }
       >

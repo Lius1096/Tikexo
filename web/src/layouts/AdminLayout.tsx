@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
@@ -44,7 +44,9 @@ const NAV = [
 
 export function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/admin/connexion'); };
 
   const initials = user
     ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() || 'SK'
@@ -67,7 +69,7 @@ export function AdminLayout() {
             {initials}
           </div>
           <span className="text-xs text-white/70">{displayName}</span>
-          <button onClick={logout} title="Déconnexion">
+          <button onClick={handleLogout} title="Déconnexion">
             <LogOut size={14} className="text-white/50 hover:text-white/80 cursor-pointer transition-colors" />
           </button>
         </div>

@@ -3,11 +3,7 @@ const prisma = require('../../config/database');
 const { validerKYCViaBeneficiaire, cascadeKYCApresDepart } = require('../../utils/kyc');
 const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
-
-function genererNumeroMasque() {
-  const last4 = Math.floor(1000 + Math.random() * 9000);
-  return `•••• •••• •••• ${last4}`;
-}
+const carteUtils = require('../../utils/carte');
 
 async function lister(filtres = {}) {
   const { entrepriseId, statut } = filtres;
@@ -98,17 +94,61 @@ async function modifier(id, data) {
   return prisma.user.update({ where: { id }, data: updateData });
 }
 
-async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, tauxParticipation }) {
-  const lien = await prisma.lienEntrepriseBeneficiaire.create({
-    data: {
-      entreprise_id: entrepriseId,
-      user_id: userId,
-      niveau,
-      valeur_titre: valeurTitre,
-      taux_participation: tauxParticipation,
-      statut: 'ACTIF',
-    },
+async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, tauxParticipation }, adminId) {
+  // Vérifier qu'il n'y a pas déjà un lien ACTIF
+  const lienActif = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
   });
+  if (lienActif) {
+    const err = new Error('Ce bénéficiaire est déjà actif dans cette entreprise');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // Cas ré-embauche : lien TERMINE existant → réactiver
+  const lienTermine = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'TERMINE' },
+  });
+
+  let lien;
+  if (lienTermine) {
+    lien = await prisma.$transaction(async (tx) => {
+      const updated = await tx.lienEntrepriseBeneficiaire.update({
+        where: { id: lienTermine.id },
+        data: {
+          niveau,
+          valeur_titre: valeurTitre,
+          taux_participation: tauxParticipation,
+          statut: 'ACTIF',
+          date_debut: new Date(),
+          date_fin: null,
+        },
+      });
+      if (adminId) {
+        await tx.auditLog.create({
+          data: {
+            user_id: adminId,
+            action: 'REEMBAUCHE_EMPLOYE',
+            entite: 'LienEntrepriseBeneficiaire',
+            entite_id: updated.id,
+            apres: { entreprise_id: entrepriseId, niveau, valeur_titre: valeurTitre },
+          },
+        });
+      }
+      return updated;
+    });
+  } else {
+    lien = await prisma.lienEntrepriseBeneficiaire.create({
+      data: {
+        entreprise_id: entrepriseId,
+        user_id: userId,
+        niveau,
+        valeur_titre: valeurTitre,
+        taux_participation: tauxParticipation,
+        statut: 'ACTIF',
+      },
+    });
+  }
 
   await validerKYCViaBeneficiaire(prisma, userId, entrepriseId);
 
@@ -118,15 +158,17 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
   });
 
   if (!carteExistante) {
-    const expiration = new Date();
-    expiration.setFullYear(expiration.getFullYear() + 3);
+    const { hash, suffixe, numeroMasque } = await carteUtils.genererNumeroCarte(prisma);
     await prisma.carteDigi.create({
       data: {
-        user_id: userId,
-        type: 'VIRTUELLE',
-        numero_masque: genererNumeroMasque(),
-        statut: 'ACTIVE',
-        date_expiration: expiration,
+        user_id       : userId,
+        type          : 'VIRTUELLE',
+        numero_hash   : hash,
+        numero_masque : numeroMasque,
+        prefixe       : process.env.CARTE_PREFIXE || '4782',
+        suffixe,
+        date_expiration: carteUtils.genererDateExpiration(),
+        statut        : 'ACTIVE',
       },
     });
   }

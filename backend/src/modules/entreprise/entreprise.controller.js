@@ -71,4 +71,11 @@ async function toggleStatutUser(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser };
+async function getStats(req, res, next) {
+  try {
+    const data = await service.getStats(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser, getStats };

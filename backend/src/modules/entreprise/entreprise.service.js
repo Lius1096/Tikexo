@@ -14,7 +14,7 @@ async function lister(filtres = {}) {
       where,
       include: {
         wallet: { select: { solde: true, currency: true } },
-        _count: { select: { liensBeneficiaires: { where: { statut: 'ACTIF', user: { role: 'BENEFICIAIRE' } } } } },
+        _count: { select: { liensBeneficiaires: { where: { statut: 'ACTIF' } } } },
       },
       skip: (p - 1) * l,
       take: l,
@@ -57,7 +57,7 @@ async function getById(id) {
     where: { id },
     include: {
       wallet: true,
-      _count: { select: { liensBeneficiaires: { where: { statut: 'ACTIF', user: { role: 'BENEFICIAIRE' } } } } },
+      _count: { select: { liensBeneficiaires: { where: { statut: 'ACTIF' } } } },
     },
   });
 }
@@ -121,7 +121,6 @@ async function getBeneficiaires(entrepriseId) {
     where: {
       entreprise_id: entrepriseId,
       statut: 'ACTIF',
-      user: { role: 'BENEFICIAIRE' },
     },
     include: {
       user: {
@@ -180,4 +179,95 @@ async function toggleStatutUser(userId, adminId) {
   return { id: userId, statut: nouveauStatut };
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser };
+// Tous statuts (actif, inactif, bloqué) — pour le comptage complet
+async function getBeneficiairesComplet(entrepriseId) {
+  return prisma.lienEntrepriseBeneficiaire.findMany({
+    where: { entreprise_id: entrepriseId },
+    include: {
+      user: {
+        select: {
+          id: true, nom: true, prenom: true, telephone: true,
+          email_perso: true, statut: true,
+          wallet: { select: { id: true, solde: true, currency: true } },
+        },
+      },
+    },
+  });
+}
+
+async function getStats(entrepriseId) {
+  const anneeCourante = new Date().getFullYear();
+  const debutAnnee = new Date(anneeCourante, 0, 1);
+
+  // Comptes bénéficiaires par statut user
+  const [total, actifs, enAttente] = await Promise.all([
+    prisma.lienEntrepriseBeneficiaire.count({ where: { entreprise_id: entrepriseId } }),
+    prisma.lienEntrepriseBeneficiaire.count({
+      where: { entreprise_id: entrepriseId, user: { statut: 'ACTIF' } },
+    }),
+    prisma.lienEntrepriseBeneficiaire.count({
+      where: { entreprise_id: entrepriseId, user: { statut: 'INACTIF' } },
+    }),
+  ]);
+
+  // Dotations distribuées cette année — YTD
+  const dotationsAnnee = await prisma.dotation.findMany({
+    where: {
+      entreprise_id: entrepriseId,
+      statut: 'DISTRIBUE',
+      distribue_at: { gte: debutAnnee },
+    },
+    select: { montant_total: true, part_employeur: true, part_salarie: true, distribue_at: true },
+  });
+
+  const consommationYTD = dotationsAnnee.reduce((s, d) => s + parseFloat(d.montant_total), 0);
+
+  // Agrégation par mois de l'année courante (indices 0-11)
+  const parMois = Array.from({ length: 12 }, (_, i) => ({ mois: i, emp: 0, sal: 0, total: 0 }));
+  for (const d of dotationsAnnee) {
+    const m = new Date(d.distribue_at).getMonth();
+    parMois[m].emp += parseFloat(d.part_employeur);
+    parMois[m].sal += parseFloat(d.part_salarie);
+    parMois[m].total += parseFloat(d.montant_total);
+  }
+
+  // Top 5 consommateurs — transactions par bénéficiaire de cette entreprise YTD
+  const liens = await prisma.lienEntrepriseBeneficiaire.findMany({
+    where: { entreprise_id: entrepriseId, statut: 'ACTIF' },
+    select: {
+      user: { select: { id: true, nom: true, prenom: true, wallet: { select: { id: true } } } },
+    },
+  });
+
+  const beneficiaireIds = liens.map((l) => l.user.id);
+  const walletToUser = new Map(
+    liens
+      .filter((l) => l.user.wallet?.id)
+      .map((l) => [l.user.id, l.user])
+  );
+
+  const topTx = await prisma.transaction.groupBy({
+    by: ['beneficiaire_id'],
+    where: {
+      beneficiaire_id: { in: beneficiaireIds },
+      statut: { not: 'ANNULEE' },
+      createdAt: { gte: debutAnnee },
+    },
+    _sum: { montant_total: true },
+    _count: { id: true },
+    orderBy: { _sum: { montant_total: 'desc' } },
+    take: 5,
+  });
+
+  const topConsommateurs = topTx
+    .map((t) => ({
+      user: walletToUser.get(t.beneficiaire_id),
+      total: parseFloat(t._sum.montant_total || 0),
+      nb_transactions: t._count.id,
+    }))
+    .filter((t) => t.user);
+
+  return { beneficiaires: { total, actifs, enAttente }, consommationYTD, parMois, topConsommateurs };
+}
+
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, toggleStatutUser, getStats };

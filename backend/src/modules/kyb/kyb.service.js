@@ -3,6 +3,10 @@ const path = require('path');
 const fs = require('fs');
 const prisma = require('../../config/database');
 const { logger } = require('../../middlewares/errorHandler');
+const { envoyerEmail } = require('../../utils/email');
+const { kybApprouve, kybRejete } = require('../../utils/emailTemplates');
+const { creerOtp } = require('../../utils/otp');
+const { envoyerOtpSms } = require('../../config/sms');
 
 const DOCS_OBLIGATOIRES = ['CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
 const TAILLE_MAX_DEFAUT = 10 * 1024 * 1024; // 10 Mo
@@ -209,7 +213,50 @@ async function validerDossierComplet(adminId, dossier) {
     },
   });
 
-  logger.info('TIKEXO — KYB validé', { entrepriseId: dossier.entreprise_id, adminId });
+  // Activer tous les admins RH de l'entreprise (statut INACTIF → ACTIF)
+  const ent = await prisma.entreprise.findUnique({
+    where: { id: dossier.entreprise_id },
+    select: {
+      nom: true,
+      email_rh: true,
+      telephone_rh: true,
+      admins: {
+        select: { user: { select: { id: true, prenom: true, nom: true, telephone: true, statut: true } } },
+      },
+    },
+  });
+
+  if (ent?.admins?.length > 0) {
+    const adminIds = ent.admins.map((a) => a.user.id);
+    await prisma.user.updateMany({
+      where: { id: { in: adminIds }, statut: 'INACTIF' },
+      data: { statut: 'ACTIF' },
+    });
+
+    // Envoyer un OTP par SMS à chaque admin pour qu'il puisse se connecter
+    for (const { user: u } of ent.admins) {
+      try {
+        const otpCode = await creerOtp(prisma, u.telephone);
+        await envoyerOtpSms(u.telephone, otpCode);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`TIKEXO KYB VALIDE OTP [DEV] ${u.telephone}: ${otpCode}`);
+        }
+      } catch (err) {
+        logger.warn('TIKEXO — SMS credentials KYB échoué', { err: err.message, tel: u.telephone });
+      }
+    }
+  }
+
+  // Email de confirmation avec instructions de connexion
+  if (ent?.email_rh) {
+    const contact = ent.admins[0]?.user;
+    const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
+    const telephone = contact?.telephone || ent.telephone_rh;
+    envoyerEmail({ to: ent.email_rh, ...kybApprouve(ent.nom, nomContact, telephone) })
+      .catch((err) => logger.warn('TIKEXO — Mail KYB approuvé échoué', { err: err.message }));
+  }
+
+  logger.info('TIKEXO — KYB validé, compte activé', { entrepriseId: dossier.entreprise_id, adminId });
 }
 
 async function rejeterDocument(adminId, documentId, motif) {
@@ -251,6 +298,18 @@ async function rejeterDocument(adminId, documentId, motif) {
       apres: { motif, type: doc.type },
     },
   });
+
+  // Notifier l'employeur par email (non bloquant)
+  const ent = await prisma.entreprise.findUnique({
+    where: { id: dossier.entreprise_id },
+    select: { nom: true, email_rh: true, admins: { select: { user: { select: { prenom: true, nom: true } } }, take: 1 } },
+  });
+  if (ent?.email_rh) {
+    const contact = ent.admins[0]?.user;
+    const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
+    envoyerEmail({ to: ent.email_rh, ...kybRejete(ent.nom, nomContact, motif) })
+      .catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
+  }
 
   logger.warn('TIKEXO — Document KYB rejeté', { documentId, motif, adminId });
 

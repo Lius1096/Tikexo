@@ -3,9 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Wallet, TrendingUp, Clock, ArrowDownLeft } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n);
+import { fmt } from '../../utils/format';
 
 export default function BeneficiaireDashboard() {
   const { user } = useAuth();

@@ -3,7 +3,7 @@
 const prisma = require('../../config/database');
 const { transfererEntreWallets } = require('../../utils/ledger');
 const { compterJoursOuvresMois } = require('../../utils/jours-feries-benin');
-const { envoyerNotificationPush } = require('../../config/firebase');
+const { dotationQueue } = require('../../queues/index');
 
 async function calculer(entrepriseId, moisConcerne) {
   const mois = new Date(moisConcerne);
@@ -97,6 +97,7 @@ async function valider(dotationIds, adminId) {
   return { validees: dotations.length };
 }
 
+// Distribue en queue — 1 job par dotation, max 10 simultanés (concurrency du worker)
 async function distribuer(dotationIds, adminId) {
   const dotations = await prisma.dotation.findMany({
     where: { id: { in: dotationIds }, statut: 'VALIDE' },
@@ -108,7 +109,7 @@ async function distribuer(dotationIds, adminId) {
     throw err;
   }
 
-  // Grouper par entreprise pour vérifier le solde
+  // Grouper par entreprise pour vérifier le solde avant d'enqueuer
   const parEntreprise = dotations.reduce((acc, d) => {
     if (!acc[d.entreprise_id]) acc[d.entreprise_id] = { total: 0, dotations: [] };
     acc[d.entreprise_id].total += parseFloat(d.part_employeur.toString());
@@ -116,73 +117,47 @@ async function distribuer(dotationIds, adminId) {
     return acc;
   }, {});
 
-  const resultats = [];
-
-  for (const [entrepriseId, { total, dotations: dList }] of Object.entries(parEntreprise)) {
+  for (const [entrepriseId, { total }] of Object.entries(parEntreprise)) {
     const walletEntreprise = await prisma.wallet.findUniqueOrThrow({
       where: { entreprise_id: entrepriseId },
     });
-
     const solde = parseFloat(walletEntreprise.solde.toString());
     if (solde < total) {
       const err = new Error(
-        `Solde insuffisant pour l'entreprise — requis: ${total} XOF, disponible: ${solde} XOF`
+        `Solde insuffisant — requis: ${total} XOF, disponible: ${solde} XOF`
       );
       err.statusCode = 422;
       err.code = 'SOLDE_INSUFFISANT';
       throw err;
     }
-
-    // Distribuer chaque dotation — ZÉRO appel FedaPay
-    for (const dotation of dList) {
-      const walletBenef = await prisma.wallet.findUniqueOrThrow({
-        where: { user_id: dotation.beneficiaire_id },
-      });
-
-      const montant = parseFloat(dotation.part_employeur.toString());
-
-      // Transfert interne : wallet entreprise → wallet bénéficiaire (débite solde)
-      await transfererEntreWallets(
-        prisma,
-        walletEntreprise.id,
-        walletBenef.id,
-        montant,
-        'DOTATION',
-        { dotation_id: dotation.id, source_entreprise_id: entrepriseId }
-      );
-
-      // Libérer la réserve correspondante
-      await prisma.$executeRaw`
-        UPDATE "Wallet"
-        SET solde_reserve = GREATEST(0, solde_reserve - ${montant}::numeric), "updatedAt" = NOW()
-        WHERE id = ${walletEntreprise.id}
-      `;
-
-      await prisma.$executeRaw`
-        UPDATE "Dotation"
-        SET statut = 'DISTRIBUE', distribue_at = NOW()
-        WHERE id = ${dotation.id}
-      `;
-
-      // Notification push bénéficiaire
-      const user = await prisma.user.findUnique({
-        where: { id: dotation.beneficiaire_id },
-        select: { fcm_token: true },
-      });
-
-      if (user?.fcm_token) {
-        envoyerNotificationPush(
-          user.fcm_token,
-          'Dotation TIKEXO reçue',
-          `Votre dotation de ${dotation.part_employeur} XOF a été créditée sur votre wallet TIKEXO`
-        ).catch(() => {});
-      }
-
-      resultats.push({ dotation_id: dotation.id, statut: 'DISTRIBUE' });
-    }
   }
 
-  return resultats;
+  // Enqueuer 1 job par dotation — le worker les traite 10 par 10
+  const jobs = [];
+  for (const dotation of dotations) {
+    const walletEntreprise = await prisma.wallet.findUniqueOrThrow({
+      where: { entreprise_id: dotation.entreprise_id },
+    });
+    const walletBenef = await prisma.wallet.findUniqueOrThrow({
+      where: { user_id: dotation.beneficiaire_id },
+    });
+
+    jobs.push({
+      name: 'distribuer-dotation',
+      data: {
+        dotationId: dotation.id,
+        beneficiaireId: dotation.beneficiaire_id,
+        walletEntrepriseId: walletEntreprise.id,
+        walletBenefId: walletBenef.id,
+        montant: parseFloat(dotation.part_employeur.toString()),
+        entrepriseId: dotation.entreprise_id,
+      },
+    });
+  }
+
+  await dotationQueue.addBulk(jobs);
+
+  return { enqueued: jobs.length, dotationIds };
 }
 
 async function lister(filtres = {}) {

@@ -6,6 +6,8 @@ import {
   ShieldCheck, ShieldOff, Zap, Ban, ChevronRight, QrCode, AlertCircle,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { fmt, fmtDate } from '../../utils/format';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface CommercantRow {
@@ -33,11 +35,6 @@ interface CommercantRow {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const fmtXOF = (n: string | number) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const STATUT = {
   SOUMIS:        { label: 'En attente',  cls: 'bg-[#FAEEDA] text-[#854F0B]' },
@@ -157,6 +154,7 @@ function CommercantDrawer({
   onUpdated: () => void;
 }) {
   const qc = useQueryClient();
+  const [confirmModal, setConfirmModal] = useState<{ titre: string; message: string; onConfirmer: () => void } | null>(null);
 
   const { data: c, isLoading } = useQuery<CommercantRow>({
     queryKey: ['admin-commercant-detail', commercantId],
@@ -223,7 +221,7 @@ function CommercantDrawer({
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-[10px] text-white/40 mb-0.5">Wallet commerçant</div>
-                      <div className="font-mono text-lg font-medium">{fmtXOF(wallet?.solde || 0)}</div>
+                      <div className="font-mono text-lg font-medium">{fmt(wallet?.solde || 0)}</div>
                     </div>
                     <Wallet size={20} className="text-white/20" />
                   </div>
@@ -328,7 +326,11 @@ function CommercantDrawer({
 
                 {c.statut !== 'SUSPENDU' && (
                   <button
-                    onClick={() => { if (confirm(`Suspendre ${c.nom} ?`)) suspendreMut.mutate(); }}
+                    onClick={() => setConfirmModal({
+                      titre: 'Suspendre le commerçant',
+                      message: `Voulez-vous vraiment suspendre ${c.nom} ? Il ne pourra plus accepter de paiements TIKEXO.`,
+                      onConfirmer: () => suspendreMut.mutate(),
+                    })}
                     disabled={suspendreMut.isPending}
                     className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 text-sm font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                   >
@@ -341,6 +343,16 @@ function CommercantDrawer({
           )}
         </div>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          titre={confirmModal.titre}
+          message={confirmModal.message}
+          danger
+          onConfirmer={() => { confirmModal.onConfirmer(); setConfirmModal(null); }}
+          onAnnuler={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 }

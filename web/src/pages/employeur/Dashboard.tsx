@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useQuery } from '@tanstack/react-query';
@@ -7,10 +7,12 @@ import {
 } from 'recharts';
 import {
   Wallet, BarChart2, CalendarDays, Users, Download, Plus,
-  AlertTriangle, Info, TrendingUp, Minus,
+  AlertTriangle, Info, TrendingUp, Minus, Trophy,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { fmt, fmtK } from '../../utils/format';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -50,15 +52,14 @@ interface BenefLien {
   };
 }
 
+interface StatsData {
+  beneficiaires: { total: number; actifs: number; enAttente: number };
+  consommationYTD: number;
+  parMois: Array<{ mois: number; emp: number; sal: number; total: number }>;
+  topConsommateurs: Array<{ user: { id: string; nom: string; prenom: string }; total: number; nb_transactions: number }>;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const fmtXOF = (n: number | string) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-
-const fmtKXOF = (n: number | string) => {
-  const v = Number(n);
-  return v >= 1000 ? `${(v / 1000).toFixed(0)} K` : `${v}`;
-};
 
 const MOIS_FR = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
@@ -85,10 +86,6 @@ const PALETTE = [
   ['#FAEEDA', '#854F0B'], ['#FCEBEB', '#A32D2D'],
 ];
 
-function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx('bg-slate-100 animate-pulse rounded', className)} />;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function EmployeurDashboard() {
@@ -110,16 +107,24 @@ export default function EmployeurDashboard() {
     queryKey: ['employeur-dotations', entrepriseId],
     queryFn: () =>
       api.get<{ success: boolean; data: { items: DotationItem[] } }>(
-        `/dotations?entrepriseId=${entrepriseId}&limit=50`
+        `/dotations?entrepriseId=${entrepriseId}&limit=5`
       ).then((r) => r.data.data),
     enabled: !!entrepriseId,
   });
 
   const { data: beneficiairesData, isLoading: benefLoading } = useQuery({
-    queryKey: ['employeur-beneficiaires', entrepriseId],
+    queryKey: ['beneficiaires-entreprise', entrepriseId],
     queryFn: () =>
       api.get<{ success: boolean; data: BenefLien[] }>(`/entreprises/${entrepriseId}/beneficiaires`).then((r) => r.data.data),
     enabled: !!entrepriseId,
+  });
+
+  const { data: statsData, isLoading: statsLoading } = useQuery({
+    queryKey: ['employeur-stats', entrepriseId],
+    queryFn: () =>
+      api.get<{ success: boolean; data: StatsData }>(`/entreprises/${entrepriseId}/stats`).then((r) => r.data.data),
+    enabled: !!entrepriseId,
+    staleTime: 60_000,
   });
 
   const solde = walletData ? Number(walletData.solde) : 0;
@@ -128,42 +133,34 @@ export default function EmployeurDashboard() {
   const pctDisponible = solde > 0 ? Math.round((soldeDisponible / solde) * 100) : 0;
   const pctReserve = 100 - pctDisponible;
 
-  const dotations = dotationsData?.items ?? [];
-  const dotationsRecentes = dotations.slice(0, 4);
+  const dotationsRecentes = dotationsData?.items?.slice(0, 4) ?? [];
   const beneficiaires = beneficiairesData ?? [];
   const beneficiairesRecents = beneficiaires.slice(0, 4);
 
-  const totalActifs = beneficiaires.filter((b) => b.user.statut === 'ACTIF').length;
-  const totalBenef = beneficiaires.length;
-  const nonActives = beneficiaires.filter((b) => !b.user.wallet || Number(b.user.wallet.solde) === 0).length;
+  const totalActifs = statsData?.beneficiaires.actifs ?? beneficiaires.filter((b) => b.user.statut === 'ACTIF').length;
+  const totalBenef = statsData?.beneficiaires.total ?? beneficiaires.length;
+  const enAttente = statsData?.beneficiaires.enAttente ?? 0;
   const tauxActivation = totalBenef > 0 ? Math.round((totalActifs / totalBenef) * 100) : 0;
+  const consommationYTD = statsData?.consommationYTD ?? 0;
+  const topConsommateurs = statsData?.topConsommateurs ?? [];
 
-  const dotationsMoisActuel = dotations.filter(
-    (d) => d.statut === 'DISTRIBUE' || d.statut === 'VALIDE'
-  );
-  const totalDote = dotationsMoisActuel.reduce((sum, d) => sum + Number(d.part_employeur), 0);
+  // Graphique — année civile courante uniquement (Jan → mois actuel)
+  const moisCourant = new Date().getMonth();
+  const chartData = (statsData?.parMois ?? [])
+    .slice(0, moisCourant + 1)
+    .map((m) => ({
+      month: MOIS_FR[m.mois],
+      emp: Math.round(m.emp / 1000),
+      sal: Math.round(m.sal / 1000),
+    }));
 
-  const totalDepenses = dotations
+  // Pour la flow strip : dotations distribuées ce mois (issus de dotationsRecentes)
+  const totalDote = dotationsRecentes
+    .filter((d) => d.statut === 'VALIDE' || d.statut === 'DISTRIBUE')
+    .reduce((s, d) => s + Number(d.part_employeur), 0);
+  const totalDepenses = dotationsRecentes
     .filter((d) => d.statut === 'DISTRIBUE')
-    .reduce((sum, d) => sum + Number(d.montant_total), 0);
-
-  const chartData = useMemo(() => {
-    const byMonth: Record<string, { emp: number; sal: number }> = {};
-    for (const d of dotations) {
-      const m = new Date(d.mois_concerne);
-      const key = `${m.getFullYear()}-${m.getMonth()}`;
-      if (!byMonth[key]) byMonth[key] = { emp: 0, sal: 0 };
-      byMonth[key].emp += Number(d.part_employeur) / 1000;
-      byMonth[key].sal += Number(d.part_salarie) / 1000;
-    }
-    const sorted = Object.entries(byMonth)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-6);
-    return sorted.map(([key, vals]) => {
-      const [, monthIdx] = key.split('-');
-      return { month: MOIS_FR[parseInt(monthIdx, 10)], emp: Math.round(vals.emp), sal: Math.round(vals.sal) };
-    });
-  }, [dotations]);
+    .reduce((s, d) => s + Number(d.montant_total), 0);
 
   if (!entrepriseId) {
     return (
@@ -208,11 +205,11 @@ export default function EmployeurDashboard() {
             <Skeleton className="h-12 flex-1" />
           ) : (
             <>
-              <FlowNode label="VOTRE WALLET" value={fmtKXOF(solde)} sub="XOF disponibles" />
+              <FlowNode label="VOTRE WALLET" value={fmtK(solde)} sub="XOF disponibles" />
               <FlowArrow label="0 frais" free />
-              <FlowNode label="DOTATIONS VALIDÉES" value={fmtKXOF(totalDote)} sub={`${totalActifs} salariés actifs`} accent />
+              <FlowNode label="DOTATIONS VALIDÉES" value={fmtK(totalDote)} sub={`${totalActifs} salariés actifs`} accent />
               <FlowArrow label="0 frais" free />
-              <FlowNode label="DÉPENSES SALARIÉS" value={fmtKXOF(totalDepenses)} sub={`ce mois en cours`} accent />
+              <FlowNode label="DÉPENSES SALARIÉS" value={fmtK(totalDepenses)} sub={`ce mois en cours`} accent />
               <FlowArrow label="payout 72h" />
               <FlowNode label="COMMISSION TIKEXO" value="—" sub="2% sur transactions" earned />
             </>
@@ -221,20 +218,25 @@ export default function EmployeurDashboard() {
 
         {/* Metrics */}
         <div className="grid grid-cols-4 gap-3 mb-5">
-          {benefLoading ? (
+          {(benefLoading || statsLoading) ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[72px] rounded-md" />)
           ) : (
             <>
-              <MetricCard label="Salariés actifs" value={String(totalActifs)} delta={`${totalBenef} au total`} trend="up" />
+              <MetricCard label="Salariés actifs" value={String(totalActifs)} delta={`${totalBenef} au total · ${enAttente} en attente`} trend="up" />
               <MetricCard label="Taux d'activation" value={`${tauxActivation}%`} delta={`${totalActifs} / ${totalBenef} actifs`} trend="up" green />
               <MetricCard
                 label="Solde disponible"
-                value={fmtKXOF(soldeDisponible)}
+                value={fmtK(soldeDisponible)}
                 delta="XOF disponibles"
                 trend={pctDisponible > 50 ? 'up' : 'flat'}
                 warn={pctDisponible <= 50}
               />
-              <MetricCard label="Non activés" value={String(nonActives)} delta="cartes sans solde" trend={nonActives > 0 ? 'down' : 'up'} red={nonActives > 0} />
+              <MetricCard
+                label={`Consommation ${new Date().getFullYear()}`}
+                value={fmtK(consommationYTD)}
+                delta="XOF year-to-date"
+                trend={consommationYTD > 0 ? 'up' : 'flat'}
+              />
             </>
           )}
         </div>
@@ -261,10 +263,10 @@ export default function EmployeurDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="font-mono text-[28px] font-medium text-slate-900 mb-1">{fmtXOF(solde)}</div>
+                  <div className="font-mono text-[28px] font-medium text-slate-900 mb-1">{fmt(solde)}</div>
                   <div className="text-xs text-slate-500 mb-3.5 flex items-center gap-1">
                     Dont{' '}
-                    <span className="text-tikexo-gold ml-1">{fmtXOF(soldeReserve)} réservés</span>
+                    <span className="text-tikexo-gold ml-1">{fmt(soldeReserve)} réservés</span>
                     <span className="ml-1">(dotations validées)</span>
                   </div>
                   {pctDisponible <= 50 && (
@@ -281,14 +283,14 @@ export default function EmployeurDashboard() {
                       <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                         <div className="h-full bg-tikexo-accent rounded-full" style={{ width: `${pctDisponible}%` }} />
                       </div>
-                      <div className="font-mono text-xs text-slate-900 mt-1">{fmtXOF(soldeDisponible)}</div>
+                      <div className="font-mono text-xs text-slate-900 mt-1">{fmt(soldeDisponible)}</div>
                     </div>
                     <div>
                       <div className="text-[11px] text-slate-500 mb-1.5">Réservé</div>
                       <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                         <div className="h-full bg-tikexo-gold rounded-full" style={{ width: `${pctReserve}%` }} />
                       </div>
-                      <div className="font-mono text-xs text-slate-900 mt-1">{fmtXOF(soldeReserve)}</div>
+                      <div className="font-mono text-xs text-slate-900 mt-1">{fmt(soldeReserve)}</div>
                     </div>
                   </div>
                 </>
@@ -393,7 +395,7 @@ export default function EmployeurDashboard() {
                           {niveauLabel[d.lien.niveau] ?? d.lien.niveau} · {d.nb_titres} jours
                         </div>
                       </div>
-                      <div className="font-mono text-[13px] text-slate-900 flex-shrink-0">{fmtXOF(d.part_employeur)}</div>
+                      <div className="font-mono text-[13px] text-slate-900 flex-shrink-0">{fmt(d.part_employeur)}</div>
                       <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium flex-shrink-0', statutDotBadge[d.statut] ?? 'bg-slate-100 text-slate-700')}>
                         {statutDotLabel[d.statut] ?? d.statut}
                       </span>
@@ -468,7 +470,7 @@ export default function EmployeurDashboard() {
                               {niveauLabel[b.niveau] ?? b.niveau}
                             </span>
                           </td>
-                          <td className="font-mono text-xs text-slate-900 px-4 py-2.5">{fmtXOF(soldeB)}</td>
+                          <td className="font-mono text-xs text-slate-900 px-4 py-2.5">{fmt(soldeB)}</td>
                           <td className="px-4 py-2.5">
                             <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium', statutClass)}>
                               {statutLabel2}
@@ -484,11 +486,49 @@ export default function EmployeurDashboard() {
           </div>
         </div>
 
-        {/* Info */}
-        <div className="flex items-start gap-2.5 p-3 rounded-md bg-[#DBEAFE] border border-[#B5D4F4]">
-          <Info size={16} className="text-[#185FA5] flex-shrink-0 mt-px" />
-          <div className="text-xs text-slate-900 leading-relaxed">
-            <strong>Dotations mois prochain.</strong> Vérifiez les présences et absences avant de lancer le calcul automatique des dotations.
+        {/* Top consommateurs */}
+        <div className="grid grid-cols-2 gap-4 mb-5">
+          <div className="bg-white border border-slate-100 rounded-lg">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
+              <span className="text-[13px] font-medium text-slate-900 flex items-center gap-1.5">
+                <Trophy size={14} className="text-tikexo-gold" />
+                Top consommateurs {new Date().getFullYear()}
+              </span>
+              <Link to="/employeur/rapports" className="text-xs text-tikexo-accent cursor-pointer">Rapports</Link>
+            </div>
+            <div className="px-3 py-2">
+              {statsLoading ? (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-8 w-full mb-1" />)
+              ) : topConsommateurs.length === 0 ? (
+                <div className="py-4 text-center text-[11px] text-slate-400">Aucune transaction cette année</div>
+              ) : (
+                topConsommateurs.map((t, idx) => {
+                  const [bg, fg] = PALETTE[idx % PALETTE.length];
+                  const initials = `${t.user.prenom[0] ?? ''}${t.user.nom[0] ?? ''}`.toUpperCase();
+                  return (
+                    <div key={t.user.id} className="flex items-center gap-2.5 py-2 border-b border-slate-100 last:border-0">
+                      <div className="text-[11px] font-mono text-slate-400 w-4 text-center flex-shrink-0">{idx + 1}</div>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-medium flex-shrink-0" style={{ background: bg, color: fg }}>{initials}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-medium text-slate-900 truncate">{t.user.prenom} {t.user.nom}</div>
+                        <div className="text-[10px] text-slate-400">{t.nb_transactions} transaction{t.nb_transactions > 1 ? 's' : ''}</div>
+                      </div>
+                      <div className="font-mono text-[13px] text-slate-900 flex-shrink-0">{fmt(t.total)}</div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-start gap-2.5 p-3 rounded-md bg-[#DBEAFE] border border-[#B5D4F4] flex-1">
+              <Info size={16} className="text-[#185FA5] flex-shrink-0 mt-px" />
+              <div className="text-xs text-slate-900 leading-relaxed">
+                <strong>Dotations mois prochain.</strong> Vérifiez les présences et absences avant de lancer le calcul automatique des dotations.
+              </div>
+            </div>
           </div>
         </div>
       </div>

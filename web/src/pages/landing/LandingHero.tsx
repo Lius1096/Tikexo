@@ -1,98 +1,73 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+
+const ASSETS = import.meta.env.VITE_ASSETS_URL || 'http://localhost:9000/tikexo-documents';
+
+const SLIDES = [
+  { img: `${ASSETS}/landing/hero-1.jpg`, panelBg: '#1A3C5E', textColor: '#fff', eyebrowColor: 'rgba(255,255,255,0.45)', btnBg: '#0EA5E9', btnColor: '#fff', eyebrow: 'TIKEXO.BJ', title: "Offrez à vos salariés\nle déjeuner qu'ils méritent.", desc: 'Titre-restaurant 100% digital. Dotations automatiques, paiement QR code, zéro ticket papier.', cta: 'Créer mon compte', link: '/inscription' },
+  { img: `${ASSETS}/landing/hero-2.jpg`, panelBg: 'rgba(133,253,150,1)', textColor: '#1A1A2E', eyebrowColor: 'rgba(26,60,94,0.55)', btnBg: '#1A3C5E', btnColor: '#fff', eyebrow: 'APP SALARIÉ', title: 'Payez en 3 secondes\nchez 142 restaurants.', desc: 'Scannez le QR code du restaurant et confirmez. Votre solde est débité instantanément depuis votre wallet.', cta: 'Découvrir le wallet', link: '/inscription' },
+  { img: `${ASSETS}/landing/hero-3.jpg`, panelBg: 'rgba(136,221,251,1)', textColor: '#1A1A2E', eyebrowColor: 'rgba(26,60,94,0.55)', btnBg: '#1A3C5E', btnColor: '#fff', eyebrow: 'PORTAIL RH', title: "Gérez vos dotations\nd'une seule main.", desc: 'Rechargez, répartissez et suivez les dépenses de vos salariés depuis votre tableau de bord en temps réel.', cta: 'Demander une démo', link: '/inscription' },
+  { img: `${ASSETS}/landing/hero-4.jpg`, panelBg: 'rgba(253,238,193,1)', textColor: '#1A1A2E', eyebrowColor: 'rgba(26,60,94,0.55)', btnBg: '#1A3C5E', btnColor: '#fff', eyebrow: 'COMMERÇANTS', title: 'Encaissez sans TPE,\nsans frais, sans attente.', desc: 'Un QR code suffit. Vos paiements TIKEXO sont reversés par Mobile Money chaque semaine automatiquement.', cta: 'Devenir partenaire', link: '/inscription' },
+];
 
 export default function LandingHero() {
   const navigate = useNavigate();
+  const [current, setCurrent] = useState(0);
+  const [playing, setPlaying] = useState(true);
+
+  useEffect(() => {
+    if (!playing) return;
+    const id = setInterval(() => setCurrent((c) => (c + 1) % SLIDES.length), 5000);
+    return () => clearInterval(id);
+  }, [playing]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  setCurrent((c) => (c - 1 + SLIDES.length) % SLIDES.length);
+      if (e.key === 'ArrowRight') setCurrent((c) => (c + 1) % SLIDES.length);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
-    <section className="hero">
-      <div className="hero-inner">
-        <div className="hero-left">
-          <div className="hero-eyebrow">TIKEXO.BJ — TITRE-RESTAURANT DIGITALISÉ</div>
-          <h1 className="hero-title">Le repas de vos<br />salariés,<br /><strong>enfin digitalisé.</strong></h1>
-          <p className="hero-sub">Dotations instantanées, paiements Mobile Money, zéro ticket papier. La plateforme SaaS de titre-restaurant conçue pour les entreprises du Bénin.</p>
-          <div className="hero-ctas">
-            <button className="hero-btn-p" onClick={() => navigate('/inscription')}>Créer un compte entreprise</button>
-            <button className="hero-btn-s"><i className="ti ti-player-play" aria-hidden="true"></i> Voir la démo</button>
-          </div>
-        </div>
-
-        <div className="hero-right">
-          <div className="hero-wallet">
-            <div className="hw-label">SOLDE WALLET SALARIÉ</div>
-            <div style={{ display: 'flex', alignItems: 'baseline' }}>
-              <div className="hw-amount">14 500</div>
-              <span className="hw-currency">XOF</span>
-            </div>
-            <div className="hw-source">
-              <div className="hw-source-dot"></div> Dotation juin · SIKA SARL
-            </div>
-            <div className="hw-bar"><div className="hw-bar-fill"></div></div>
-          </div>
-
-          <div className="flow-strip">
-            <div className="flow-node">
-              <div className="flow-node-val">1 200 000</div>
-              <div className="flow-node-label">WALLET ENTREPRISE</div>
-            </div>
-            <div className="flow-arrow">
-              <div className="flow-arrow-line"></div>
-              <div className="flow-arrow-free">0 frais</div>
-            </div>
-            <div className="flow-node">
-              <div className="flow-node-val accent">882 000</div>
-              <div className="flow-node-label">DOTATIONS SALARIÉS</div>
-            </div>
-            <div className="flow-arrow">
-              <div className="flow-arrow-line"></div>
-              <div className="flow-arrow-free">0 frais</div>
-            </div>
-            <div className="flow-node">
-              <div className="flow-node-val accent">647 500</div>
-              <div className="flow-node-label">DÉPENSES CE MOIS</div>
+    <section className="hero-slider" onMouseEnter={() => setPlaying(false)} onMouseLeave={() => setPlaying(true)} role="region" aria-label="Bannière principale TIKEXO">
+      <div className="hs-track" style={{ transform: `translateX(-${current * 100}%)` }}>
+        {SLIDES.map((slide, i) => (
+          <div key={i} className="hs-slide" role="group" aria-label={`Slide ${i + 1} sur ${SLIDES.length}`} aria-hidden={i !== current}>
+            <img src={slide.img} alt="" className="hs-bg" loading={i === 0 ? 'eager' : 'lazy'} />
+            <div className="hs-dim" />
+            <div className="hs-content-wrap">
+              <div className="hs-panel" style={{ background: slide.panelBg }}>
+                <span className="hs-eyebrow" style={{ color: slide.eyebrowColor }}>{slide.eyebrow}</span>
+                <h2 className="hs-title" style={{ color: slide.textColor }}>{slide.title}</h2>
+                <p className="hs-desc" style={{ color: slide.textColor }}>{slide.desc}</p>
+                <button className="hs-cta" style={{ background: slide.btnBg, color: slide.btnColor }} onClick={() => navigate(slide.link)}>
+                  {slide.cta} <ArrowRight size={14} />
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="hero-txs">
-            <div className="hero-tx">
-              <div className="hero-tx-icon" style={{ background: 'rgba(26,60,94,0.4)' }}>
-                <i className="ti ti-tools-kitchen-2" style={{ color: '#0EA5E9' }} aria-hidden="true"></i>
-              </div>
-              <div>
-                <div className="hero-tx-name">Chez Brice</div>
-                <div className="hero-tx-sub">Restaurant · 12h34 · Cotonou</div>
-              </div>
-              <div className="hero-tx-amt debit">−2 500 XOF</div>
-            </div>
-            <div className="hero-tx">
-              <div className="hero-tx-icon" style={{ background: 'rgba(14,165,233,0.15)' }}>
-                <i className="ti ti-arrow-down" style={{ color: '#0EA5E9' }} aria-hidden="true"></i>
-              </div>
-              <div>
-                <div className="hero-tx-name">Dotation juin 2026</div>
-                <div className="hero-tx-sub">SIKA SARL · 42 salariés</div>
-              </div>
-              <div className="hero-tx-amt credit">+21 000 XOF</div>
-            </div>
-            <div className="hero-tx">
-              <div className="hero-tx-icon" style={{ background: 'rgba(26,60,94,0.4)' }}>
-                <i className="ti ti-bread" style={{ color: '#0EA5E9' }} aria-hidden="true"></i>
-              </div>
-              <div>
-                <div className="hero-tx-name">Boulangerie Espoir</div>
-                <div className="hero-tx-sub">Boulangerie · 08h15</div>
-              </div>
-              <div className="hero-tx-amt debit">−1 200 XOF</div>
-            </div>
-          </div>
-
-          <div className="hero-stats">
-            <div className="hero-stat"><div className="hero-stat-val">38</div><div className="hero-stat-label">ENTREPRISES</div></div>
-            <div className="hero-stat"><div className="hero-stat-val">1 247</div><div className="hero-stat-label">SALARIÉS</div></div>
-            <div className="hero-stat"><div className="hero-stat-val">47,3M</div><div className="hero-stat-label">XOF/MOIS</div></div>
-            <div className="hero-stat"><div className="hero-stat-val">0</div><div className="hero-stat-label">FRAIS INTERNES</div></div>
-          </div>
-        </div>
+        ))}
       </div>
+
+      <button className="hs-arrow hs-prev" onClick={() => setCurrent((c) => (c - 1 + SLIDES.length) % SLIDES.length)} aria-label="Slide précédent">
+        <ChevronLeft size={20} />
+      </button>
+      <button className="hs-arrow hs-next" onClick={() => setCurrent((c) => (c + 1) % SLIDES.length)} aria-label="Slide suivant">
+        <ChevronRight size={20} />
+      </button>
+
+      <div className="hs-dots" role="tablist">
+        {SLIDES.map((_, i) => (
+          <button key={i} className={`hs-dot${i === current ? ' hs-dot-active' : ''}`} onClick={() => setCurrent(i)} role="tab" aria-selected={i === current} aria-label={`Aller au slide ${i + 1}`} />
+        ))}
+      </div>
+
+      <button className="hs-playpause" onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Mettre en pause' : 'Lire'}>
+        {playing ? <Pause size={13} /> : <Play size={13} />}
+      </button>
     </section>
   );
 }

@@ -5,12 +5,7 @@ import QRCodeSVG from 'react-qr-code';
 import { CheckCircle, RefreshCw, Maximize2, X, TrendingUp, ShoppingBag, Clock, Delete } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n);
-
-const fmtTime = (d: string) =>
-  new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+import { fmt, fmtHeure } from '../../utils/format';
 
 interface Transaction {
   id: string;
@@ -124,7 +119,7 @@ export default function CommercantCaisse() {
               Paiement reçu — {fmt(parseFloat(nouveauPaiement.montant_total))}
             </div>
             <div className="text-[11px] text-[#3B6D11]">
-              {nouveauPaiement.beneficiaire.prenom} {nouveauPaiement.beneficiaire.nom} · {fmtTime(nouveauPaiement.createdAt)}
+              {nouveauPaiement.beneficiaire.prenom} {nouveauPaiement.beneficiaire.nom} · {fmtHeure(nouveauPaiement.createdAt)}
             </div>
           </div>
           <button onClick={() => setNouveauPaiement(null)} className="ml-auto">
@@ -236,7 +231,7 @@ export default function CommercantCaisse() {
                     <div className="text-[13px] font-medium text-slate-900">
                       {t.beneficiaire.prenom} {t.beneficiaire.nom}
                     </div>
-                    <div className="text-[10px] text-slate-400">{fmtTime(t.createdAt)}</div>
+                    <div className="text-[10px] text-slate-400">{fmtHeure(t.createdAt)}</div>
                   </div>
                   <div className="text-[14px] font-semibold text-[#166534]">
                     +{fmt(parseFloat(t.montant_total))}

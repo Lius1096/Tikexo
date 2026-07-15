@@ -11,6 +11,8 @@ router.get('/solde', ctrl.getSolde);
 router.get('/solde/segmente', ctrl.getSoldeSegmente);
 router.get('/historique', ctrl.getHistorique);
 router.post('/recharger', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), checkRechargementLimit, ctrl.recharger);
+router.post('/crediter-benef', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.crediterBenef);
+router.post('/crediter-groupe', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.crediterGroupe);
 router.post('/:walletId/geler', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.geler);
 router.post('/:walletId/degeler', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.degeler);
 

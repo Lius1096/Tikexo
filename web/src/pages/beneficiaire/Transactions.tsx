@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownLeft, ArrowUpRight, Search, CreditCard, ShieldAlert } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import api from '../../lib/api';
-import { useAuth } from '../../context/AuthContext';
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n);
+import { fmt } from '../../utils/format';
 
 const TYPE_LABELS: Record<string, string> = {
   DOTATION: 'Dotation employeur',
@@ -21,16 +18,7 @@ function libelleEntree(e: any): string {
   return TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ');
 }
 
-interface Carte {
-  id: string;
-  type: string;
-  numero_masque: string;
-  statut: string;
-  date_expiration: string;
-}
-
 export default function BeneficiaireTransactions() {
-  const { user } = useAuth();
   const [search, setSearch] = useState('');
 
   const { data: histoData, isLoading: loadHisto } = useQuery({
@@ -38,16 +26,8 @@ export default function BeneficiaireTransactions() {
     queryFn: () => api.get('/wallet/historique?limit=100').then((r) => r.data.data),
   });
 
-  const { data: cartesData } = useQuery({
-    queryKey: ['beneficiaire-carte'],
-    queryFn: () => api.get('/cartes/moi').then((r) => r.data.data),
-    staleTime: 60_000,
-  });
-
   const entries: any[] = histoData?.entries ?? [];
   const walletId: string | undefined = histoData?.walletId;
-  const cartes: Carte[] = cartesData ?? [];
-  const carteActive = cartes.find((c) => c.statut === 'ACTIVE') ?? cartes[0] ?? null;
 
   const filtered = entries.filter((e) =>
     !search || (TYPE_LABELS[e.type] ?? e.type).toLowerCase().includes(search.toLowerCase())
@@ -62,17 +42,6 @@ export default function BeneficiaireTransactions() {
         <div className="text-[15px] font-medium text-slate-900 mb-0.5">Mes transactions</div>
         <div className="text-xs text-slate-500">Historique de votre wallet TIKEXO</div>
       </div>
-
-      {/* Carte virtuelle */}
-      {carteActive ? (
-        <CarteVisuelle carte={carteActive} nom={`${user?.prenom ?? ''} ${user?.nom ?? ''}`} />
-      ) : (
-        <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-5 flex flex-col items-center gap-2 text-center">
-          <CreditCard size={24} className="text-slate-200" />
-          <div className="text-sm text-slate-400">Aucune carte TIKEXO activée</div>
-          <div className="text-[11px] text-slate-300">Contactez votre employeur pour l'activation</div>
-        </div>
-      )}
 
       {/* Résumé crédits/débits */}
       {entries.length > 0 && (
@@ -160,61 +129,3 @@ export default function BeneficiaireTransactions() {
   );
 }
 
-function CarteVisuelle({ carte, nom }: { carte: Carte; nom: string }) {
-  const isBloquee = carte.statut === 'BLOQUEE';
-  const isExpiree = carte.statut === 'EXPIREE';
-  const expDate = new Date(carte.date_expiration);
-  const expLabel = expDate.toLocaleDateString('fr-FR', { month: '2-digit', year: '2-digit' });
-
-  return (
-    <div className={clsx(
-      'relative rounded-2xl p-5 text-white overflow-hidden select-none',
-      isBloquee || isExpiree ? 'bg-slate-400' : 'bg-tikexo-primary'
-    )}>
-      {/* Fond décoratif */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white opacity-5" />
-        <div className="absolute -right-4 top-12 w-24 h-24 rounded-full bg-white opacity-[0.03]" />
-      </div>
-
-      <div className="relative space-y-5">
-        {/* Ligne du haut */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-[11px] text-white/50 tracking-[1.5px]">TIKEXO</div>
-            <div className="text-[10px] text-white/30 tracking-[1px]">CARTE REPAS VIRTUELLE</div>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {(isBloquee || isExpiree) && (
-              <div className="flex items-center gap-1 bg-white/10 px-2 py-0.5 rounded-full">
-                <ShieldAlert size={10} className="text-red-300" />
-                <span className="text-[9px] text-red-300">{isBloquee ? 'Bloquée' : 'Expirée'}</span>
-              </div>
-            )}
-            <CreditCard size={22} className="text-white/30" />
-          </div>
-        </div>
-
-        {/* Puce simulée */}
-        <div className="w-9 h-7 rounded-md bg-gradient-to-br from-yellow-300/60 to-yellow-500/40 border border-yellow-200/20" />
-
-        {/* Numéro */}
-        <div className="font-mono text-[16px] tracking-[3px] text-white/90 leading-none">
-          {carte.numero_masque}
-        </div>
-
-        {/* Bas de carte */}
-        <div className="flex items-end justify-between">
-          <div>
-            <div className="text-[9px] text-white/35 tracking-[0.5px] mb-0.5">TITULAIRE</div>
-            <div className="text-[13px] font-medium tracking-wide">{nom.toUpperCase()}</div>
-          </div>
-          <div className="text-right">
-            <div className="text-[9px] text-white/35 tracking-[0.5px] mb-0.5">EXPIRE</div>
-            <div className="text-[13px] font-medium">{expLabel}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}

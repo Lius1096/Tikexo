@@ -100,16 +100,24 @@ async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur })
  * Traite un webhook FedaPay.
  * Vérifie la signature HMAC, puis crédite ou met en échec.
  */
-async function traiterWebhook(prisma, { payload, signature }) {
+async function traiterWebhook(prisma, { payload, rawBody, signature }) {
   const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
 
   if (webhookSecret) {
     const hmac = crypto
       .createHmac('sha256', webhookSecret)
-      .update(JSON.stringify(payload))
+      .update(rawBody)  // raw bytes — pas JSON.stringify() qui change l'ordre des clés
       .digest('hex');
 
-    if (hmac !== signature) {
+    // timingSafeEqual pour éviter les timing attacks
+    let signaturesEgales = false;
+    try {
+      const hmacBuf = Buffer.from(hmac,      'hex');
+      const sigBuf  = Buffer.from(signature, 'hex');
+      signaturesEgales = hmacBuf.length === sigBuf.length && crypto.timingSafeEqual(hmacBuf, sigBuf);
+    } catch { signaturesEgales = false; }
+
+    if (!signaturesEgales) {
       const err = new Error('TIKEXO — Signature webhook FedaPay invalide');
       err.statusCode = 401;
       throw err;
@@ -335,4 +343,79 @@ async function jobBatchingPayouts(prismaInstance) {
   return { traites, erreurs };
 }
 
-module.exports = { creerCollecte, traiterWebhook, declencherPayout, jobBatchingPayouts };
+/**
+ * Payout vers le mobile money d'un utilisateur (remboursement mutation).
+ * Différent du payout commerçant : le numéro est le téléphone du user.
+ */
+async function declencherPayoutUser(prisma, { userId, montant, motif }) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    include: { wallet: true },
+  });
+
+  const solde = parseFloat(user.wallet.solde.toString());
+  if (solde < montant) {
+    const err = new Error(`Solde insuffisant pour remboursement — ${solde} XOF disponible, ${montant} XOF requis`);
+    err.statusCode = 422;
+    err.code = 'SOLDE_INSUFFISANT_PAYOUT';
+    throw err;
+  }
+
+  const idempotenceKey = `payout_user_${userId}_${Date.now()}`;
+
+  const operation = await prisma.fedapayOperation.create({
+    data: {
+      type: 'PAYOUT',
+      fedapay_transaction_id: idempotenceKey,
+      montant,
+      statut: 'EN_ATTENTE',
+    },
+  });
+
+  if (DEV_MOCK) {
+    await debiterWallet(prisma, user.wallet.id, montant, 'REMBOURSEMENT', {
+      fedapay_transaction_id: idempotenceKey,
+      motif,
+    });
+    await prisma.$executeRaw`
+      UPDATE "FedapayOperation" SET statut = 'APPROUVE', "updatedAt" = NOW() WHERE id = ${operation.id}
+    `;
+    logger.info('TIKEXO DEV — Mock payout user', { userId, montant });
+    return { payout_id: idempotenceKey, montant };
+  }
+
+  const { FedaPay } = require('../../config/fedapay');
+
+  try {
+    const payout = await FedaPay.Payout.create({
+      description: motif || `TIKEXO — Remboursement utilisateur`,
+      amount: montant,
+      currency: { iso: 'XOF' },
+      customer: { phone_number: { number: user.telephone, country: 'BJ' } },
+    });
+
+    await payout.sendNow();
+
+    await debiterWallet(prisma, user.wallet.id, montant, 'REMBOURSEMENT', {
+      fedapay_transaction_id: payout.id.toString(),
+      motif,
+    });
+
+    await prisma.$executeRaw`
+      UPDATE "FedapayOperation"
+      SET fedapay_transaction_id = ${payout.id.toString()}, statut = 'APPROUVE', "updatedAt" = NOW()
+      WHERE id = ${operation.id}
+    `;
+
+    return { payout_id: payout.id, montant };
+  } catch (err) {
+    await prisma.$executeRaw`
+      UPDATE "FedapayOperation"
+      SET statut = 'ECHOUE', erreur_message = ${err.message}, "updatedAt" = NOW()
+      WHERE id = ${operation.id}
+    `;
+    throw err;
+  }
+}
+
+module.exports = { creerCollecte, traiterWebhook, declencherPayout, declencherPayoutUser, jobBatchingPayouts };

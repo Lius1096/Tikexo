@@ -7,6 +7,8 @@ import {
   FileText, Eye, Ban,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { fmt, fmtDate } from '../../utils/format';
+import { ConfirmModal } from '../../components/ui/ConfirmModal';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface EntrepriseRow {
@@ -62,11 +64,6 @@ interface KybData {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const fmtXOF = (n: string | number) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-
-const fmtDate = (d: string) =>
-  new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
 
 const DOC_LABELS: Record<string, string> = {
   CARTE_NIF: 'Carte NIF / Attestation DGID',
@@ -155,7 +152,7 @@ export default function AdminEntreprises() {
                   <td className="px-4 py-3 text-xs text-slate-600">{e.ville}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{e._count?.liensBeneficiaires ?? '—'}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-900">
-                    {fmtXOF(e.wallet?.solde || 0)}
+                    {fmt(e.wallet?.solde || 0)}
                   </td>
                   <td className="px-4 py-3">
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-medium', st.cls)}>{st.label}</span>
@@ -198,6 +195,7 @@ function EntrepriseDrawer({
   const [rejetModal, setRejetModal] = useState<{ docId: string; label: string } | null>(null);
   const [motif, setMotif] = useState('');
   const [motifErr, setMotifErr] = useState('');
+  const [confirmModal, setConfirmModal] = useState<{ titre: string; message: string; onConfirmer: () => void } | null>(null);
 
   const { data: ent, isLoading: entLoading } = useQuery<EntrepriseRow>({
     queryKey: ['admin-entreprise-detail', entrepriseId],
@@ -309,11 +307,11 @@ function EntrepriseDrawer({
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-[10px] text-white/40 mb-0.5">Solde wallet</div>
-                        <div className="font-mono text-lg font-medium">{fmtXOF(ent.wallet?.solde || 0)}</div>
+                        <div className="font-mono text-lg font-medium">{fmt(ent.wallet?.solde || 0)}</div>
                       </div>
                       <div className="text-right">
                         <div className="text-[10px] text-white/40 mb-0.5">Réservé</div>
-                        <div className="font-mono text-sm text-amber-300">{fmtXOF(ent.wallet?.solde_reserve || 0)}</div>
+                        <div className="font-mono text-sm text-amber-300">{fmt(ent.wallet?.solde_reserve || 0)}</div>
                       </div>
                       <Wallet size={20} className="text-white/20" />
                     </div>
@@ -461,8 +459,11 @@ function EntrepriseDrawer({
                             <button
                               onClick={() => {
                                 const action = isBloque ? 'Réactiver' : 'Bloquer';
-                                if (confirm(`${action} le compte de ${m.user.prenom} ${m.user.nom} ?`))
-                                  toggleStatutMut.mutate(m.user.id);
+                                setConfirmModal({
+                                  titre: `${action} le compte`,
+                                  message: `Voulez-vous ${action.toLowerCase()} le compte de ${m.user.prenom} ${m.user.nom} ?`,
+                                  onConfirmer: () => toggleStatutMut.mutate(m.user.id),
+                                });
                               }}
                               disabled={toggleStatutMut.isPending}
                               className={clsx(
@@ -516,7 +517,11 @@ function EntrepriseDrawer({
 
                   {ent.statut !== 'SUSPENDU' && (
                     <button
-                      onClick={() => { if (confirm(`Suspendre ${ent.nom} ?`)) suspendMut.mutate(); }}
+                      onClick={() => setConfirmModal({
+                        titre: 'Suspendre l\'entreprise',
+                        message: `Voulez-vous vraiment suspendre ${ent.nom} ? Ses employés ne pourront plus effectuer de transactions.`,
+                        onConfirmer: () => suspendMut.mutate(),
+                      })}
                       disabled={suspendMut.isPending}
                       className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 text-sm font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
@@ -530,6 +535,16 @@ function EntrepriseDrawer({
           </div>
         </div>
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          titre={confirmModal.titre}
+          message={confirmModal.message}
+          danger
+          onConfirmer={() => { confirmModal.onConfirmer(); setConfirmModal(null); }}
+          onAnnuler={() => setConfirmModal(null)}
+        />
+      )}
 
       {/* Modale rejet */}
       {rejetModal && (

@@ -1,0 +1,127 @@
+databases:
+  - name: tikexo-db
+    databaseName: tikexo_prod
+    user: tikexo
+    plan: free
+    region: oregon
+
+services:
+  - type: redis
+    name: tikexo-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+
+  - type: web
+    name: tikexo-backend
+    runtime: node
+    region: oregon
+    rootDir: backend
+    buildCommand: npm ci && npx prisma generate
+    startCommand: npm run start:prod
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      # ── Serveur ────────────────────────────────────────────────────
+      - key: NODE_ENV
+        value: production
+
+      # ── Base de données (auto depuis tikexo-db) ────────────────────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tikexo-db
+          property: connectionString
+
+      # ── Redis (auto depuis tikexo-redis) ──────────────────────────
+      - key: REDIS_URL
+        fromService:
+          name: tikexo-redis
+          type: redis
+          property: connectionString
+
+      # ── JWT (générés automatiquement) ──────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # ── Sécurité cartes ────────────────────────────────────────────
+      - key: CARTE_PREFIXE
+        value: "4782"
+      - key: CARTE_QR_SECRET_KEY
+        generateValue: true
+      - key: CARTE_NFC_SECRET_KEY
+        generateValue: true
+      - key: CARTE_CVV_SECRET_KEY
+        generateValue: true
+      - key: CARTE_NFC_MONTANT_MAX
+        value: "5000"
+
+      # ── Règles métier ──────────────────────────────────────────────
+      - key: TIKEXO_COMMISSION_DEFAULT
+        value: "2.00"
+      - key: TIKEXO_COMMISSION_MENSUEL
+        value: "1.50"
+      - key: TIKEXO_PAYOUT_SEUIL_MINIMUM
+        value: "1000"
+      - key: TIKEXO_PAYOUT_CYCLE_HEURES
+        value: "72"
+      - key: TIKEXO_PLAFOND_JOURNALIER_DEFAULT
+        value: "10000"
+      - key: TIKEXO_PLAFOND_SIMPLIFIE_MENSUEL
+        value: "500000"
+
+      # ── À renseigner dans le dashboard Render (sync: false) ────────
+      - key: FRONTEND_URL
+        sync: false    # ex: https://tikexo.vercel.app ou https://app.tikexo.bj
+
+      - key: SMTP_HOST
+        sync: false    # smtp-relay.brevo.com
+      - key: SMTP_PORT
+        sync: false    # 587
+      - key: SMTP_USER
+        sync: false    # noreply@tikexo.bj
+      - key: SMTP_PASS
+        sync: false    # Clé SMTP Brevo
+
+      - key: FEDAPAY_SECRET_KEY
+        sync: false
+      - key: FEDAPAY_PUBLIC_KEY
+        sync: false
+      - key: FEDAPAY_WEBHOOK_SECRET
+        sync: false
+      - key: FEDAPAY_ENV
+        value: sandbox    # changer en "live" en production réelle
+
+      - key: SMS_API_KEY
+        sync: false       # Africa's Talking
+      - key: SMS_USERNAME
+        sync: false       # votre username AT (pas "sandbox")
+
+      # ── Cloudflare R2 (documents KYB) ─────────────────────────────
+      - key: S3_ENDPOINT
+        sync: false    # https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false    # tikexo-documents
+      - key: S3_REGION
+        value: auto
+      - key: S3_PUBLIC_URL
+        sync: false    # URL publique R2 (ex: https://pub-xxx.r2.dev ou domaine custom) — optionnel
+
+      # ── Optionnel ──────────────────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false

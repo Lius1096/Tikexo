@@ -1,6 +1,7 @@
 // Contrôleur FedaPay TIKEXO — zéro logique métier
 const service = require('./fedapay.service');
 const prisma = require('../../config/database');
+const { webhookQueue, payoutQueue } = require('../../queues/index');
 
 async function creerCollecte(req, res, next) {
   try {
@@ -10,18 +11,29 @@ async function creerCollecte(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Répond 200 immédiatement à FedaPay — traitement asynchrone en queue
 async function traiterWebhook(req, res, next) {
   try {
     const signature = req.headers['x-fedapay-signature'] || '';
-    const data = await service.traiterWebhook(prisma, { payload: req.body, signature });
-    res.json({ success: true, data });
+    const rawBody   = req.rawBody?.toString('utf8') || '';
+    await webhookQueue.add('fedapay-webhook', {
+      payload: req.body,
+      rawBody,
+      signature,
+    }, {
+      jobId: `webhook-${req.body?.transaction?.id || Date.now()}`, // déduplique les doublons
+    });
+    res.status(200).json({ success: true, queued: true });
   } catch (e) { next(e); }
 }
 
+// Payout manuel → en queue avec priorité normale
 async function declencherPayout(req, res, next) {
   try {
-    const data = await service.declencherPayout(prisma, req.params.commercantId);
-    res.json({ success: true, data });
+    const job = await payoutQueue.add('payout-manuel', {
+      commercantId: req.params.commercantId,
+    });
+    res.json({ success: true, data: { jobId: job.id, statut: 'EN_QUEUE' } });
   } catch (e) { next(e); }
 }
 

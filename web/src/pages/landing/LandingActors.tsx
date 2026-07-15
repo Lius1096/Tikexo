@@ -1,74 +1,97 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Building2, User, UtensilsCrossed, LogIn } from 'lucide-react';
 
-function CheckIcon() {
-  return <i className="ti ti-check" style={{ color: '#0EA5E9', fontSize: '13px', flexShrink: 0, marginTop: '1px' }} aria-hidden="true"></i>;
-}
+const ASSETS = import.meta.env.VITE_ASSETS_URL || 'http://localhost:9000/tikexo-documents';
+
+const Dot = () => (
+  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#0EA5E9', margin: '0 8px', verticalAlign: 'middle' }} />
+);
+
+const ACTORS: {
+  img: string; imgAlt: string; accentFrom: string; accentTo: string; dotColor: string;
+  Icon: React.FC<{ size?: number; color?: string }>;
+  name: string; role: string; tag: string; tagBg: string; tagColor: string;
+  loginHref: string; loginLabel: string; features: string[];
+}[] = [
+  {
+    img: `${ASSETS}/landing/actor-1.jpg`, imgAlt: 'Équipe RH en réunion',
+    accentFrom: '#1A3C5E', accentTo: '#0EA5E9', dotColor: '#0EA5E9',
+    Icon: Building2,
+    name: 'Employeur', role: 'Direction RH / Finance', tag: 'Portail web',
+    tagBg: 'rgba(14,165,233,0.08)', tagColor: '#0EA5E9',
+    loginHref: '/entreprise/connexion', loginLabel: 'Accéder au portail RH',
+    features: ['Rechargement wallet en 1 clic via Mobile Money', 'Dotation automatique par niveau hiérarchique', 'Dashboard temps réel : dépenses, soldes, historique', 'Exports comptables et factures PDF mensuelles', 'Gestion des membres RH avec permissions granulaires'],
+  },
+  {
+    img: `${ASSETS}/landing/actor-2.jpg`, imgAlt: 'Salariés au déjeuner',
+    accentFrom: '#065F46', accentTo: '#34d399', dotColor: '#34d399',
+    Icon: User,
+    name: 'Salarié bénéficiaire', role: 'Application mobile & web', tag: 'App mobile',
+    tagBg: 'rgba(52,211,153,0.10)', tagColor: '#059669',
+    loginHref: '/login', loginLabel: 'Accéder à mon wallet',
+    features: ['Wallet personnel rechargé automatiquement chaque mois', 'Paiement QR code en moins de 5 secondes', 'Solde et historique consultables à tout moment', 'Réseau de 142 restaurants partenaires à Cotonou', 'Aucune carte physique, aucun ticket papier'],
+  },
+  {
+    img: `${ASSETS}/landing/actor-3.jpg`, imgAlt: 'Commerçante partenaire TIKEXO',
+    accentFrom: '#78350F', accentTo: '#F59E0B', dotColor: '#F59E0B',
+    Icon: UtensilsCrossed,
+    name: 'Commerçant partenaire', role: 'Caisse numérique TIKEXO', tag: 'Caisse TIKEXO',
+    tagBg: 'rgba(245,158,11,0.10)', tagColor: '#B45309',
+    loginHref: '/restaurant/connexion', loginLabel: 'Accéder à ma caisse',
+    features: ['QR code statique ou montant prédéfini par transaction', 'Paiements validés instantanément, sans lecteur de carte', 'Reversement Mobile Money hebdomadaire automatique', "Historique des encaissements TIKEXO en temps réel", 'Commission réduite vs transactions Mobile Money classiques'],
+  },
+];
 
 export default function LandingActors() {
+  const navigate = useNavigate();
   return (
-    <section className="section">
-      <div className="section-header">
-        <div className="section-eyebrow">LES ACTEURS</div>
-        <h2 className="section-title">Une plateforme,<br /><strong>trois interfaces dédiées</strong></h2>
-        <p className="section-sub">Chaque acteur a exactement ce dont il a besoin, rien de plus. L'employeur gère, le salarié consomme, le commerçant encaisse.</p>
+    <section className="section actors-section">
+      <div className="section-header center">
+        <div className="section-eyebrow">LA PLATEFORME</div>
+        <h2 className="section-title">
+          Une solution pour chacun <Dot />
+          <br /><strong>trois rôles, un seul écosystème.</strong>
+        </h2>
+        <p className="section-sub">
+          TIKEXO connecte employeurs, salariés et commerçants dans un système unifié où chaque partie y trouve son compte.
+        </p>
       </div>
+
       <div className="actors-grid">
-        <div className="actor-card">
-          <div className="actor-header">
-            <div className="actor-avatar" style={{ background: '#DBEAFE' }}>
-              <i className="ti ti-building" style={{ color: '#185FA5', fontSize: '19px' }} aria-hidden="true"></i>
+        {ACTORS.map((a) => (
+          <div key={a.name} className="actor-card">
+            <div className="actor-accent" style={{ background: `linear-gradient(90deg, ${a.accentFrom}, ${a.accentTo})` }} />
+            <div className="actor-img-wrap">
+              <img src={a.img} alt={a.imgAlt} className="actor-card-img" loading="lazy" />
+              <div className="actor-img-gradient" />
+              <span className="actor-img-tag" style={{ background: a.tagBg, color: a.tagColor, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <a.Icon size={11} />
+                {a.tag}
+              </span>
             </div>
-            <div>
-              <div className="actor-name">Employeur</div>
-              <div className="actor-role">Portail web RH</div>
+            <div className="actor-card-header">
+              <div>
+                <div className="actor-name">{a.name}</div>
+                <div className="actor-role">{a.role}</div>
+              </div>
             </div>
-          </div>
-          <div className="actor-features">
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Wallet entreprise + rechargement Mobile Money</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Gestion salariés par niveau hiérarchique</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Dotations automatiques ou manuelles</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Acompte configurable 0% à 100%</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Exports comptables + factures mensuelles</div></div>
-          </div>
-        </div>
-
-        <div className="actor-card" style={{ borderColor: '#1A3C5E' }}>
-          <div className="actor-header">
-            <div className="actor-avatar" style={{ background: '#DBEAFE' }}>
-              <i className="ti ti-user" style={{ color: '#185FA5', fontSize: '19px' }} aria-hidden="true"></i>
-            </div>
-            <div>
-              <div className="actor-name">Salarié bénéficiaire</div>
-              <div className="actor-role">App mobile iOS & Android</div>
-            </div>
-          </div>
-          <div className="actor-features">
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Solde en temps réel après chaque transaction</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Paiement QR code chez les commerçants</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Carte virtuelle NFC + carte physique</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Carte interactive des restaurants partenaires</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Wallet portable entre employeurs</div></div>
-          </div>
-        </div>
-
-        <div className="actor-card">
-          <div className="actor-header">
-            <div className="actor-avatar" style={{ background: '#EAF3DE' }}>
-              <i className="ti ti-tools-kitchen-2" style={{ color: '#3B6D11', fontSize: '19px' }} aria-hidden="true"></i>
-            </div>
-            <div>
-              <div className="actor-name">Commerçant partenaire</div>
-              <div className="actor-role">App mobile caisse</div>
+            <ul className="actor-features">
+              {a.features.map((f) => (
+                <li key={f} className="actor-feat">
+                  <span className="actor-feat-dot" style={{ background: a.dotColor }} />
+                  <span className="actor-feat-text">{f}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="actor-card-footer">
+              <button className="actor-login-btn" style={{ borderColor: a.accentTo, color: a.accentTo, display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => navigate(a.loginHref)}>
+                <LogIn size={13} />
+                {a.loginLabel}
+              </button>
             </div>
           </div>
-          <div className="actor-features">
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">QR code unique affiché en caisse</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Wallet du jour + reversement 72h</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Historique transactions en temps réel</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Visible sur la carte bénéficiaires TIKEXO</div></div>
-            <div className="actor-feat"><CheckIcon /><div className="actor-feat-text">Commission déduite automatiquement</div></div>
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   );

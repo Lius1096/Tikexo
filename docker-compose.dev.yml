@@ -6,7 +6,7 @@ services:
     image: postgres:16-alpine
     container_name: tikexo_postgres_dev
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: tikexo_dev
       POSTGRES_USER: tikexo
@@ -21,16 +21,33 @@ services:
     networks:
       - tikexo-network-dev
 
+  redis:
+    image: redis:7-alpine
+    container_name: tikexo_redis_dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - tikexo_redis_dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - tikexo-network-dev
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
       target: development
     container_name: tikexo_backend_dev
+    restart: unless-stopped
     ports:
       - "3001:3001"
     environment:
       DATABASE_URL: postgresql://tikexo:tikexo_dev_password@postgres:5432/tikexo_dev
+      REDIS_URL: redis://redis:6379
       NODE_ENV: development
     env_file:
       - ./backend/.env
@@ -40,7 +57,29 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     command: ["sh", "-c", "npx prisma db push --accept-data-loss && npm run dev"]
+    networks:
+      - tikexo-network-dev
+
+  minio:
+    image: minio/minio:latest
+    container_name: tikexo_minio_dev
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Console web
+    environment:
+      MINIO_ROOT_USER: tikexo
+      MINIO_ROOT_PASSWORD: tikexo_dev_secret
+    volumes:
+      - ./minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     networks:
       - tikexo-network-dev
 
@@ -53,7 +92,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://backend:3001
+      VITE_API_URL: http://host.docker.internal:3001
+      VITE_ASSETS_URL: http://localhost:9000/tikexo-documents
     volumes:
       - ./web/src:/app/src
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
@@ -62,6 +102,8 @@ services:
 
 volumes:
   tikexo_pgdata_dev:
+    driver: local
+  tikexo_redis_dev:
     driver: local
 
 networks:

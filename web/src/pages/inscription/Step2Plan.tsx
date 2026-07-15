@@ -1,4 +1,5 @@
 import React from 'react';
+import { ArrowLeft, ArrowRight, Check, Info } from 'lucide-react';
 import StepsBar from './StepsBar';
 import { PLANS, PLAN_FEATURES, type Plan, type InscriptionData } from './types';
 
@@ -23,7 +24,7 @@ export default function Step2Plan({ data, onChange, onNext, onBack }: Props) {
       <div className="mnav">
         <span className="mnav-logo">TIKEXO</span>
         <div className="mnav-back" onClick={onBack}>
-          <i className="ti ti-arrow-left" aria-hidden="true"></i> Modifier les infos
+          <ArrowLeft size={13} /> Modifier les infos
         </div>
       </div>
       <div style={{ padding: '24px' }}>
@@ -58,21 +59,21 @@ export default function Step2Plan({ data, onChange, onNext, onBack }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
             {PLAN_FEATURES[plan].map((f) => (
               <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#475569' }}>
-                <i className="ti ti-check" style={{ color: '#0EA5E9', fontSize: '13px' }} aria-hidden="true"></i> {f}
+                <Check size={13} color="#0EA5E9" strokeWidth={2.5} /> {f}
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ background: '#DBEAFE', border: '0.5px solid #B5D4F4', borderRadius: '8px', padding: '10px 12px', marginBottom: '16px', display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-          <i className="ti ti-info-circle" style={{ fontSize: '15px', color: '#185FA5', flexShrink: 0, marginTop: '1px' }} aria-hidden="true"></i>
+          <Info size={15} color="#185FA5" style={{ flexShrink: 0, marginTop: 1 }} />
           <div style={{ fontSize: '11px', color: '#0C447C', lineHeight: 1.5 }}>
             L'abonnement mensuel ({PLAN_PRIX[plan]} XOF) sera prélevé automatiquement via Mobile Money à chaque renouvellement. Résiliable à tout moment.
           </div>
         </div>
 
         <button className="btn-primary" onClick={onNext}>
-          <i className="ti ti-arrow-right" aria-hidden="true"></i> Continuer — Premier rechargement
+          <ArrowRight size={15} /> Continuer — Documents KYB
         </button>
       </div>
     </div>

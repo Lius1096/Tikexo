@@ -63,6 +63,7 @@ desktop.ini
 # ── Docker ───────────────────────────────────────────────────────────────────
 # Les volumes locaux ne doivent pas être commités
 tikexo_pgdata_dev/
+minio-data/
 
 # ── Traefik ──────────────────────────────────────────────────────────────────
 # Certificat ACME généré automatiquement — ne pas commiter

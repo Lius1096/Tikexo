@@ -6,6 +6,7 @@ const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 const ctrl = require('./kyb.controller');
 const { authentifier, autoriser } = require('../../middlewares/auth');
+const { s3UploadMiddleware } = require('../../config/s3');
 
 // Stockage local (dev) — remplacer par Cloudinary en prod
 const storage = multer.diskStorage({
@@ -33,7 +34,7 @@ router.use(authentifier);
 
 // Routes entreprise
 router.get('/dossier', ctrl.getDossier);
-router.post('/documents', upload.single('fichier'), ctrl.uploadDocument);
+router.post('/documents', upload.single('fichier'), s3UploadMiddleware('kyb'), ctrl.uploadDocument);
 
 // Routes admin
 router.get('/admin/dossiers', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.listerDossiers);

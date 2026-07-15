@@ -49,6 +49,120 @@ L'API est disponible sur `http://localhost:3000`, le frontend sur `http://localh
 
 ---
 
+## Adresses email tikexo.bj
+
+### Envois automatiques (le système envoie depuis ces adresses)
+
+| Adresse | Rôle | Utilisé pour |
+|---|---|---|
+| `noreply@tikexo.bj` | Expéditeur principal | OTP, PIN reset, dotations reçues, mutations, KYB |
+| `hello@tikexo.bj` | Onboarding | Bienvenue bénéficiaire, bienvenue entreprise |
+| `facturation@tikexo.bj` | Finance | Factures mensuelles, confirmations de rechargement wallet |
+
+### Boîtes de réception (les utilisateurs écrivent à TIKEXO)
+
+| Adresse | Rôle |
+|---|---|
+| `support@tikexo.bj` | Support utilisateurs — bénéficiaires, employeurs, commerçants |
+| `kyb@tikexo.bj` | Envoi de documents KYB, dossiers entreprise |
+| `contact@tikexo.bj` | Contact général, formulaire landing page |
+| `partenaires@tikexo.bj` | Intégration commerçants, partenariats |
+
+### Boîtes internes TIKEXO
+
+| Adresse | Rôle |
+|---|---|
+| `ops@tikexo.bj` | Alertes système — mutations détectées, incidents, fraudes |
+| `tech@tikexo.bj` | Alertes serveur, erreurs critiques, CI/CD |
+
+### Mapping code → sender
+
+| Événement | Expéditeur | Destinataire |
+|---|---|---|
+| PIN oublié | `noreply@tikexo.bj` | `email_perso` de l'utilisateur |
+| Bienvenue bénéficiaire | `hello@tikexo.bj` | `email_pro` du bénéficiaire |
+| Bienvenue nouvelle entreprise | `hello@tikexo.bj` | Email de l'ADMIN_RH |
+| KYB approuvé | `noreply@tikexo.bj` | Email de l'ADMIN_RH |
+| KYB rejeté | `noreply@tikexo.bj` | Email de l'ADMIN_RH (reply-to : `kyb@tikexo.bj`) |
+| Dotation distribuée | `noreply@tikexo.bj` | `email_pro` du bénéficiaire |
+| Mutation traitée | `hello@tikexo.bj` | `email_pro` du bénéficiaire |
+| Rechargement wallet confirmé | `facturation@tikexo.bj` | Email de l'ADMIN_RH |
+| Alerte interne (fraude, incident) | `ops@tikexo.bj` | `ops@tikexo.bj` |
+
+> **SMTP** : un seul compte `noreply@tikexo.bj` suffit avec Brevo — le domaine `tikexo.bj` est vérifié une fois et tous les expéditeurs `@tikexo.bj` fonctionnent avec les mêmes identifiants SMTP.
+
+### Configuration SMTP Brevo — étapes
+
+**1. Créer le compte**
+- Aller sur [brevo.com](https://brevo.com) → créer un compte gratuit
+
+**2. Vérifier le domaine tikexo.bj**
+- Settings → **Senders & IPs** → **Domains** → Add a domain → entrer `tikexo.bj`
+- Brevo génère 3 enregistrements DNS à ajouter chez votre registrar (OVH, Gandi, etc.) :
+  - `TXT` — vérification de propriété du domaine
+  - `TXT` — clé DKIM (signature des emails)
+  - `CNAME` — suivi des clics/ouvertures (optionnel)
+- Cliquer **Verify** après avoir ajouté les enregistrements (propagation : 5–30 min)
+
+**3. Récupérer la clé SMTP**
+- Settings → **SMTP & API** → onglet **SMTP** → copier le mot de passe SMTP
+- Ce mot de passe est différent de celui du compte Brevo
+
+**4. Remplir le `.env`**
+```env
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USER=noreply@tikexo.bj
+SMTP_PASS=<clé SMTP copiée à l'étape 3>
+```
+
+**5. Créer les boîtes de réception** (hors Brevo — via votre hébergeur de domaine)
+
+Les boîtes suivantes doivent exister sur votre serveur mail (OVH, Google Workspace, Zoho, etc.) pour recevoir les réponses des utilisateurs :
+
+| Boîte à créer | Usage |
+|---|---|
+| `support@tikexo.bj` | Réponses utilisateurs |
+| `kyb@tikexo.bj` | Documents KYB entreprises |
+| `contact@tikexo.bj` | Formulaire landing page |
+| `partenaires@tikexo.bj` | Commerçants, partenariats |
+| `ops@tikexo.bj` | Alertes internes |
+| `tech@tikexo.bj` | Alertes serveur |
+| `facturation@tikexo.bj` | Questions facturation |
+
+> Les boîtes d'envoi (`noreply`, `hello`, `facturation`) n'ont pas besoin d'exister comme vraies boîtes — Brevo envoie en leur nom via le domaine vérifié.
+
+### Configuration SMS Africa's Talking — étapes
+
+**1. Créer le compte**
+- Aller sur [account.africastalking.com/auth/register](https://account.africastalking.com/auth/register)
+- Choisir un username (ex: `tikexo`) — ce sera votre `SMS_USERNAME` en production
+- Vérifier l'email
+
+**2. Récupérer la clé API**
+- Dashboard → **Settings** → **API Key** → **Generate**
+- Copier la clé générée
+
+**3. Remplir le `.env`**
+```env
+SMS_API_KEY=<clé copiée à l'étape 2>
+SMS_USERNAME=sandbox    # en développement
+# SMS_USERNAME=tikexo   # en production (votre username AT)
+```
+
+**4. Tester en sandbox**
+- En mode `sandbox`, les SMS n'arrivent pas sur un vrai téléphone
+- Les codes OTP s'affichent dans le simulateur : Dashboard → **Sandbox** → **SMS Simulator**
+- En développement, les codes s'affichent aussi directement dans les logs du backend (`console.log`)
+
+**5. Passer en production**
+- Dashboard → **Settings** → soumettre une demande de validation du compte
+- Africa's Talking demande : pièce d'identité + description du cas d'usage
+- Une fois validé, remplacer `SMS_USERNAME=sandbox` par `SMS_USERNAME=tikexo` dans `.env`
+- Coût : ~0,04 $/SMS au Bénin (MTN + Moov couverts)
+
+---
+
 ## Architecture
 
 ```
@@ -168,3 +282,18 @@ Salarié — remboursement au départ
 ## Licence
 
 Propriétaire — TIKEXO SAS, Cotonou, Bénin.
+
+
+# commande pr lancer le contenaire
+
+docker start tikexo_postgres_dev
+docker start tikexo_backend_dev
+docker start tikexo_web_dev
+
+# arreter tout
+
+docker stop tikexo_backend_dev tikexo_web_dev tikexo_postgres_dev
+
+# voir si tout tourne
+
+docker ps

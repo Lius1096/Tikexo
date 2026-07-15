@@ -1,5 +1,4 @@
 export type Plan = 'Starter' | 'Growth' | 'Business';
-export type Operateur = 'MTN' | 'MOOV' | 'CELTIS';
 
 export interface InscriptionData {
   entreprise: {
@@ -16,21 +15,18 @@ export interface InscriptionData {
     nom: string;
     telephone: string;
     email_rh: string;
+    mot_de_passe: string;
+    confirmer_mot_de_passe: string;
   };
   plan: Plan;
   cgu: boolean;
-  recharge: {
-    montant: string;
-    operateur: Operateur | null;
-  };
 }
 
 export const DEFAULT_DATA: InscriptionData = {
   entreprise: { nom: '', nif: '', rccm: '', secteur: '', adresse: '', ville: '', nb_salaries: '' },
-  admin: { prenom: '', nom: '', telephone: '', email_rh: '' },
+  admin: { prenom: '', nom: '', telephone: '', email_rh: '', mot_de_passe: '', confirmer_mot_de_passe: '' },
   plan: 'Growth',
   cgu: false,
-  recharge: { montant: '', operateur: 'MTN' },
 };
 
 export const PLANS: Record<Plan, { prix: number; commission: string; salaries: string; populaire?: boolean }> = {

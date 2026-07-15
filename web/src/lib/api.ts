@@ -1,23 +1,23 @@
 import axios from 'axios';
 
+// En production (Vercel), VITE_API_URL pointe vers le backend Render.
+// En dev, on utilise le proxy Vite (baseURL relative).
+const BASE_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  : '/api/v1';
+
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 });
 
-// Attach JWT
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('tikexo_access_token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// Auto-refresh on 401
+// Auto-refresh on 401 — le cookie tikexo_refresh est envoyé automatiquement
 let isRefreshing = false;
-let queue: Array<{ resolve: (t: string) => void; reject: (e: unknown) => void }> = [];
+let queue: Array<{ resolve: () => void; reject: (e: unknown) => void }> = [];
 
-function flush(err: unknown, token: string | null) {
-  queue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve(token!)));
+function flush(err: unknown) {
+  queue.forEach(({ resolve, reject }) => (err ? reject(err) : resolve()));
   queue = [];
 }
 
@@ -25,38 +25,38 @@ api.interceptors.response.use(
   (r) => r,
   async (error) => {
     const original = error.config;
-    if (error.response?.status !== 401 || original._retry) return Promise.reject(error);
 
-    const refreshToken = localStorage.getItem('tikexo_refresh_token');
-    if (!refreshToken) {
-      localStorage.clear();
-      window.location.href = '/login';
+    // Ne pas retry : la route refresh elle-même, la sonde de session /auth/profil,
+    // et /auth/pin/statut (appelée avant login — utilisateur non authentifié par définition)
+    if (
+      error.response?.status !== 401 ||
+      original._retry ||
+      original.url?.includes('/auth/refresh') ||
+      original.url?.includes('/auth/profil') ||
+      original.url?.includes('/auth/pin/statut') ||
+      original.url?.includes('/auth/login')
+    ) {
       return Promise.reject(error);
     }
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
-        queue.push({
-          resolve: (t) => { original.headers.Authorization = `Bearer ${t}`; resolve(api(original)); },
-          reject,
-        });
+        queue.push({ resolve: () => resolve(api(original)), reject });
       });
     }
 
     original._retry = true;
     isRefreshing = true;
+
     try {
-      const { data } = await axios.post('/api/v1/auth/refresh', { refreshToken });
-      const { accessToken: at, refreshToken: rt } = data.data;
-      localStorage.setItem('tikexo_access_token', at);
-      localStorage.setItem('tikexo_refresh_token', rt);
-      flush(null, at);
-      original.headers.Authorization = `Bearer ${at}`;
+      // Le cookie tikexo_refresh est envoyé automatiquement via withCredentials
+      await api.post('/auth/refresh');
+      flush(null);
       return api(original);
     } catch (e) {
-      flush(e, null);
-      localStorage.clear();
-      window.location.href = '/login';
+      flush(e);
+      // Émettre un événement global — AuthContext l'écoute et déconnecte proprement
+      window.dispatchEvent(new CustomEvent('tikexo:session-expired'));
       return Promise.reject(e);
     } finally {
       isRefreshing = false;

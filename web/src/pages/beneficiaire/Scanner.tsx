@@ -7,6 +7,7 @@ import {
   AlertTriangle, Camera, CameraOff, ChevronDown,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { fmt } from '../../utils/format';
 
 type Step = 'scan' | 'confirm' | 'success' | 'error';
 
@@ -36,9 +37,6 @@ function labelCamera(label: string, idx: number): string {
   if (l.includes('front') || l.includes('frontale') || l.includes('user')) return `Caméra frontale`;
   return label.length > 30 ? label.slice(0, 30) + '…' : label;
 }
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'XOF', maximumFractionDigits: 0 }).format(n);
 
 export default function BeneficiaireScanner() {
   const qc = useQueryClient();

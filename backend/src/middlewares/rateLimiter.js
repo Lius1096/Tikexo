@@ -9,14 +9,32 @@ const repondreRateLimit = (req, res) => {
   });
 };
 
-// Limite générale : 100 req/min par token
+// Clé réelle : X-Forwarded-For (derrière Traefik/proxy) ou IP directe
+function realIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  return forwarded ? forwarded.split(',')[0].trim() : req.ip;
+}
+
+// Limite générale : 300 req/min par IP réelle
+// /auth/profil est exempté — appelé à chaque chargement de page (vérif session)
 const limiterGeneral = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: process.env.NODE_ENV === 'production' ? 300 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
   handler: repondreRateLimit,
-  keyGenerator: (req) => req.user?.id || req.ip,
+  keyGenerator: realIp,
+  skip: (req) => req.path === '/v1/auth/profil',
+});
+
+// Limite profil : vérification de session — 600 req/min par IP (10/sec)
+const limiterProfil = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 600 : 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: repondreRateLimit,
+  keyGenerator: realIp,
 });
 
 // Limite OTP : 10/heure en prod, illimité en dev
@@ -59,6 +77,7 @@ const limiterWebhook = rateLimit({
 
 module.exports = {
   limiterGeneral,
+  limiterProfil,
   limiterOtp,
   limiterLogin,
   limiterTransaction,

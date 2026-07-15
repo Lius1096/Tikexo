@@ -1,6 +1,7 @@
 // Seed TIKEXO : super admin + wallet PLATEFORME + données de test
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
+const carteUtils = require('../src/utils/carte');
 
 const prisma = new PrismaClient();
 
@@ -22,16 +23,19 @@ async function main() {
   console.log('✅ Wallet PLATEFORME créé :', walletPlateforme.id);
 
   // Super Admin TIKEXO
-  const pinHash = await bcrypt.hash('123456', 12);
+  const pinHash = await bcrypt.hash('1234', 12);
+  const passwordHash = await bcrypt.hash('Tikexo@2025!', 12);
+
   const superAdmin = await prisma.user.upsert({
-    where: { telephone: '+22997000000' },
-    update: {},
+    where: { telephone: '+2290197000000' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22997000000',
+      telephone: '+2290197000000',
       nom: 'TIKEXO',
       prenom: 'Admin',
       email_perso: 'admin@tikexo.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'SUPER_ADMIN',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -41,14 +45,15 @@ async function main() {
 
   // Admin OPS
   const adminOps = await prisma.user.upsert({
-    where: { telephone: '+22997000001' },
-    update: {},
+    where: { telephone: '+2290197000001' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22997000001',
+      telephone: '+2290197000001',
       nom: 'TIKEXO',
       prenom: 'Ops',
       email_perso: 'ops@tikexo.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'ADMIN_OPS',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -68,7 +73,7 @@ async function main() {
       adresse: 'Avenue Jean Paul II, Cotonou',
       ville: 'Cotonou',
       email_rh: 'rh@demo.bj',
-      telephone_rh: '+22997111111',
+      telephone_rh: '+2290197111111',
       statut: 'ACTIF',
       kyb_valide: true,
       taux_commission_defaut: 2.00,
@@ -92,15 +97,16 @@ async function main() {
 
   // Admin RH de l'entreprise démo
   const adminRH = await prisma.user.upsert({
-    where: { telephone: '+22997222222' },
-    update: {},
+    where: { telephone: '+2290197222222' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22997222222',
+      telephone: '+2290197222222',
       nom: 'Kpossou',
       prenom: 'Jean',
       email_perso: 'jean.kpossou@gmail.com',
       email_pro: 'jean.kpossou@demo.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'ADMIN_RH',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -124,15 +130,16 @@ async function main() {
 
   // Bénéficiaire de démonstration
   const beneficiaireDemo = await prisma.user.upsert({
-    where: { telephone: '+22997333333' },
-    update: {},
+    where: { telephone: '+2290197333333' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22997333333',
+      telephone: '+2290197333333',
       nom: 'Ahouanmenou',
       prenom: 'Marie',
       email_perso: 'marie.ahouanmenou@gmail.com',
       email_pro: 'marie.ahouanmenou@demo.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'BENEFICIAIRE',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -155,7 +162,19 @@ async function main() {
   });
   console.log('✅ Wallet bénéficiaire démo créé :', walletBenef.id);
 
-  // Lien adminRH → entreprise (permet à l'ADMIN_RH de connaître son entrepriseId)
+  // EntrepriseAdmin : lien RH officiel (utilisé par le middleware auth pour req.user.entrepriseId)
+  await prisma.entrepriseAdmin.upsert({
+    where: { user_id: adminRH.id },
+    update: {},
+    create: {
+      entreprise_id: entrepriseDemo.id,
+      user_id: adminRH.id,
+      role: 'ADMIN_RH',
+    },
+  });
+  console.log('✅ EntrepriseAdmin adminRH créé');
+
+  // Lien adminRH → entreprise en tant que bénéficiaire (Directeur qui perçoit aussi des titres-repas)
   await prisma.lienEntrepriseBeneficiaire.upsert({
     where: {
       entreprise_id_user_id_statut: {
@@ -209,7 +228,7 @@ async function main() {
       adresse: 'Zone Industrielle de Glo-Djigbé',
       ville: 'Abomey-Calavi',
       email_rh: 'rh@benintech.bj',
-      telephone_rh: '+22996111000',
+      telephone_rh: '+2290196111000',
       statut: 'ACTIF',
       kyb_valide: true,
       taux_commission_defaut: 2.00,
@@ -231,15 +250,16 @@ async function main() {
 
   // ── Employeur 2 (GESTIONNAIRE_RH → BéninTech) ─────────────────────────────
   const gestionnaireRH = await prisma.user.upsert({
-    where: { telephone: '+22996555555' },
-    update: {},
+    where: { telephone: '+2290196555555' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22996555555',
+      telephone: '+2290196555555',
       nom: 'Dossou',
       prenom: 'Sylvain',
       email_perso: 'sylvain.dossou@gmail.com',
       email_pro: 'sylvain.dossou@benintech.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'GESTIONNAIRE_RH',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -248,6 +268,19 @@ async function main() {
   });
   console.log('✅ Gestionnaire RH 2 créé :', gestionnaireRH.id);
 
+  // EntrepriseAdmin : lien RH officiel pour BéninTech
+  await prisma.entrepriseAdmin.upsert({
+    where: { user_id: gestionnaireRH.id },
+    update: {},
+    create: {
+      entreprise_id: entreprise2.id,
+      user_id: gestionnaireRH.id,
+      role: 'GESTIONNAIRE_RH',
+    },
+  });
+  console.log('✅ EntrepriseAdmin gestionnaireRH créé');
+
+  // Lien gestionnaireRH → entreprise2 en tant que bénéficiaire (Directeur)
   await prisma.lienEntrepriseBeneficiaire.upsert({
     where: {
       entreprise_id_user_id_statut: {
@@ -270,15 +303,16 @@ async function main() {
 
   // ── Bénéficiaire 2 (→ BéninTech) ─────────────────────────────────────────
   const beneficiaire2 = await prisma.user.upsert({
-    where: { telephone: '+22996666666' },
-    update: {},
+    where: { telephone: '+2290196666666' },
+    update: { mot_de_passe_hash: passwordHash },
     create: {
-      telephone: '+22996666666',
+      telephone: '+2290196666666',
       nom: 'Tossou',
       prenom: 'Rodrigue',
       email_perso: 'rodrigue.tossou@gmail.com',
       email_pro: 'rodrigue.tossou@benintech.bj',
       pin_hash: pinHash,
+      mot_de_passe_hash: passwordHash,
       role: 'BENEFICIAIRE',
       statut: 'ACTIF',
       kyc_niveau: 'ZERO',
@@ -319,6 +353,27 @@ async function main() {
   });
   console.log('✅ Lien bénéficiaire2 → entreprise2 créé');
 
+  // ── Cartes virtuelles pour les bénéficiaires ─────────────────────────────
+  for (const userId of [adminRH.id, beneficiaireDemo.id, gestionnaireRH.id, beneficiaire2.id]) {
+    const existante = await prisma.carteDigi.findFirst({ where: { user_id: userId, statut: 'ACTIVE' } });
+    if (!existante) {
+      const { hash, suffixe, numeroMasque } = await carteUtils.genererNumeroCarte(prisma);
+      await prisma.carteDigi.create({
+        data: {
+          user_id       : userId,
+          type          : 'VIRTUELLE',
+          numero_hash   : hash,
+          numero_masque : numeroMasque,
+          prefixe       : '4782',
+          suffixe,
+          date_expiration: carteUtils.genererDateExpiration(),
+          statut        : 'ACTIVE',
+        },
+      });
+      console.log(`✅ Carte virtuelle créée pour user ${userId}`);
+    }
+  }
+
   // ── LedgerEntry de démo (historique transactions) ────────────────────────
   // Wallets entreprises pour sourcer les dotations
   const walletEnt1 = await prisma.wallet.findUnique({ where: { entreprise_id: entrepriseDemo.id } });
@@ -346,7 +401,7 @@ async function main() {
   // ── Commerçants (4 au total) ───────────────────────────────────────────────
   const commercantsData = [
     {
-      telephone: '+22997444444',
+      telephone: '+2290197444444',
       nom: 'Restaurant Le Bon Repas',
       type: 'RESTAURANT',
       ifu: 'IFU-DEMO-001',
@@ -355,7 +410,7 @@ async function main() {
       solde: 45000,
     },
     {
-      telephone: '+22996777771',
+      telephone: '+2290196777771',
       nom: 'Café Central Cotonou',
       type: 'CAFETERIA',
       ifu: 'IFU-DEMO-002',
@@ -364,7 +419,7 @@ async function main() {
       solde: 12000,
     },
     {
-      telephone: '+22996777772',
+      telephone: '+2290196777772',
       nom: 'Traiteur Chez Tante Blandine',
       type: 'TRAITEUR',
       ifu: 'IFU-DEMO-003',
@@ -373,7 +428,7 @@ async function main() {
       solde: 28500,
     },
     {
-      telephone: '+22996777773',
+      telephone: '+2290196777773',
       nom: 'Supermarché Étoile du Bénin',
       type: 'SUPERMARCHE',
       ifu: 'IFU-DEMO-004',
@@ -386,13 +441,14 @@ async function main() {
   for (const c of commercantsData) {
     const uCommercant = await prisma.user.upsert({
       where: { telephone: c.telephone },
-      update: {},
+      update: { mot_de_passe_hash: passwordHash },
       create: {
         telephone: c.telephone,
         nom: c.nom,
         prenom: 'Gérant',
         email_perso: `contact@${c.ifu.toLowerCase().replace(/-/g, '')}.bj`,
         pin_hash: pinHash,
+        mot_de_passe_hash: passwordHash,
         role: 'COMMERCANT',
         statut: 'ACTIF',
         kyc_niveau: 'KYB',
@@ -432,17 +488,17 @@ async function main() {
 
   console.log('🎉 Seed TIKEXO terminé avec succès !');
   console.log('');
-  console.log('Comptes de test :');
-  console.log('  Super Admin      : +22997000000 / PIN: 123456');
-  console.log('  Admin OPS        : +22997000001 / PIN: 123456');
-  console.log('  Admin RH (démo)  : +22997222222 / PIN: 123456');
-  console.log('  Gestionnaire RH  : +22996555555 / PIN: 123456');
-  console.log('  Bénéficiaire 1   : +22997333333 / PIN: 123456');
-  console.log('  Bénéficiaire 2   : +22996666666 / PIN: 123456');
-  console.log('  Commerçant 1     : +22997444444 / PIN: 123456');
-  console.log('  Commerçant 2     : +22996777771 / PIN: 123456');
-  console.log('  Commerçant 3     : +22996777772 / PIN: 123456');
-  console.log('  Commerçant 4     : +22996777773 / PIN: 123456');
+  console.log('Comptes de test (email / mot de passe : Tikexo@2025!) :');
+  console.log('  Super Admin      : admin@tikexo.bj');
+  console.log('  Admin OPS        : ops@tikexo.bj');
+  console.log('  Admin RH (démo)  : jean.kpossou@gmail.com');
+  console.log('  Gestionnaire RH  : sylvain.dossou@gmail.com');
+  console.log('  Bénéficiaire 1   : marie.ahouanmenou@gmail.com');
+  console.log('  Bénéficiaire 2   : rodrigue.tossou@gmail.com');
+  console.log('  Commerçant 1     : contact@ifudemo001.bj');
+  console.log('  Commerçant 2     : contact@ifudemo002.bj');
+  console.log('  Commerçant 3     : contact@ifudemo003.bj');
+  console.log('  Commerçant 4     : contact@ifudemo004.bj');
 }
 
 main()

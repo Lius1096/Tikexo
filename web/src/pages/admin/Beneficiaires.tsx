@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import { Users, Building2, ChevronDown, Search, Wallet } from 'lucide-react';
 import api from '../../lib/api';
+import { fmt } from '../../utils/format';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface EntrepriseRow {
@@ -29,9 +30,6 @@ interface Beneficiaire {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
-const fmtXOF = (n: string | number) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-
 const NIVEAU_LABELS: Record<string, string> = {
   DIRECTEUR: 'Directeur', CADRE: 'Cadre', TECHNICIEN: 'Technicien', AGENT: 'Agent',
 };
@@ -166,7 +164,7 @@ function EnterpriseGroup({
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-1 font-mono text-[11px] text-slate-800">
                           <Wallet size={11} className="text-slate-400" />
-                          {fmtXOF(b.user.wallet?.solde || 0)}
+                          {fmt(b.user.wallet?.solde || 0)}
                         </div>
                       </td>
                       <td className="px-4 py-2.5">

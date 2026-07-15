@@ -7,6 +7,8 @@ import {
   Check, RefreshCw, ShieldX, TrendingUp, Store,
 } from 'lucide-react';
 import api from '../../lib/api';
+import { fmtCompact, fmtNum, fmtHeure } from '../../utils/format';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,18 +48,6 @@ interface FraudeAlerte {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const fmt = (n: number) =>
-  n >= 1_000_000
-    ? `${(n / 1_000_000).toFixed(1).replace('.', ',')} M XOF`
-    : n >= 1_000
-    ? `${(n / 1_000).toFixed(0)} K XOF`
-    : `${n} XOF`;
-
-const fmtNum = (n: number) => new Intl.NumberFormat('fr-FR').format(n);
-
-const fmtHeure = (iso: string) =>
-  new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
 const statutBadge: Record<string, string> = {
   ACTIF: 'bg-[#EAF3DE] text-[#3B6D11]',
@@ -100,12 +90,6 @@ const niveauStyle: Record<string, string> = {
   N1: 'bg-[#DBEAFE] text-[#185FA5]',
 };
 
-// ─── Skeleton ────────────────────────────────────────────────────────────────
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={clsx('bg-slate-100 animate-pulse rounded', className)} />;
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -146,8 +130,8 @@ export default function AdminDashboard() {
     ? [
         { label: 'Entreprises actives', value: fmtNum(stats.totalEntreprises), delta: 'actives ce mois' },
         { label: 'Bénéficiaires actifs', value: fmtNum(stats.totalBeneficiaires), delta: 'inscrits actifs' },
-        { label: 'Volume transactions (jour)', value: fmt(stats.volumeJour), delta: 'aujourd\'hui' },
-        { label: 'Revenus TIKEXO', value: fmt(stats.commissionsAccumulees), delta: 'commissions accum.', green: true },
+        { label: 'Volume transactions (jour)', value: fmtCompact(stats.volumeJour), delta: 'aujourd\'hui' },
+        { label: 'Revenus TIKEXO', value: fmtCompact(stats.commissionsAccumulees), delta: 'commissions accum.', green: true },
       ]
     : [];
 
@@ -210,7 +194,7 @@ export default function AdminDashboard() {
               : entreprises.map((e, idx) => {
                   const [bg, fg] = PALETTE[idx % PALETTE.length];
                   const initials = e.nom.slice(0, 2).toUpperCase();
-                  const vol = e.wallet?.solde ? fmt(parseFloat(e.wallet.solde)) : '—';
+                  const vol = e.wallet?.solde ? fmtCompact(parseFloat(e.wallet.solde)) : '—';
                   return (
                     <div key={e.id} className="flex items-center gap-2.5 py-2 border-b border-slate-100 last:border-0">
                       <div

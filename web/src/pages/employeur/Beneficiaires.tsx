@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { Users, X, Wallet, CalendarDays, ChevronRight, Plus, Phone, AlertCircle, LogOut } from 'lucide-react';
+import { Users, X, Wallet, CalendarDays, ChevronRight, Plus, Phone, AlertCircle, LogOut, RefreshCw } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { fmt, fmtDate } from '../../utils/format';
 
 const PALETTE = [
   ['#DBEAFE', '#185FA5'], ['#EAF3DE', '#3B6D11'],
@@ -26,11 +27,6 @@ const statutDotBadge: Record<string, string> = {
 const statutDotLabel: Record<string, string> = {
   CALCULE: 'À valider', VALIDE: 'Validé', DISTRIBUE: 'Distribué',
 };
-const fmtXOF = (n: number | string) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-const fmtDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
 interface BenefItem {
   id: string;
   niveau: string;
@@ -86,6 +82,8 @@ export default function EmployeurBeneficiaires() {
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<AjoutForm>(FORM_VIDE);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [utilisateurExistant, setUtilisateurExistant] = useState<{ id: string; nom: string; prenom: string } | null>(null);
+  const checkTelRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['beneficiaires-entreprise', entrepriseId],
@@ -119,7 +117,21 @@ export default function EmployeurBeneficiaires() {
       setErreur(null);
     },
     onError: (err: any) => {
-      setErreur(err?.response?.data?.message || 'Une erreur est survenue.');
+      const raw: string = err?.response?.data?.error || err?.response?.data?.message || '';
+      const status: number = err?.response?.status;
+      let msg = 'Une erreur inattendue est survenue. Veuillez réessayer.';
+      if (status === 409 || raw.toLowerCase().includes('déjà actif')) {
+        msg = 'Ce salarié est déjà enregistré et actif dans votre entreprise.';
+      } else if (raw.toLowerCase().includes('rôle') || raw.toLowerCase().includes('role')) {
+        msg = 'Ce numéro appartient à un compte non-salarié (RH, admin…). Il ne peut pas être ajouté comme bénéficiaire.';
+      } else if (status === 403) {
+        msg = "Vous n'avez pas les droits pour effectuer cette action.";
+      } else if (status === 404) {
+        msg = 'Salarié introuvable. Vérifiez le numéro de téléphone.';
+      } else if (raw) {
+        msg = raw;
+      }
+      setErreur(msg);
     },
   });
 
@@ -127,16 +139,37 @@ export default function EmployeurBeneficiaires() {
   const selected = items.find((b) => b.id === selectedId) ?? null;
 
   const telValide = /^\d{10}$/.test(form.telephone.replace(/\D/g, ''));
-  const formValide = form.prenom.trim() && form.nom.trim() && telValide;
+  const formValide = telValide && (utilisateurExistant || (form.prenom.trim() && form.nom.trim()));
 
   function patchForm(p: Partial<AjoutForm>) {
     setForm((f) => ({ ...f, ...p }));
     setErreur(null);
+    if (p.telephone !== undefined) {
+      setUtilisateurExistant(null);
+      if (checkTelRef.current) clearTimeout(checkTelRef.current);
+      const tel = p.telephone.replace(/\D/g, '');
+      if (/^\d{10}$/.test(tel)) {
+        checkTelRef.current = setTimeout(async () => {
+          try {
+            const { data } = await api.post('/beneficiaires/rechercher-telephone', { telephone: tel });
+            const found = data.data;
+            if (found) {
+              const dejaDansEntreprise = items.some((b) => b.user.id === found.id);
+              if (!dejaDansEntreprise) {
+                setUtilisateurExistant({ id: found.id, nom: found.nom, prenom: found.prenom });
+                setForm((f) => ({ ...f, nom: found.nom, prenom: found.prenom }));
+              }
+            }
+          } catch { /* pas trouvé — nouveau salarié */ }
+        }, 500);
+      }
+    }
   }
 
   function ouvrirModal() {
     setForm(FORM_VIDE);
     setErreur(null);
+    setUtilisateurExistant(null);
     setModalOpen(true);
   }
 
@@ -232,7 +265,7 @@ export default function EmployeurBeneficiaires() {
                         {niveauLabel[b.niveau] ?? b.niveau}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{fmtXOF(solde)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{fmt(solde)}</td>
                     <td className="px-4 py-3">
                       <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium', statutClass)}>
                         {statutTxt}
@@ -264,8 +297,12 @@ export default function EmployeurBeneficiaires() {
 
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div>
-                <div className="text-[13px] font-medium text-slate-900">Ajouter un salarié</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">Compte TIKEXO créé automatiquement</div>
+                <div className="text-[13px] font-medium text-slate-900">
+                  {utilisateurExistant ? 'Ré-embauche' : 'Ajouter un salarié'}
+                </div>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {utilisateurExistant ? 'Réactivation du lien entreprise' : 'Compte TIKEXO créé automatiquement'}
+                </div>
               </div>
               <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X size={18} />
@@ -317,6 +354,20 @@ export default function EmployeurBeneficiaires() {
                   <p className="text-[11px] text-red-500 mt-1">10 chiffres requis (nouveau format Bénin)</p>
                 )}
               </div>
+
+              {/* Bannière ré-embauche */}
+              {utilisateurExistant && (
+                <div className="flex items-start gap-2.5 bg-[#EAF3DE] border border-[#B7DDA0] rounded-xl px-4 py-3">
+                  <RefreshCw size={14} className="text-[#3B6D11] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-[12px] font-semibold text-[#3B6D11]">Ré-embauche détectée</div>
+                    <div className="text-[11px] text-[#3B6D11]/80 mt-0.5">
+                      <strong>{utilisateurExistant.prenom} {utilisateurExistant.nom}</strong> est déjà enregistré(e) dans TIKEXO.
+                      Son compte et sa carte virtuelle seront conservés — seul le lien avec votre entreprise sera réactivé.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Email perso */}
               <div>
@@ -390,7 +441,9 @@ export default function EmployeurBeneficiaires() {
                 disabled={!formValide || ajoutMutation.isPending}
                 className="w-full bg-tikexo-primary text-white text-sm font-medium py-3 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-tikexo-primary/90 transition-colors"
               >
-                {ajoutMutation.isPending ? 'Création en cours…' : 'Ajouter le salarié'}
+                {ajoutMutation.isPending
+                  ? (utilisateurExistant ? 'Réactivation en cours…' : 'Création en cours…')
+                  : (utilisateurExistant ? 'Confirmer la ré-embauche' : 'Ajouter le salarié')}
               </button>
 
             </div>
@@ -414,6 +467,23 @@ function BenefDrawer({
   const queryClient = useQueryClient();
   const [sortieOpen, setSortieOpen] = useState(false);
   const [optionSolde, setOptionSolde] = useState<'CONSERVATION' | 'REMBOURSEMENT'>('CONSERVATION');
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [montantRecharge, setMontantRecharge] = useState('');
+
+  const rechargeMut = useMutation({
+    mutationFn: () => api.post('/wallet/crediter-benef', {
+      entrepriseId,
+      beneficiaireId: u.id,
+      montant: parseInt(montantRecharge.replace(/\D/g, ''), 10),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] });
+      queryClient.invalidateQueries({ queryKey: ['employeur-wallet', entrepriseId] });
+      queryClient.invalidateQueries({ queryKey: ['employeur-stats', entrepriseId] });
+      setRechargeOpen(false);
+      setMontantRecharge('');
+    },
+  });
 
   const sortieMut = useMutation({
     mutationFn: () => api.post(`/beneficiaires/${u.id}/sortie`, { entrepriseId, optionSolde }),
@@ -479,8 +549,8 @@ function BenefDrawer({
                 <div className="text-xs font-medium text-slate-700 mb-3">Que faire avec le solde TIKEXO restant ?</div>
                 <div className="space-y-2.5">
                   {([
-                    { val: 'CONSERVATION', title: 'Conserver', desc: `L'employé garde ses ${fmtXOF(solde)} et peut continuer à les dépenser chez nos commerçants pendant 90 jours.` },
-                    { val: 'REMBOURSEMENT', title: 'Rembourser', desc: `Les ${fmtXOF(solde)} sont remboursés via Mobile Money. Le solde de l'employé sera à 0.` },
+                    { val: 'CONSERVATION', title: 'Conserver', desc: `L'employé garde ses ${fmt(solde)} et peut continuer à les dépenser chez nos commerçants pendant 90 jours.` },
+                    { val: 'REMBOURSEMENT', title: 'Rembourser', desc: `Les ${fmt(solde)} sont remboursés via Mobile Money. Le solde de l'employé sera à 0.` },
                   ] as const).map(({ val, title, desc }) => (
                     <button
                       key={val}
@@ -522,6 +592,64 @@ function BenefDrawer({
           </div>
         )}
 
+        {/* Modal rechargement individuel */}
+        {rechargeOpen && (
+          <div className="absolute inset-0 bg-white z-10 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <div className="text-[13px] font-medium text-slate-900">Recharger le solde</div>
+                <div className="text-[11px] text-slate-400 mt-0.5">{u.prenom} {u.nom}</div>
+              </div>
+              <button onClick={() => { setRechargeOpen(false); setMontantRecharge(''); }} className="text-slate-400 hover:text-slate-600 p-1"><X size={16} /></button>
+            </div>
+            <div className="flex-1 px-5 py-5 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-3.5 flex items-center justify-between">
+                <span className="text-[11px] text-slate-500">Solde actuel</span>
+                <span className="font-mono text-sm font-semibold text-slate-900">{fmt(solde)}</span>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Montant à créditer (XOF)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={montantRecharge}
+                  onChange={(e) => setMontantRecharge(e.target.value.replace(/\D/g, ''))}
+                  placeholder="ex : 5000"
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-tikexo-primary/30 focus:border-tikexo-primary"
+                />
+                <div className="flex gap-2 mt-2">
+                  {[2500, 5000, 10000].map((v) => (
+                    <button key={v} type="button" onClick={() => setMontantRecharge(String(v))}
+                      className="flex-1 text-xs border border-slate-200 rounded-lg py-1.5 text-slate-600 hover:border-tikexo-primary hover:text-tikexo-primary transition-colors">
+                      {fmt(v)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {rechargeMut.isError && (
+                <div className="text-[11px] text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                  {(rechargeMut.error as any)?.response?.data?.message || 'Erreur lors du rechargement'}
+                </div>
+              )}
+              {rechargeMut.isSuccess && (
+                <div className="text-[11px] text-green-700 bg-green-50 rounded-lg px-3 py-2">
+                  Solde crédité avec succès.
+                </div>
+              )}
+            </div>
+            <div className="px-5 pb-5 pt-3 border-t border-slate-100 space-y-2">
+              <button
+                onClick={() => rechargeMut.mutate()}
+                disabled={rechargeMut.isPending || !montantRecharge || parseInt(montantRecharge, 10) < 100}
+                className="w-full bg-tikexo-primary text-white text-sm font-medium py-3 rounded-xl disabled:opacity-50 hover:bg-tikexo-primary/90 transition-colors"
+              >
+                {rechargeMut.isPending ? 'Traitement en cours…' : `Créditer ${montantRecharge ? fmt(parseInt(montantRecharge, 10)) : '—'}`}
+              </button>
+              <button onClick={() => { setRechargeOpen(false); setMontantRecharge(''); }} className="w-full text-slate-500 text-sm py-2 hover:text-slate-700">Annuler</button>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 px-5 py-4 space-y-5 overflow-y-auto">
           <div className="bg-slate-50 rounded-xl p-4 space-y-2">
             <div className="flex justify-between items-center">
@@ -546,7 +674,7 @@ function BenefDrawer({
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[10px] text-white/50 mb-1">Solde TIKEXO</div>
-                <div className="text-xl font-semibold tracking-tight">{fmtXOF(solde)}</div>
+                <div className="text-xl font-semibold tracking-tight">{fmt(solde)}</div>
               </div>
               <div className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center">
                 <Wallet size={16} className="text-white/70" />
@@ -582,7 +710,7 @@ function BenefDrawer({
                         <div className="text-[10px] text-slate-400">{d.nb_titres} titres · {fmtDate(d.distribue_at || d.createdAt)}</div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-semibold text-slate-900">{fmtXOF(d.part_employeur)}</span>
+                        <span className="font-mono text-xs font-semibold text-slate-900">{fmt(d.part_employeur)}</span>
                         <span className={clsx('text-[9px] px-1.5 py-0.5 rounded-full font-medium', statutDotBadge[d.statut])}>
                           {statutDotLabel[d.statut]}
                         </span>
@@ -595,15 +723,21 @@ function BenefDrawer({
           </div>
         </div>
 
-          <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex-shrink-0">
-            <button
-              onClick={() => setSortieOpen(true)}
-              className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-600 text-xs font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors"
-            >
-              <LogOut size={13} />
-              Sortie de l'entreprise
-            </button>
-          </div>
+        <div className="px-5 pb-5 pt-3 border-t border-slate-100 flex-shrink-0 space-y-2">
+          <button
+            onClick={() => setRechargeOpen(true)}
+            className="w-full flex items-center justify-center gap-2 bg-tikexo-primary text-white text-xs font-medium py-2.5 rounded-lg hover:bg-tikexo-primary/90 transition-colors"
+          >
+            <Plus size={13} />
+            Recharger le solde
+          </button>
+          <button
+            onClick={() => setSortieOpen(true)}
+            className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-600 text-xs font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={13} />
+            Sortie de l'entreprise
+          </button>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { CalendarDays, Play, CheckSquare, Send, X, CheckCircle, Clock, Banknote } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { fmt, fmtDate } from '../../utils/format';
 
 const statutBadge: Record<string, string> = {
   CALCULE: 'bg-[#FAEEDA] text-[#854F0B]',
@@ -20,11 +21,6 @@ const PALETTE = [
   ['#DBEAFE', '#185FA5'], ['#EAF3DE', '#3B6D11'],
   ['#FAEEDA', '#854F0B'], ['#FCEBEB', '#A32D2D'],
 ];
-const fmtXOF = (n: number | string) =>
-  `${new Intl.NumberFormat('fr-FR').format(Math.round(Number(n)))} XOF`;
-const fmtDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-
 interface DotationItem {
   id: string;
   statut: string;
@@ -183,7 +179,7 @@ export default function EmployeurDotations() {
                       <span className="text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-[10px]">{niveauLabel[d.lien.niveau] ?? d.lien.niveau}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-700">{d.nb_titres} jours</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{Number(d.part_employeur).toLocaleString('fr-FR')} XOF</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{fmt(d.part_employeur)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 capitalize">{mois}</td>
                     <td className="px-4 py-3">
                       <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium', statutBadge[d.statut] ?? 'bg-slate-100 text-slate-700')}>
@@ -272,15 +268,15 @@ function Drawer({
             <div className="border-t border-slate-200 pt-2.5 space-y-1.5">
               <div className="flex justify-between items-center">
                 <span className="text-[11px] text-slate-500">Part employeur</span>
-                <span className="font-mono text-xs font-semibold text-tikexo-primary">{fmtXOF(dotation.part_employeur)}</span>
+                <span className="font-mono text-xs font-semibold text-tikexo-primary">{fmt(dotation.part_employeur)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-[11px] text-slate-500">Part salarié</span>
-                <span className="font-mono text-xs text-slate-600">{fmtXOF(dotation.part_salarie)}</span>
+                <span className="font-mono text-xs text-slate-600">{fmt(dotation.part_salarie)}</span>
               </div>
               <div className="flex justify-between items-center border-t border-slate-200 pt-1.5">
                 <span className="text-[11px] text-slate-700 font-medium">Total dotation</span>
-                <span className="font-mono text-xs font-semibold text-slate-900">{fmtXOF(dotation.montant_total)}</span>
+                <span className="font-mono text-xs font-semibold text-slate-900">{fmt(dotation.montant_total)}</span>
               </div>
             </div>
           </div>

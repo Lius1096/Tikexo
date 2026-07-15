@@ -14,6 +14,7 @@ router.post('/:id/valider-kyb', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.vali
 router.post('/:id/suspendre', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.suspendre);
 router.get('/:id/beneficiaires', ctrl.getBeneficiaires);
 router.get('/:id/wallet', ctrl.getWallet);
+router.get('/:id/stats', ctrl.getStats);
 router.get('/:id/equipe-rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.getEquipeRH);
 router.post('/:id/users/:userId/toggle-statut', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.toggleStatutUser);
 

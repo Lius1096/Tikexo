@@ -5,6 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "start:prod": "npx prisma db push && node src/index.js",
     "dev": "nodemon src/index.js",
     "test": "jest",
     "test:unit": "jest --projects=jest.config.js --selectProjects=unit",
@@ -18,10 +19,16 @@
     "lint": "eslint src --ext .js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1075.0",
+    "@aws-sdk/s3-request-presigner": "^3.1075.0",
     "@prisma/client": "^5.14.0",
+    "@sentry/node": "^10.60.0",
+    "africastalking": "^0.7.9",
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.79.1",
     "cloudinary": "^2.3.1",
     "compression": "^1.7.4",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -30,13 +37,15 @@
     "fedapay": "^1.2.5",
     "firebase-admin": "^12.2.0",
     "helmet": "^7.1.0",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.2",
+    "luxon": "^3.4.4",
     "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.14",
     "qrcode": "^1.5.3",
     "socket.io": "^4.7.5",
     "uuid": "^10.0.0",
-    "luxon": "^3.4.4",
     "winston": "^3.13.0"
   },
   "devDependencies": {

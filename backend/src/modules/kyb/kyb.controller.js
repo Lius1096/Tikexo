@@ -32,7 +32,7 @@ async function uploadDocument(req, res, next) {
       return res.status(400).json({ success: false, message: `Fichier trop volumineux — max ${tailleMax / 1024 / 1024} Mo` });
     }
 
-    const fichier_url = `/uploads/kyb/${req.file.filename}`;
+    const fichier_url = req.file.url;
     const fichier_format = req.file.mimetype.split('/')[1];
 
     const data = await service.enregistrerDocument(entrepriseId, {

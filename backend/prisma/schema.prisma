@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "windows", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -15,6 +16,7 @@ model User {
   email_perso           String?    @unique
   email_pro             String?
   pin_hash              String?
+  mot_de_passe_hash     String?
   biometrie_activee     Boolean    @default(false)
   role                  Role
   statut                StatutUser @default(INACTIF)
@@ -54,6 +56,8 @@ model Entreprise {
   telephone_rh            String?
   email_rh                String?
   statut                  StatutEntreprise @default(EN_ATTENTE)
+  plan                    String           @default("Growth")
+  nb_employes             String?
   kyb_valide              Boolean          @default(false)
   taux_commission_defaut  Decimal          @db.Decimal(5,2) @default(2.00)
   createdAt               DateTime         @default(now())
@@ -332,18 +336,64 @@ model Mutation {
 }
 
 model CarteDigi {
-  id                String      @id @default(cuid())
-  user_id           String
-  type              TypeCarte
-  numero_masque     String
-  statut            StatutCarte @default(ACTIVE)
-  date_expiration   DateTime
-  adresse_livraison String?
-  createdAt         DateTime    @default(now())
+  id                       String      @id @default(cuid())
+  user_id                  String
+  type                     TypeCarte
+  // Sécurité numéro
+  numero_hash              String      @unique  // SHA-256 — jamais le numéro en clair
+  numero_masque            String               // "4782 •••• •••• 3291"
+  prefixe                  String      @default("4782")
+  suffixe                  String               // 4 derniers chiffres
+  luhn_valide              Boolean     @default(true)
+  date_expiration          DateTime
+  statut                   StatutCarte @default(ACTIVE)
+  // NFC
+  nfc_active               Boolean     @default(false)
+  nfc_derniere_utilisation DateTime?
+  // QR Code
+  qr_code_url              String?
+  qr_expires_at            DateTime?
+  qr_refresh_count         Int         @default(0)
+  // Carte physique
+  adresse_livraison        String?
+  code_activation_hash     String?
+  activee_at               DateTime?
+  expedie_at               DateTime?
+  livree_at                DateTime?
 
-  user              User        @relation(fields: [user_id], references: [id])
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  user                     User        @relation(fields: [user_id], references: [id])
 
   @@index([user_id, statut])
+  @@index([numero_hash])
+}
+
+model QRCodeTransaction {
+  id         String    @id @default(cuid())
+  wallet_id  String
+  nonce      String    @unique
+  montant    Decimal?  @db.Decimal(10, 2)
+  utilise    Boolean   @default(false)
+  utilise_at DateTime?
+  expires_at DateTime
+  createdAt  DateTime  @default(now())
+
+  @@index([nonce])
+  @@index([wallet_id, utilise])
+}
+
+model NFCToken {
+  id             String    @id @default(cuid())
+  wallet_id      String
+  token_unique   String    @unique
+  utilise        Boolean   @default(false)
+  expires_at     DateTime
+  transaction_id String?
+  createdAt      DateTime  @default(now())
+
+  @@index([token_unique])
 }
 
 // IMMUABLE — JAMAIS DE UPDATE NI DELETE
@@ -529,6 +579,7 @@ enum StatutDotation {
 enum StatutMutation {
   EN_ATTENTE
   DETECTE
+  REEMBAUCHE
   TRAITE
   EXPIRE
 }
@@ -544,6 +595,8 @@ enum TypeCarte {
 }
 
 enum StatutCarte {
+  COMMANDE  // Demande physique soumise, en attente validation TIKEXO Ops
+  EXPEDIE   // Carte produite et expédiée, en attente d'activation bénéficiaire
   ACTIVE
   BLOQUEE
   EXPIREE

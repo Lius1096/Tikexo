@@ -1,11 +1,12 @@
 import React from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV = [
   { path: '/beneficiaire', label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
+  { path: '/beneficiaire/carte', label: 'Ma carte', icon: CreditCard },
   { path: '/beneficiaire/scanner', label: 'Scanner & Payer', icon: ScanLine },
   { path: '/beneficiaire/transactions', label: 'Mes transactions', icon: ArrowLeftRight },
   { path: '/beneficiaire/commercants', label: 'Restaurants', icon: Utensils },
@@ -14,7 +15,9 @@ const NAV = [
 
 export function BeneficiaireLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const handleLogout = () => { logout(); navigate('/login'); };
 
   const initials = user
     ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() || '?'
@@ -61,7 +64,7 @@ export function BeneficiaireLayout() {
               <div className="text-xs text-white/80 truncate">{displayName}</div>
               <div className="text-[10px] text-white/35">BÉNÉFICIAIRE</div>
             </div>
-            <button onClick={logout} title="Déconnexion">
+            <button onClick={handleLogout} title="Déconnexion">
               <LogOut size={14} className="text-white/40 hover:text-white/80 cursor-pointer transition-colors flex-shrink-0" />
             </button>
           </div>
