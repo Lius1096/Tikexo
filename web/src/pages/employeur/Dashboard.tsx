@@ -178,29 +178,31 @@ export default function EmployeurDashboard() {
   return (
     <div className="min-h-full bg-slate-100">
       {/* Topbar */}
-      <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-100">
+      <div className="flex items-center justify-between px-4 md:px-6 py-4 bg-white border-b border-slate-100">
         <div>
           <div className="text-[15px] font-medium text-slate-900">Tableau de bord</div>
-          <div className="text-xs text-slate-500 mt-0.5">{entrepriseNom} — {moisAnnee}</div>
+          <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[160px] sm:max-w-none">{entrepriseNom} — {moisAnnee}</div>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3.5 py-[7px] rounded-md text-[13px] border border-slate-200 bg-white text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
+          <button className="hidden sm:flex items-center gap-1.5 px-3.5 py-[7px] rounded-md text-[13px] border border-slate-200 bg-white text-slate-700 cursor-pointer hover:bg-slate-50 transition-colors">
             <Download size={15} />
             Exporter
           </button>
           <Link
             to="/employeur/wallet"
-            className="flex items-center gap-1.5 px-3.5 py-[7px] rounded-md text-[13px] bg-tikexo-primary text-white border border-tikexo-primary cursor-pointer hover:bg-tikexo-accent hover:border-tikexo-accent transition-colors"
+            className="flex items-center gap-1.5 px-3 md:px-3.5 py-[7px] rounded-md text-[13px] bg-tikexo-primary text-white border border-tikexo-primary cursor-pointer hover:bg-tikexo-accent hover:border-tikexo-accent transition-colors"
           >
             <Plus size={15} />
-            Recharger wallet
+            <span className="hidden sm:inline">Recharger wallet</span>
+            <span className="sm:hidden">Recharger</span>
           </Link>
         </div>
       </div>
 
-      <div className="p-6">
-        {/* Flow Strip */}
-        <div className="bg-white border border-slate-100 rounded-lg px-5 py-4 mb-5 flex items-center">
+      <div className="p-4 md:p-6">
+        {/* Flow Strip — scrollable horizontalement sur mobile */}
+        <div className="bg-white border border-slate-100 rounded-lg px-5 py-4 mb-5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center min-w-[480px]">
           {walletLoading ? (
             <Skeleton className="h-12 flex-1" />
           ) : (
@@ -215,9 +217,10 @@ export default function EmployeurDashboard() {
             </>
           )}
         </div>
+        </div>
 
         {/* Metrics */}
-        <div className="grid grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           {(benefLoading || statsLoading) ? (
             Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[72px] rounded-md" />)
           ) : (
@@ -242,7 +245,7 @@ export default function EmployeurDashboard() {
         </div>
 
         {/* Wallet + Chart */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           {/* Wallet */}
           <div className="bg-white border border-slate-100 rounded-lg">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
@@ -349,7 +352,7 @@ export default function EmployeurDashboard() {
         </div>
 
         {/* Dotations + Bénéficiaires */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           {/* Dotations */}
           <div className="bg-white border border-slate-100 rounded-lg">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
@@ -422,7 +425,8 @@ export default function EmployeurDashboard() {
                 {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)}
               </div>
             ) : (
-              <table className="w-full border-collapse">
+              <div className="overflow-x-auto">
+              <table className="w-full border-collapse min-w-[420px]">
                 <thead>
                   <tr>
                     {['NOM', 'NIVEAU', 'SOLDE', 'STATUT'].map((h) => (
@@ -482,12 +486,13 @@ export default function EmployeurDashboard() {
                   )}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
 
         {/* Top consommateurs */}
-        <div className="grid grid-cols-2 gap-4 mb-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
           <div className="bg-white border border-slate-100 rounded-lg">
             <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100">
               <span className="text-[13px] font-medium text-slate-900 flex items-center gap-1.5">

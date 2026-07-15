@@ -143,7 +143,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-4 gap-2.5 mb-[18px]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-[18px]">
         {statsLoading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="bg-white border border-slate-100 rounded-md px-3.5 py-3">
@@ -167,7 +167,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* 2-col grid */}
-      <div className="grid grid-cols-2 gap-3.5 mb-3.5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 mb-3.5">
         {/* Entreprises */}
         <div className="bg-white border border-slate-100 rounded-lg">
           <div className="flex items-center justify-between px-3.5 py-3 border-b border-slate-100">
