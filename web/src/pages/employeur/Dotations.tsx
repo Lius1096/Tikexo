@@ -63,7 +63,8 @@ export default function EmployeurDotations() {
 
   const calculer = useMutation({
     mutationFn: () => api.post('/dotations/calculer', { entrepriseId, moisConcerne: moisCourant }),
-    onSuccess: invalidate,
+    onSuccess: () => { setActionError(null); invalidate(); },
+    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur lors du calcul. Vérifiez que le serveur est disponible.'),
   });
 
   const valider = useMutation({
