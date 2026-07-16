@@ -33,4 +33,22 @@ async function getAlertesFraude(req, res, next) {
   try { res.json({ success: true, data: await service.getAlertesFraude(req.query) }); } catch (e) { next(e); }
 }
 
-module.exports = { getDashboard, getAuditLogs, getUtilisateurs, bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets, getAlertesFraude };
+async function getConfiguration(req, res, next) {
+  try { res.json({ success: true, data: await service.getConfiguration() }); } catch (e) { next(e); }
+}
+
+async function majConfiguration(req, res, next) {
+  try {
+    const data = await service.majConfiguration(req.body);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function acquitterAlerteFraude(req, res, next) {
+  try {
+    const data = await service.acquitterAlerteFraude(req.params.alerteId, req.user.id, req.body.motif);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { getDashboard, getAuditLogs, getUtilisateurs, bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets, getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude };

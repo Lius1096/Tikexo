@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { Users, X, Wallet, CalendarDays, ChevronRight, Plus, Phone, AlertCircle, LogOut, RefreshCw } from 'lucide-react';
+import { Users, X, Wallet, CalendarDays, ChevronRight, Plus, Phone, AlertCircle, LogOut, RefreshCw, PauseCircle, PlayCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt, fmtDate } from '../../utils/format';
@@ -494,6 +494,16 @@ function BenefDrawer({
     },
   });
 
+  const suspendreMut = useMutation({
+    mutationFn: () => api.post(`/beneficiaires/${u.id}/suspendre`, { entrepriseId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] }),
+  });
+
+  const reactiverMut = useMutation({
+    mutationFn: () => api.post(`/beneficiaires/${u.id}/reactiver`, { entrepriseId }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] }),
+  });
+
   const { data: dotData, isLoading } = useQuery({
     queryKey: ['dotations-benef', entrepriseId, u.id],
     queryFn: () =>
@@ -731,6 +741,33 @@ function BenefDrawer({
             <Plus size={13} />
             Recharger le solde
           </button>
+
+          {u.statut === 'BLOQUE' ? (
+            <button
+              onClick={() => reactiverMut.mutate()}
+              disabled={reactiverMut.isPending}
+              className="w-full flex items-center justify-center gap-2 border border-green-200 text-green-700 text-xs font-medium py-2.5 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50"
+            >
+              <PlayCircle size={13} />
+              {reactiverMut.isPending ? 'Réactivation…' : 'Réactiver le compte'}
+            </button>
+          ) : (
+            <button
+              onClick={() => suspendreMut.mutate()}
+              disabled={suspendreMut.isPending}
+              className="w-full flex items-center justify-center gap-2 border border-amber-200 text-amber-700 text-xs font-medium py-2.5 rounded-lg hover:bg-amber-50 transition-colors disabled:opacity-50"
+            >
+              <PauseCircle size={13} />
+              {suspendreMut.isPending ? 'Suspension…' : 'Suspendre le compte'}
+            </button>
+          )}
+
+          {(suspendreMut.isError || reactiverMut.isError) && (
+            <div className="text-[11px] text-red-500 text-center">
+              {((suspendreMut.error || reactiverMut.error) as any)?.response?.data?.message || 'Erreur'}
+            </div>
+          )}
+
           <button
             onClick={() => setSortieOpen(true)}
             className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-600 text-xs font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors"

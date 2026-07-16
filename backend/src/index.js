@@ -68,6 +68,7 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+require('./config/socket').setIo(io);
 
 // HTTPS — forcer en production via header Render / Traefik X-Forwarded-Proto
 if (process.env.NODE_ENV === 'production') {

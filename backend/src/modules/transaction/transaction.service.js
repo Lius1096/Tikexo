@@ -142,7 +142,11 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   }
 
   // 10. Émettre solde live via Socket.io
-  const io = prisma._engineConfig?.adapter?.io;
+  const io = require('../../config/socket').getIo();
+  if (io) {
+    io.to(`user:${beneficiaireId}`).emit('solde:update', { userId: beneficiaireId });
+    io.to(`user:${commercant.user_id}`).emit('solde:update', { userId: commercant.user_id });
+  }
 
   return { transaction, risqueNiveau: risque.niveau };
 }

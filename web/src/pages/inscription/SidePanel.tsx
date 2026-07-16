@@ -7,7 +7,7 @@ interface Props {
 
 const STEPS = [
   { num: 1, label: 'Identité entreprise',  sub: 'NIF, RCCM, adresse, contact RH' },
-  { num: 2, label: 'Choisir votre plan',   sub: 'Starter, Growth ou Business' },
+  { num: 2, label: 'Votre tarification',    sub: 'Calculée selon votre effectif' },
   { num: 3, label: 'Documents KYB',        sub: 'NIF, RCCM, pièce d\'identité dirigeant' },
   { num: 4, label: 'Confirmation',         sub: 'Récapitulatif et création du compte' },
 ];

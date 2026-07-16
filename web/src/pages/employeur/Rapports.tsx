@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, Download } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -46,7 +46,25 @@ export default function EmployeurRapports() {
 
   return (
     <div className="p-6">
-      <div className="text-[15px] font-medium text-slate-900 mb-4">Statistiques</div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-[15px] font-medium text-slate-900">Statistiques</div>
+        <div className="flex items-center gap-2">
+          <a
+            href={`${api.defaults.baseURL}/dotations/export/csv?entreprise_id=${entrepriseId}`}
+            download
+            className="flex items-center gap-1.5 text-[11px] text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={12} /> Dotations CSV
+          </a>
+          <a
+            href={`${api.defaults.baseURL}/transactions/export/csv`}
+            download
+            className="flex items-center gap-1.5 text-[11px] text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
+          >
+            <Download size={12} /> Transactions CSV
+          </a>
+        </div>
+      </div>
 
       <div className="bg-white border border-slate-100 rounded-lg">
         <div className="flex items-center gap-1.5 px-4 py-3.5 border-b border-slate-100">

@@ -36,4 +36,18 @@ async function traiterSortie(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { lister, creer, getById, modifier, rechercherParTelephone, rattacherEntreprise, traiterSortie };
+async function suspendre(req, res, next) {
+  try {
+    const data = await service.suspendre(req.params.id, req.body.entrepriseId, req.user.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function reactiver(req, res, next) {
+  try {
+    const data = await service.reactiver(req.params.id, req.body.entrepriseId, req.user.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { lister, creer, getById, modifier, rechercherParTelephone, rattacherEntreprise, traiterSortie, suspendre, reactiver };

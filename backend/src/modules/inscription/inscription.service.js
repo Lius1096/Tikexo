@@ -18,15 +18,15 @@ async function creerDossierKyb(prisma, entrepriseId) {
 // La commission sur transactions est fixe : 5 % côté bénéficiaire + 5 % côté commerçant
 function calculerFraisGestion(nbEmployes) {
   const n = parseInt(nbEmployes, 10) || 0;
-  if (n <= 50)  return { frais: 5000,      plan: 'PME_S' };
-  if (n <= 200) return { frais: 25000,     plan: 'PME_M' };
-  if (n <= 500) return { frais: 200 * n,   plan: 'ETI' };
-  return              { frais: 350 * n,   plan: 'GE' };
+  if (n <= 50)  return { frais: 5000,      plan: 'PME_S', label: 'PME · S' };
+  if (n <= 200) return { frais: 25000,     plan: 'PME_M', label: 'PME · M' };
+  if (n <= 500) return { frais: 200 * n,   plan: 'ETI',   label: 'ETI' };
+  return              { frais: 350 * n,   plan: 'GE',    label: 'Grandes Entreprises' };
 }
 
 const TAUX_COMMISSION_TRANSACTION = 5.00; // appliqué côté benef ET côté commercant
 
-async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
+async function inscrire({ entreprise: e, admin: a }) {
   // Normaliser et valider le téléphone
   a.telephone = normaliserTelephone(a.telephone);
   if (!validerTelephone(a.telephone)) {
@@ -82,8 +82,11 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
 
   const motDePasseHash = await bcrypt.hash(a.mot_de_passe, 12);
 
-  const nbSalaries = e.nb_salaries || 0;
-  const { frais: fraisMensuel, plan: planLabel } = calculerFraisGestion(nbSalaries);
+  const nbSalaries = parseInt(e.nb_salaries, 10) || 0;
+  const { frais: fraisMensuel, plan: planLabel, label: planNom } = calculerFraisGestion(nbSalaries);
+
+  const dotationMax = e.dotation_max ? parseFloat(e.dotation_max) : null;
+  const montantMaxWallet = e.montant_max_wallet ? parseFloat(e.montant_max_wallet) : null;
 
   // Transaction : entreprise + wallet + user + lien
   const { entreprise: ent, user } = await prisma.$transaction(async (tx) => {
@@ -100,6 +103,8 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
         plan: planLabel,
         nb_employes: String(nbSalaries) || null,
         frais_mensuel: fraisMensuel,
+        dotation_max: dotationMax,
+        montant_max_wallet: montantMaxWallet,
         taux_commission_defaut: TAUX_COMMISSION_TRANSACTION,
         statut: 'EN_ATTENTE',
       },
@@ -149,7 +154,7 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
         entreprise_id: entreprise.id,
         user_id: newUser.id,
         niveau: 'DIRECTEUR',
-        valeur_titre: 5000,
+        valeur_titre: dotationMax || 5000,
         taux_participation: 60,
         statut: 'ACTIF',
       },
@@ -161,7 +166,7 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
         action: 'INSCRIPTION',
         entite: 'Entreprise',
         entite_id: entreprise.id,
-        apres: { nom: entreprise.nom, nif: entreprise.nif, plan },
+        apres: { nom: entreprise.nom, nif: entreprise.nif, plan: planLabel },
       },
     });
 
@@ -180,8 +185,9 @@ async function inscrire({ entreprise: e, admin: a, plan = 'Growth' }) {
   return {
     entreprise_id: ent.id,
     user_id: user.id,
-    plan,
-    prix_plan: planConfig.prix,
+    plan: planLabel,
+    plan_nom: planNom,
+    frais_mensuel: fraisMensuel,
     message: 'Dossier soumis — en attente de validation KYB par l\'équipe TIKEXO',
   };
 }

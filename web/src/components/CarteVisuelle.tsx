@@ -77,7 +77,7 @@ export interface CarteData {
   id            : string;
   type          : 'VIRTUELLE' | 'PHYSIQUE';
   numero_masque : string;
-  statut        : 'ACTIVE' | 'BLOQUEE' | 'EXPIREE' | 'PERDUE';
+  statut        : 'COMMANDE' | 'EXPEDIE' | 'ACTIVE' | 'BLOQUEE' | 'EXPIREE' | 'PERDUE';
   date_expiration: string;
   prefixe?      : string;
   nfc_active?   : boolean;

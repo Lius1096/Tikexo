@@ -1,5 +1,58 @@
 // Service admin TIKEXO
 const prisma = require('../../config/database');
+const path = require('path');
+const fs = require('fs');
+
+const CONFIG_PATH = path.join(__dirname, '../../../../platform-config.json');
+
+const CONFIG_DEFAUT = {
+  taux_frais_benef:      0.05,
+  taux_frais_commercant: 0.05,
+  plafond_journalier:    10000,
+  seuil_payout_minimum:  1000,
+  seuil_anti_fraude:     3,
+};
+
+function lireConfig() {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      return { ...CONFIG_DEFAUT, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8')) };
+    }
+  } catch {}
+  return { ...CONFIG_DEFAUT };
+}
+
+function ecrireConfig(data) {
+  const config = { ...lireConfig(), ...data };
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf-8');
+  return config;
+}
+
+async function getConfiguration() {
+  return lireConfig();
+}
+
+async function majConfiguration(data) {
+  const champs = ['taux_frais_benef', 'taux_frais_commercant', 'plafond_journalier', 'seuil_payout_minimum', 'seuil_anti_fraude'];
+  const update = {};
+  for (const c of champs) {
+    if (data[c] !== undefined) update[c] = parseFloat(data[c]);
+  }
+  return ecrireConfig(update);
+}
+
+async function acquitterAlerteFraude(alerteId, adminId, motif) {
+  await prisma.auditLog.create({
+    data: {
+      user_id: adminId,
+      action: 'ALERTE_FRAUDE_ACQUITTEE',
+      entite: 'Alerte',
+      entite_id: alerteId,
+      apres: { motif: motif || 'Acquitté manuellement' },
+    },
+  });
+  return { acquitte: true, alerteId };
+}
 
 async function getDashboard() {
   const [
@@ -215,4 +268,7 @@ module.exports = {
   getStatsTransactions,
   getStatsWallets,
   getAlertesFraude,
+  getConfiguration,
+  majConfiguration,
+  acquitterAlerteFraude,
 };

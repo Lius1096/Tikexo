@@ -154,4 +154,17 @@ async function statutPin(req, res, next) {
   }
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse };
+async function enregistrerFcmToken(req, res, next) {
+  try {
+    const { fcm_token } = req.body;
+    if (!fcm_token || typeof fcm_token !== 'string') {
+      return res.status(400).json({ success: false, error: 'fcm_token requis' });
+    }
+    await authService.enregistrerFcmToken(req.user.id, fcm_token);
+    res.json({ success: true, data: { message: 'Token FCM enregistré' } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken };

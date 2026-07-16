@@ -78,4 +78,11 @@ async function getStats(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser, getStats };
+async function getFacturation(req, res, next) {
+  try {
+    const data = await service.getFacturation(req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser, getStats, getFacturation };

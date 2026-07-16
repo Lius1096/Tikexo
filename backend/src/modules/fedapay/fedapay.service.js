@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const prisma = require('../../config/database');
 const { crediterWallet, debiterWallet } = require('../../utils/ledger');
 const { logger } = require('../../middlewares/errorHandler');
+const { envoyerEmailAsync } = require('../../utils/email');
+const { rechargeConfirmee } = require('../../utils/emailTemplates');
 
 const MAX_TENTATIVES = 3;
 const INTERVALLE_RETRY_HEURES = 1;
@@ -18,6 +20,27 @@ const DEV_MOCK = process.env.FEDAPAY_SECRET_KEY === 'sk_sandbox_REMPLACER' || !p
  * En dev (clé placeholder), simule la réponse et crédite directement le wallet.
  */
 async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur }) {
+  const montantNum = parseFloat(montant.toString());
+
+  // Vérifier le plafond wallet avant tout appel FedaPay
+  const [walletEntreprise, entreprise] = await Promise.all([
+    prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { montant_max_wallet: true, kyb_valide: true } }),
+  ]);
+
+  if (entreprise.montant_max_wallet) {
+    const soldeActuel = parseFloat(walletEntreprise.solde.toString());
+    const plafond = parseFloat(entreprise.montant_max_wallet.toString());
+    if (soldeActuel + montantNum > plafond) {
+      const err = new Error(
+        `Plafond wallet dépassé — max ${Math.floor(plafond).toLocaleString('fr-FR')} XOF, solde actuel ${Math.floor(soldeActuel).toLocaleString('fr-FR')} XOF`
+      );
+      err.statusCode = 400;
+      err.code = 'PLAFOND_WALLET_ATTEINT';
+      throw err;
+    }
+  }
+
   const idempotenceKey = `collecte_${entrepriseId}_${montant}_${Date.now()}`;
 
   const operation = await prisma.fedapayOperation.create({
@@ -32,9 +55,6 @@ async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur })
 
   // Mode mock dev — clé FedaPay non configurée
   if (DEV_MOCK) {
-    const walletEntreprise = await prisma.wallet.findUniqueOrThrow({
-      where: { entreprise_id: entrepriseId },
-    });
 
     await crediterWallet(
       prisma,
@@ -159,6 +179,26 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
         'RECHARGEMENT',
         { fedapay_transaction_id: fedapayId, operation_id: operation.id }
       );
+
+      // Email confirmation rechargement à l'email RH de l'entreprise
+      const entreprise = await prisma.entreprise.findUnique({
+        where: { id: operation.entreprise_id },
+        select: { nom: true, email_rh: true },
+      });
+      if (entreprise?.email_rh) {
+        const { html, text } = rechargeConfirmee(
+          entreprise.nom,
+          parseFloat(operation.montant.toString()),
+          fedapayId
+        );
+        envoyerEmailAsync({
+          to: entreprise.email_rh,
+          subject: 'Rechargement wallet TIKEXO confirmé',
+          html,
+          text,
+          expediteur: 'facturation',
+        }).catch(() => {});
+      }
     }
 
     await prisma.$executeRaw`

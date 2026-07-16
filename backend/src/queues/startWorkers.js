@@ -32,6 +32,11 @@ function startWorkers() {
     jobId: 'cron-kyb-deadline',
   });
 
+  cronQueue.add('facturation-mensuelle', {}, {
+    repeat: { pattern: '0 9 1 * *' }, // 1er de chaque mois à 9h
+    jobId: 'cron-facturation-mensuelle',
+  });
+
   logger.info('[TIKEXO QUEUES] Jobs cron enregistrés');
 }
 

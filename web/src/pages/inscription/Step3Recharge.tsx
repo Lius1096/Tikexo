@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Info, AlertCircle, Loader2, Check, CheckCircle2 } from 'lucide-react';
 import StepsBar from './StepsBar';
-import type { InscriptionData } from './types';
+import { calculerFraisGestion, type InscriptionData } from './types';
 
 interface Props {
   data: InscriptionData;
@@ -11,10 +11,8 @@ interface Props {
   erreur: string | null;
 }
 
-const prixPlan: Record<string, number> = { Starter: 15000, Growth: 35000, Business: 75000 };
-
 export default function Step3Recharge({ data, onSubmit, onBack, loading, erreur }: Props) {
-  const prixMensuel = prixPlan[data.plan] ?? 35000;
+  const planInfo = calculerFraisGestion(data.entreprise.nb_salaries);
 
   return (
     <div className="full-card">
@@ -102,9 +100,25 @@ export default function Step3Recharge({ data, onSubmit, onBack, loading, erreur 
                 </div>
               )}
               <div className="rc-row">
-                <span className="rc-label">Plan</span>
-                <span className="rc-val accent">{data.plan} · {prixMensuel.toLocaleString('fr-FR')} XOF/mois</span>
+                <span className="rc-label">Effectif</span>
+                <span className="rc-val">{data.entreprise.nb_salaries || '—'} salarié(s)</span>
               </div>
+              <div className="rc-row">
+                <span className="rc-label">Plan</span>
+                <span className="rc-val accent">{planInfo.label} · {planInfo.frais.toLocaleString('fr-FR')} XOF/mois</span>
+              </div>
+              {data.entreprise.dotation_max && (
+                <div className="rc-row">
+                  <span className="rc-label">Dotation max</span>
+                  <span className="rc-val">{parseInt(data.entreprise.dotation_max).toLocaleString('fr-FR')} XOF</span>
+                </div>
+              )}
+              {data.entreprise.montant_max_wallet && (
+                <div className="rc-row">
+                  <span className="rc-label">Plafond wallet</span>
+                  <span className="rc-val">{parseInt(data.entreprise.montant_max_wallet).toLocaleString('fr-FR')} XOF</span>
+                </div>
+              )}
               <div className="rc-row">
                 <span className="rc-label">Contact RH</span>
                 <span className="rc-val" style={{ fontSize: '10px' }}>{data.admin.prenom} {data.admin.nom}</span>

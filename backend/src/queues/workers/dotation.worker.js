@@ -3,6 +3,8 @@ const { redisConnection } = require('../redis');
 const { transfererEntreWallets } = require('../../utils/ledger');
 const prisma = require('../../config/database');
 const { notificationQueue } = require('../index');
+const { envoyerEmailAsync } = require('../../utils/email');
+const { dotationRecue } = require('../../utils/emailTemplates');
 const { logger } = require('../../middlewares/errorHandler');
 
 // Traite UNE dotation à la fois — concurrency=10 garantit max 10 transferts DB simultanés
@@ -31,7 +33,7 @@ const worker = new Worker('dotation', async (job) => {
   // Notifier le bénéficiaire via la queue dédiée
   const user = await prisma.user.findUnique({
     where: { id: job.data.beneficiaireId },
-    select: { fcm_token: true },
+    select: { fcm_token: true, email_perso: true, prenom: true },
   });
 
   if (user?.fcm_token) {
@@ -40,6 +42,24 @@ const worker = new Worker('dotation', async (job) => {
       titre: 'Dotation TIKEXO reçue',
       corps: `Votre dotation de ${montant} XOF a été créditée sur votre wallet TIKEXO`,
     });
+  }
+
+  // Email dotation reçue si le bénéficiaire a un email
+  if (user?.email_perso) {
+    const entreprise = await prisma.entreprise.findUnique({
+      where: { id: entrepriseId },
+      select: { nom: true },
+    });
+    if (entreprise) {
+      const { html, text } = dotationRecue(user.prenom, montant, entreprise.nom);
+      envoyerEmailAsync({
+        to: user.email_perso,
+        subject: `Dotation TIKEXO — ${entreprise.nom}`,
+        html,
+        text,
+        expediteur: 'noreply',
+      }).catch(() => {});
+    }
   }
 
   logger.info('[QUEUE:DOTATION] Distribuée', { dotationId, montant });

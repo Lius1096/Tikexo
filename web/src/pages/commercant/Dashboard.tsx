@@ -1,12 +1,27 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Wallet, TrendingUp, ShoppingBag, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Wallet, TrendingUp, ShoppingBag, Clock, ArrowUpRight, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt } from '../../utils/format';
 
+const SEUIL_PAYOUT = 1000;
+
 export default function CommercantDashboard() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
+
+  const payoutMutation = useMutation({
+    mutationFn: () => api.post('/commercants/moi/payout').then((r) => r.data),
+    onSuccess: () => {
+      setPayoutMsg('Reversement initié — vous recevrez les fonds sur votre Mobile Money.');
+      queryClient.invalidateQueries({ queryKey: ['commercant-moi'] });
+    },
+    onError: (err: any) => {
+      setPayoutMsg(err?.response?.data?.message ?? 'Erreur lors de la demande de reversement.');
+    },
+  });
 
   const { data: fiche, isLoading: loadFiche } = useQuery({
     queryKey: ['commercant-moi'],
@@ -57,12 +72,25 @@ export default function CommercantDashboard() {
             <Wallet size={22} className="text-tikexo-gold" />
           </div>
         </div>
-        <div className="mt-4 pt-4 border-t border-white/10 flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-tikexo-gold" />
-          <span className="text-[11px] text-white/50">
-            Mode reversement : {fiche?.mode_reversement?.replace(/_/g, ' ') ?? '—'}
-          </span>
+        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-tikexo-gold" />
+            <span className="text-[11px] text-white/50">
+              Mode : {fiche?.mode_reversement?.replace(/_/g, ' ') ?? '—'}
+            </span>
+          </div>
+          <button
+            onClick={() => { setPayoutMsg(null); payoutMutation.mutate(); }}
+            disabled={payoutMutation.isPending || solde < SEUIL_PAYOUT}
+            className="flex items-center gap-1.5 bg-tikexo-gold/90 hover:bg-tikexo-gold disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            {payoutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
+            Demander reversement
+          </button>
         </div>
+        {payoutMsg && (
+          <div className="mt-3 text-[11px] text-white/70 bg-white/10 rounded-lg px-3 py-2">{payoutMsg}</div>
+        )}
       </div>
 
       {/* Stats */}

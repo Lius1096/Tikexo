@@ -14,5 +14,8 @@ router.post('/utilisateurs/:id/debloquer', ctrl.debloquerUtilisateur);
 router.get('/stats/transactions', ctrl.getStatsTransactions);
 router.get('/stats/wallets', ctrl.getStatsWallets);
 router.get('/alertes-fraude', ctrl.getAlertesFraude);
+router.post('/alertes-fraude/:alerteId/acquitter', ctrl.acquitterAlerteFraude);
+router.get('/configuration', ctrl.getConfiguration);
+router.put('/configuration', ctrl.majConfiguration);
 
 module.exports = router;

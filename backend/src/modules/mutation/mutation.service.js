@@ -3,6 +3,8 @@ const prisma = require('../../config/database');
 const { calculerSoldeSegmente } = require('../../utils/ledger');
 const { cascadeKYCApresDepart, validerKYCViaBeneficiaire } = require('../../utils/kyc');
 const { payoutQueue } = require('../../queues/index');
+const { envoyerEmailAsync } = require('../../utils/email');
+const { mutationTraitee } = require('../../utils/emailTemplates');
 
 const JOURS_LIMBO = 90;
 
@@ -181,7 +183,19 @@ async function traiter(mutationId, adminId, { emailProApres }) {
     });
   });
 
-  // TODO: envoyer email de bienvenue à emailProApres (quand infrastructure email disponible)
+  // Email de bienvenue au nouvel email professionnel du bénéficiaire
+  if (emailProApres) {
+    envoyerEmailAsync({
+      to: emailProApres,
+      subject: 'Mise à jour de votre compte TIKEXO',
+      ...mutationTraitee(
+        mutation.user.prenom,
+        mutation.entrepriseA?.nom ?? 'Ancienne entreprise',
+        mutation.entrepriseB?.nom ?? 'Nouvelle entreprise'
+      ),
+      expediteur: 'hello',
+    }).catch(() => {});
+  }
 
   return { traite: true, emailProApres };
 }

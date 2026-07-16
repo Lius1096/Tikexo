@@ -2,6 +2,8 @@ const { Worker } = require('bullmq');
 const { redisConnection } = require('../redis');
 const { archiverExpirees } = require('../../modules/mutation/mutation.service');
 const { jobBatchingPayouts } = require('../../modules/fedapay/fedapay.service');
+const { debiterWallet } = require('../../utils/ledger');
+const { envoyerEmailAsync } = require('../../utils/email');
 const prisma = require('../../config/database');
 const { logger } = require('../../middlewares/errorHandler');
 
@@ -37,10 +39,52 @@ const worker = new Worker('cron', async (job) => {
           entreprise: dossier.entreprise.nom,
           deadline: dossier.kyb_deadline,
         });
-        // TODO: envoyer email de rappel via emailQueue
+        if (dossier.entreprise.email_rh) {
+          const deadline = new Date(dossier.kyb_deadline).toLocaleDateString('fr-FR');
+          envoyerEmailAsync({
+            to: dossier.entreprise.email_rh,
+            subject: `[TIKEXO] Deadline KYB — action requise avant le ${deadline}`,
+            html: `<p>Bonjour,</p><p>Le dossier KYB de <strong>${dossier.entreprise.nom}</strong> doit être complété avant le <strong>${deadline}</strong>.</p><p>Rendez-vous dans votre espace employeur pour soumettre les documents manquants.</p><p>Support : <a href="mailto:kyb@tikexo.bj">kyb@tikexo.bj</a></p>`,
+            text: `[TIKEXO] Le dossier KYB de ${dossier.entreprise.nom} doit être complété avant le ${deadline}.\n\nkyb@tikexo.bj`,
+            expediteur: 'noreply',
+          }).catch(() => {});
+        }
       }
 
       return { alertes: dossiersCritiques.length };
+    }
+
+    case 'facturation-mensuelle': {
+      const entreprises = await prisma.entreprise.findMany({
+        where: { statut: 'ACTIF', frais_mensuel: { gt: 0 } },
+        include: { wallet: true },
+      });
+
+      const mois = new Date().toISOString().slice(0, 7); // ex: "2026-07"
+      let factures = 0;
+      let soldeInsuffisant = 0;
+
+      for (const e of entreprises) {
+        if (!e.wallet) continue;
+        const frais  = parseFloat(e.frais_mensuel.toString());
+        const solde  = parseFloat(e.wallet.solde.toString());
+
+        if (solde < frais) {
+          soldeInsuffisant++;
+          logger.warn('[QUEUE:CRON] Facturation — solde insuffisant', { entreprise_id: e.id, frais, solde });
+          continue;
+        }
+
+        try {
+          await debiterWallet(prisma, e.wallet.id, frais, 'FRAIS_GESTION', { mois, entreprise_id: e.id });
+          factures++;
+        } catch (err) {
+          logger.error('[QUEUE:CRON] Facturation — débit échoué', { entreprise_id: e.id, err: err.message });
+        }
+      }
+
+      logger.info('[QUEUE:CRON] Facturation mensuelle terminée', { factures, soldeInsuffisant, mois });
+      return { factures, soldeInsuffisant };
     }
 
     default:

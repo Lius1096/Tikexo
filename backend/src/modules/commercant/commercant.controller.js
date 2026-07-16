@@ -64,4 +64,14 @@ async function getMoi(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { lister, creer, getById, modifier, valider, activer, suspendre, parProximite, nearby, fiche, regenererQRCode, getMoi };
+async function demanderPayout(req, res, next) {
+  try {
+    const { declencherPayout } = require('../fedapay/fedapay.service');
+    const prisma = require('../../config/database');
+    const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
+    const result = await declencherPayout(prisma, commercant.id);
+    res.json({ success: true, data: result });
+  } catch (e) { next(e); }
+}
+
+module.exports = { lister, creer, getById, modifier, valider, activer, suspendre, parProximite, nearby, fiche, regenererQRCode, getMoi, demanderPayout };

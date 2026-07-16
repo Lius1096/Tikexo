@@ -36,7 +36,7 @@ async function creer(data) {
       ville: data.ville || 'Cotonou',
       telephone_rh: data.telephone_rh,
       email_rh: data.email_rh,
-      taux_commission_defaut: data.taux_commission_defaut || 2.00,
+      taux_commission_defaut: data.taux_commission_defaut || 5.00,
     },
   });
 
@@ -270,4 +270,20 @@ async function getStats(entrepriseId) {
   return { beneficiaires: { total, actifs, enAttente }, consommationYTD, parMois, topConsommateurs };
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, toggleStatutUser, getStats };
+async function getFacturation(entrepriseId) {
+  const wallet = await prisma.wallet.findUnique({
+    where: { entreprise_id: entrepriseId },
+    select: { id: true },
+  });
+  if (!wallet) return { items: [], total: 0 };
+
+  const items = await prisma.ledgerEntry.findMany({
+    where: { wallet_source_id: wallet.id, type: 'FRAIS_GESTION' },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, montant: true, createdAt: true, metadata: true },
+  });
+
+  return { items, total: items.length };
+}
+
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, toggleStatutUser, getStats, getFacturation };

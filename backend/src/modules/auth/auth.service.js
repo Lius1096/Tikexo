@@ -362,4 +362,11 @@ async function changerMotDePasse(userId, ancien, nouveau) {
   return { success: true };
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse };
+async function enregistrerFcmToken(userId, fcmToken) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { fcm_token: fcmToken },
+  });
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken };

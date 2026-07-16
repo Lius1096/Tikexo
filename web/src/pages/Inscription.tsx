@@ -80,7 +80,6 @@ export default function Inscription() {
           email_rh: data.admin.email_rh,
           mot_de_passe: data.admin.mot_de_passe,
         },
-        plan: data.plan,
       });
       const inscriptionData: InscriptionResult = res.data;
       setResult(inscriptionData);
@@ -168,7 +167,7 @@ export default function Inscription() {
           {etape === 3 && (
             <Step3Kyb
               docs={kybDocs}
-              plan={data.plan}
+              nbSalaries={data.entreprise.nb_salaries}
               onChangeDocs={setKybDocs}
               onNext={() => setEtape(4)}
               onBack={() => setEtape(2)}

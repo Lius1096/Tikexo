@@ -1,7 +1,7 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { ShieldAlert, Check, AlertTriangle } from 'lucide-react';
+import { ShieldAlert, Check, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
 
 const niveauStyle: Record<string, string> = {
@@ -12,11 +12,25 @@ const niveauStyle: Record<string, string> = {
 };
 
 export default function AdminAntiFraude() {
+  const queryClient = useQueryClient();
+  const [acquittees, setAcquittees] = useState<Set<string>>(new Set());
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['alertes-fraude-full'],
     queryFn: () => api.get('/admin/alertes-fraude?limit=50').then((r) => r.data.data),
     refetchInterval: 30_000,
   });
+
+  async function acquitter(id: string) {
+    setLoadingId(id);
+    try {
+      await api.post(`/admin/alertes-fraude/${id}/acquitter`, { motif: 'Acquitté manuellement depuis le tableau de bord' });
+      setAcquittees((prev) => new Set([...prev, id]));
+      queryClient.invalidateQueries({ queryKey: ['alertes-fraude-full'] });
+    } catch {}
+    setLoadingId(null);
+  }
 
   const items: Array<{
     id: string; niveau: number; niveauLabel: string;
@@ -80,9 +94,20 @@ export default function AdminAntiFraude() {
               <div className="text-[10px] text-slate-500 font-mono flex-shrink-0">
                 {new Date(f.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </div>
-              <button className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0">
-                Traiter
-              </button>
+              {acquittees.has(f.id) ? (
+                <span className="flex items-center gap-1 text-[10px] text-green-600 flex-shrink-0">
+                  <CheckCircle2 size={12} /> Acquitté
+                </span>
+              ) : (
+                <button
+                  onClick={() => acquitter(f.id)}
+                  disabled={loadingId === f.id}
+                  className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0 disabled:opacity-50"
+                >
+                  {loadingId === f.id ? <Loader2 size={10} className="animate-spin" /> : null}
+                  Acquitter
+                </button>
+              )}
             </div>
           ))
         )}

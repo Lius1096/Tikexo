@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Loader2, CheckCircle2, AlertTriangle, Info, Home, Smartphone, ArrowRight } from 'lucide-react';
-import type { InscriptionData } from './types';
+import { calculerFraisGestion, type InscriptionData } from './types';
 
 interface Props {
   data: InscriptionData;
@@ -10,12 +10,11 @@ interface Props {
   nbDocs?: number;
 }
 
-const PRIX_PLAN: Record<string, string> = { Starter: '15 000', Growth: '35 000', Business: '75 000' };
-
 export default function StepSuccess({ data, entrepriseId, uploadStatus = 'idle', nbDocs = 0 }: Props) {
   const navigate = useNavigate();
   const ref = entrepriseId.slice(-4).toUpperCase();
   const dateRef = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const planInfo = calculerFraisGestion(data.entreprise.nb_salaries);
 
   return (
     <div className="full-card">
@@ -39,7 +38,11 @@ export default function StepSuccess({ data, entrepriseId, uploadStatus = 'idle',
             <div className="si-row"><span className="si-label">RCCM</span><span className="si-val mono">{data.entreprise.rccm}</span></div>
           )}
           <div className="si-row"><span className="si-label">Adresse</span><span className="si-val">{data.entreprise.adresse}, {data.entreprise.ville}</span></div>
-          <div className="si-row"><span className="si-label">Plan actif</span><span className="si-val">{data.plan} · {PRIX_PLAN[data.plan]} XOF/mois</span></div>
+          <div className="si-row"><span className="si-label">Effectif</span><span className="si-val">{data.entreprise.nb_salaries} salarié(s)</span></div>
+          <div className="si-row"><span className="si-label">Plan actif</span><span className="si-val">{planInfo.label} · {planInfo.frais.toLocaleString('fr-FR')} XOF/mois</span></div>
+          {data.entreprise.dotation_max && (
+            <div className="si-row"><span className="si-label">Dotation max</span><span className="si-val">{parseInt(data.entreprise.dotation_max).toLocaleString('fr-FR')} XOF/salarié</span></div>
+          )}
           <div className="si-row"><span className="si-label">Identifiant TIKEXO</span><span className="si-val mono">ENT-{dateRef}-{ref}</span></div>
           <div className="si-row">
             <span className="si-label">KYB</span>

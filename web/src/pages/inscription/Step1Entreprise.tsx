@@ -2,11 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Info, ShieldCheck, Check, Eye, EyeOff } from 'lucide-react';
 import StepsBar from './StepsBar';
-import type { InscriptionData } from './types';
+import { calculerFraisGestion, type InscriptionData } from './types';
 
 const SECTEURS = ['Services', 'Commerce & Distribution', 'Finance & Banque', 'Santé', 'Éducation', 'Technologie', 'Industrie', 'Agriculture', 'Autre'];
 const VILLES = ['Cotonou', 'Porto-Novo', 'Parakou', 'Abomey-Calavi', 'Bohicon', 'Natitingou', 'Autre'];
-const NB_SALARIES = ['1 – 20', '21 – 100', '101 – 300', '300+'];
 
 interface Props {
   data: InscriptionData;
@@ -16,7 +15,7 @@ interface Props {
 
 export default function Step1Entreprise({ data, onChange, onNext }: Props) {
   const navigate = useNavigate();
-  const [showPwd, setShowPwd]     = useState(false);
+  const [showPwd, setShowPwd]         = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
   const e = data.entreprise;
@@ -33,13 +32,17 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
   const pwdValide   = a.mot_de_passe.length >= 8;
   const pwdMatch    = a.mot_de_passe === a.confirmer_mot_de_passe && a.confirmer_mot_de_passe.length > 0;
 
+  const nbVal = parseInt(e.nb_salaries, 10);
+  const nbValide = !isNaN(nbVal) && nbVal >= 1;
+  const planInfo = nbValide ? calculerFraisGestion(e.nb_salaries) : null;
+
   const valide =
     e.nom.trim() &&
     e.nif.trim() &&
     e.secteur &&
     e.adresse.trim() &&
     e.ville &&
-    e.nb_salaries &&
+    nbValide &&
     a.prenom.trim() &&
     a.nom.trim() &&
     a.telephone.trim().length >= 12 &&
@@ -64,9 +67,7 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
           <label className="form-label">NIF <span className="form-required">*</span></label>
           <input className="form-input" placeholder="ex : NIF-BJ-XXXXX" value={e.nif} onChange={(ev) => setE({ nif: ev.target.value.toUpperCase() })} />
           {e.nif.length >= 5 && (
-            <div className="form-success">
-              <CheckCircle2 size={12} /> NIF vérifié DGID Bénin
-            </div>
+            <div className="form-success"><CheckCircle2 size={12} /> NIF vérifié DGID Bénin</div>
           )}
         </div>
         <div className="form-group">
@@ -99,14 +100,55 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
         </div>
         <div className="form-group">
           <label className="form-label">Nombre de salariés <span className="form-required">*</span></label>
-          <select className="form-select" value={e.nb_salaries} onChange={(ev) => setE({ nb_salaries: ev.target.value })}>
-            <option value="">Sélectionner…</option>
-            {NB_SALARIES.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+          <input
+            className="form-input"
+            type="number"
+            min="1"
+            placeholder="ex : 85"
+            value={e.nb_salaries}
+            onChange={(ev) => setE({ nb_salaries: ev.target.value })}
+          />
+          {planInfo && (
+            <div className="form-success">
+              <CheckCircle2 size={12} /> Plan {planInfo.label} — {planInfo.frais.toLocaleString('fr-FR')} XOF/mois
+            </div>
+          )}
+          {e.nb_salaries && !nbValide && (
+            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>Nombre invalide (min. 1)</div>
+          )}
         </div>
       </div>
 
-      <div className="section-label">CONTACT ADMINISTRATEUR RH</div>
+      <div className="section-label" style={{ marginTop: '16px' }}>PARAMÈTRES WALLET</div>
+
+      <div className="form-row">
+        <div className="form-group">
+          <label className="form-label">Dotation max / salarié <span className="form-optional">(XOF/mois)</span></label>
+          <input
+            className="form-input"
+            type="number"
+            min="0"
+            placeholder="ex : 15 000"
+            value={e.dotation_max}
+            onChange={(ev) => setE({ dotation_max: ev.target.value })}
+          />
+          <div className="form-hint"><Info size={11} /> Plafond mensuel de repas par salarié</div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Plafond wallet entreprise <span className="form-optional">(XOF)</span></label>
+          <input
+            className="form-input"
+            type="number"
+            min="0"
+            placeholder="ex : 5 000 000"
+            value={e.montant_max_wallet}
+            onChange={(ev) => setE({ montant_max_wallet: ev.target.value })}
+          />
+          <div className="form-hint"><Info size={11} /> Montant max que le wallet peut conserver</div>
+        </div>
+      </div>
+
+      <div className="section-label" style={{ marginTop: '16px' }}>CONTACT ADMINISTRATEUR RH</div>
 
       <div className="form-row">
         <div className="form-group">
@@ -209,7 +251,7 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
       </div>
 
       <button className="btn-primary" disabled={!valide} onClick={onNext}>
-        <ArrowRight size={15} /> Continuer — Choisir mon plan
+        <ArrowRight size={15} /> Voir ma tarification
       </button>
       <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '11px', color: '#94A3B8' }}>
         Déjà un compte ? <span style={{ color: '#0EA5E9', cursor: 'pointer' }} onClick={() => navigate('/login')}>Se connecter</span>

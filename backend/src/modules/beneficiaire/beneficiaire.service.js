@@ -4,6 +4,8 @@ const { validerKYCViaBeneficiaire, cascadeKYCApresDepart } = require('../../util
 const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
 const carteUtils = require('../../utils/carte');
+const { envoyerEmailAsync } = require('../../utils/email');
+const { bienvenueBeneficiaire } = require('../../utils/emailTemplates');
 
 async function lister(filtres = {}) {
   const { entrepriseId, statut } = filtres;
@@ -105,12 +107,32 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
     throw err;
   }
 
+  // Fetch entreprise pour validation dotation_max + nom (email bienvenue)
+  const entreprise = await prisma.entreprise.findUniqueOrThrow({
+    where: { id: entrepriseId },
+    select: { nom: true, dotation_max: true },
+  });
+
+  if (entreprise.dotation_max) {
+    const plafond = parseFloat(entreprise.dotation_max.toString());
+    const valeur  = parseFloat(valeurTitre.toString());
+    if (valeur > plafond) {
+      const err = new Error(
+        `Valeur du titre (${valeur.toLocaleString('fr-FR')} XOF) dépasse le plafond de dotation de l'entreprise (${Math.floor(plafond).toLocaleString('fr-FR')} XOF)`
+      );
+      err.statusCode = 400;
+      err.code = 'DOTATION_MAX_DEPASSEE';
+      throw err;
+    }
+  }
+
   // Cas ré-embauche : lien TERMINE existant → réactiver
   const lienTermine = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'TERMINE' },
   });
 
   let lien;
+  const estPremierRattachement = !lienTermine;
   if (lienTermine) {
     lien = await prisma.$transaction(async (tx) => {
       const updated = await tx.lienEntrepriseBeneficiaire.update({
@@ -176,6 +198,24 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
   // Détection silencieuse : si cet employé avait une mutation EN_ATTENTE, on la lie à ce nouveau lien
   await detecterRattachement(userId, lien.id, entrepriseId);
 
+  // Email bienvenue — uniquement au premier rattachement (pas ré-embauche)
+  if (estPremierRattachement) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { prenom: true, email_perso: true },
+    });
+    if (user?.email_perso) {
+      const { html, text } = bienvenueBeneficiaire(user.prenom, entreprise.nom);
+      envoyerEmailAsync({
+        to: user.email_perso,
+        subject: `Bienvenue sur TIKEXO — ${entreprise.nom}`,
+        html,
+        text,
+        expediteur: 'hello',
+      }).catch(() => {}); // fire-and-forget — l'échec email ne bloque pas le rattachement
+    }
+  }
+
   return lien;
 }
 
@@ -183,4 +223,60 @@ async function traiterSortie(userId, entrepriseId, adminId, options) {
   return sortieService(userId, entrepriseId, adminId, options);
 }
 
-module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie };
+async function suspendre(userId, entrepriseId, adminId) {
+  const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
+  });
+  if (!lien) {
+    const err = new Error('Bénéficiaire non rattaché à cette entreprise');
+    err.statusCode = 404;
+    throw err;
+  }
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { statut: 'BLOQUE' },
+    select: { id: true, nom: true, prenom: true, statut: true },
+  });
+  if (adminId) {
+    await prisma.auditLog.create({
+      data: {
+        user_id: adminId,
+        action: 'SUSPENSION_BENEFICIAIRE',
+        entite: 'User',
+        entite_id: userId,
+        apres: { statut: 'BLOQUE', entreprise_id: entrepriseId },
+      },
+    });
+  }
+  return user;
+}
+
+async function reactiver(userId, entrepriseId, adminId) {
+  const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
+  });
+  if (!lien) {
+    const err = new Error('Bénéficiaire non rattaché à cette entreprise');
+    err.statusCode = 404;
+    throw err;
+  }
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { statut: 'ACTIF' },
+    select: { id: true, nom: true, prenom: true, statut: true },
+  });
+  if (adminId) {
+    await prisma.auditLog.create({
+      data: {
+        user_id: adminId,
+        action: 'REACTIVATION_BENEFICIAIRE',
+        entite: 'User',
+        entite_id: userId,
+        apres: { statut: 'ACTIF', entreprise_id: entrepriseId },
+      },
+    });
+  }
+  return user;
+}
+
+module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver };

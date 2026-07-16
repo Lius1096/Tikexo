@@ -38,4 +38,7 @@ router.post('/logout', authentifier, authController.logout);
 // Récupérer son profil — limiter dédié, appelé à chaque chargement de page
 router.get('/profil', limiterProfil, authentifier, authController.getProfil);
 
+// Enregistrer le token Firebase Cloud Messaging pour les push notifications
+router.post('/fcm-token', authentifier, authController.enregistrerFcmToken);
+
 module.exports = router;

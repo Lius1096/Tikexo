@@ -4,8 +4,9 @@ import {
   ShieldCheck, ArrowRight, Info, CheckCircle2, Eye,
   FileText, Store, CreditCard, FileCheck,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import StepsBar from './StepsBar';
-import type { Plan } from './types';
+import { calculerFraisGestion } from './types';
 
 export type TypeDoc = 'CARTE_NIF' | 'EXTRAIT_RCCM' | 'PIECE_IDENTITE_DIRIGEANT' | 'STATUTS_SOCIETE';
 
@@ -16,7 +17,7 @@ export interface KybFile {
 
 interface Props {
   docs: KybFile[];
-  plan: Plan;
+  nbSalaries: string;
   onChangeDocs: (docs: KybFile[]) => void;
   onNext: () => void;
   onBack: () => void;
@@ -26,7 +27,7 @@ const DOCS_CONFIG: {
   type: TypeDoc;
   label: string;
   description: string;
-  Icon: React.FC<{ size?: number; color?: string }>;
+  Icon: LucideIcon;
   iconBg: string;
   iconColor: string;
   obligatoire: boolean;
@@ -35,7 +36,7 @@ const DOCS_CONFIG: {
   { type: 'CARTE_NIF',                label: 'Carte NIF / Attestation DGID',  description: 'Identifiant fiscal béninois en cours de validité', Icon: FileText,   iconBg: '#EAF3DE', iconColor: '#3B6D11', obligatoire: true,  maxMo: 10 },
   { type: 'EXTRAIT_RCCM',             label: 'Extrait RCCM',                   description: 'Registre du Commerce et du Crédit Mobilier',       Icon: Store,      iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true,  maxMo: 10 },
   { type: 'PIECE_IDENTITE_DIRIGEANT', label: "Pièce d'identité du dirigeant", description: 'CNI ou passeport recto/verso',                     Icon: CreditCard, iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true,  maxMo: 10 },
-  { type: 'STATUTS_SOCIETE',          label: 'Statuts de la société',          description: 'Requis pour les comptes Business 100+',            Icon: FileCheck,  iconBg: '#F1F5F9', iconColor: '#94A3B8', obligatoire: false, maxMo: 20 },
+  { type: 'STATUTS_SOCIETE',          label: 'Statuts de la société',          description: 'Requis pour les grandes entreprises (ETI / GE)',   Icon: FileCheck,  iconBg: '#F1F5F9', iconColor: '#94A3B8', obligatoire: false, maxMo: 20 },
 ];
 
 const CSS = `
@@ -74,7 +75,7 @@ function fmtSize(bytes: number) {
 }
 
 function DocZone({ config, uploaded, onFile, onRemove }: {
-  config: typeof DOCS_CONFIG[0];
+  config: (typeof DOCS_CONFIG)[0];
   uploaded: KybFile | null;
   onFile: (f: File) => void;
   onRemove: () => void;
@@ -172,7 +173,7 @@ function DocZone({ config, uploaded, onFile, onRemove }: {
   );
 }
 
-export default function Step3Kyb({ docs, plan, onChangeDocs, onNext, onBack }: Props) {
+export default function Step3Kyb({ docs, nbSalaries, onChangeDocs, onNext, onBack }: Props) {
   function getDoc(type: TypeDoc) {
     return docs.find((d) => d.type === type) ?? null;
   }
@@ -188,7 +189,8 @@ export default function Step3Kyb({ docs, plan, onChangeDocs, onNext, onBack }: P
   const nbOblig = obligatoires.filter((d) => getDoc(d.type)).length;
   const peutContinuer = nbOblig === 3;
   const progression = Math.round((nbOblig / 3) * 100);
-  const isBusinessPlan = plan === 'Business';
+  const { plan } = calculerFraisGestion(nbSalaries);
+  const isGrandePlan = plan === 'ETI' || plan === 'GE';
 
   return (
     <>
@@ -224,9 +226,9 @@ export default function Step3Kyb({ docs, plan, onChangeDocs, onNext, onBack }: P
 
           {optionnels.map((config) => (
             <div key={config.type}>
-              {isBusinessPlan && (
+              {isGrandePlan && (
                 <div style={{ fontSize: 10, color: '#854F0B', background: '#FAEEDA', border: '0.5px solid #FAC775', borderRadius: 8, padding: '5px 10px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <Info size={12} color="#854F0B" /> Fortement recommandé pour votre plan Business
+                  <Info size={12} color="#854F0B" /> Fortement recommandé pour votre plan {plan}
                 </div>
               )}
               <DocZone config={config} uploaded={getDoc(config.type)} onFile={(file) => handleFile(config.type, file)} onRemove={() => removeDoc(config.type)} />

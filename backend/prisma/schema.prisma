@@ -56,9 +56,11 @@ model Entreprise {
   telephone_rh            String?
   email_rh                String?
   statut                  StatutEntreprise @default(EN_ATTENTE)
-  plan                    String           @default("PME")
+  plan                    String           @default("PME_S")
   nb_employes             String?
   frais_mensuel           Decimal?         @db.Decimal(10,2)
+  dotation_max            Decimal?         @db.Decimal(10,2)
+  montant_max_wallet      Decimal?         @db.Decimal(12,2)
   kyb_valide              Boolean          @default(false)
   taux_commission_defaut  Decimal          @db.Decimal(5,2) @default(5.00)
   createdAt               DateTime         @default(now())
