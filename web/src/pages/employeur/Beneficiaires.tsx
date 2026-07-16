@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
@@ -6,7 +7,7 @@ import {
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
   SlidersHorizontal, LayoutGrid, List, ChevronDown, Zap, MoreHorizontal,
   CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
-  ArrowUpRight, ShoppingBag, FileText, CheckCircle, AlertTriangle, AlertCircle,
+  ArrowUpRight, ShoppingBag,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -43,15 +44,6 @@ interface AjoutForm {
   valeur_titre: string; taux_participation: string;
 }
 
-interface CsvRow {
-  prenom: string; nom: string; telephone: string;
-  email?: string; niveau?: string; valeur_repas?: string; part_employeur?: string;
-}
-
-interface ImportResultat {
-  prenom: string; nom: string; telephone: string;
-  statut: 'OK' | 'IGNORE' | 'ERREUR'; message: string;
-}
 
 const FORM_VIDE: AjoutForm = {
   prenom: '', nom: '', telephone: '', email_perso: '',
@@ -91,51 +83,13 @@ function statut(b: BenefItem): 'actif' | 'attente' | 'inactif' {
   return 'attente';
 }
 
-// ─── CSV helpers ──────────────────────────────────────────────────────────────
-
-const CSV_HEADERS: Record<string, keyof CsvRow> = {
-  prenom: 'prenom', prénom: 'prenom',
-  nom: 'nom',
-  telephone: 'telephone', téléphone: 'telephone', tel: 'telephone',
-  email: 'email',
-  niveau: 'niveau',
-  valeur_repas: 'valeur_repas', valeur: 'valeur_repas',
-  part_employeur: 'part_employeur', part: 'part_employeur', taux: 'part_employeur',
-};
-
-function parseCSV(text: string): CsvRow[] {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const rawHeaders = lines[0].split(',').map((h) =>
-    h.trim().toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/[îï]/g, 'i').replace(/^"/, '').replace(/"$/, '')
-  );
-  return lines.slice(1).map((line) => {
-    const values = line.match(/(".*?"|[^,]*)/g)?.map((v) => v.trim().replace(/^"|"$/g, '')) ?? [];
-    const row: any = {};
-    rawHeaders.forEach((h, i) => { const k = CSV_HEADERS[h]; if (k) row[k] = values[i] ?? ''; });
-    return row as CsvRow;
-  });
-}
-
-function telechargerModele() {
-  const content = [
-    'prenom,nom,telephone,email,niveau,valeur_repas,part_employeur',
-    'Kofi,Mensah,0197000001,kofi@gmail.com,EMPLOYE,1500,100',
-    'Aïcha,Bello,0196000002,,CADRE,2000,80',
-  ].join('\n');
-  const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'modele_import_tikexo.csv'; a.click();
-  URL.revokeObjectURL(url);
-}
-
 // ─── Page principale ───────────────────────────────────────────────────────────
 
 type TabKey = 'tous' | 'actifs' | 'attente' | 'inactifs';
 
 export default function EmployeurBeneficiaires() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const entrepriseId = user?.entrepriseId;
   const qc = useQueryClient();
 
@@ -148,12 +102,6 @@ export default function EmployeurBeneficiaires() {
   const [utilisateurExistant, setUtilisateurExistant] = useState<{ id: string; nom: string; prenom: string } | null>(null);
   const checkTelRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Import CSV
-  const [importOpen, setImportOpen]         = useState(false);
-  const [importRows, setImportRows]         = useState<CsvRow[]>([]);
-  const [importFile, setImportFile]         = useState<File | null>(null);
-  const [importResultats, setImportResultats] = useState<ImportResultat[] | null>(null);
-  const csvInputRef = useRef<HTMLInputElement>(null);
 
   // Filtres + Vue
   const [filtresOpen, setFiltresOpen]     = useState(false);
@@ -256,30 +204,6 @@ export default function EmployeurBeneficiaires() {
     },
   });
 
-  const importMutation = useMutation({
-    mutationFn: (rows: CsvRow[]) =>
-      api.post('/beneficiaires/import-bulk', { entrepriseId, rows }).then((r) => r.data.data),
-    onSuccess: (data) => {
-      setImportResultats(data.resultats);
-      qc.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] });
-    },
-  });
-
-  function onCsvFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const rows = parseCSV(ev.target?.result as string);
-      setImportFile(file);
-      setImportRows(rows);
-      setImportResultats(null);
-      setImportOpen(true);
-    };
-    reader.readAsText(file, 'UTF-8');
-  }
-
   const telValide = /^\d{10}$/.test(form.telephone.replace(/\D/g, ''));
   const formValide = telValide && (utilisateurExistant || (form.prenom.trim() && form.nom.trim()));
 
@@ -334,15 +258,12 @@ export default function EmployeurBeneficiaires() {
             <p className="text-[13px] text-slate-500 mt-0.5">Gérez les comptes salariés, leurs cartes et leurs dotations.</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <>
-              <input ref={csvInputRef} type="file" accept=".csv" className="hidden" onChange={onCsvFileChange} />
-              <button
-                onClick={() => csvInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-600 hover:bg-slate-50 transition-colors"
-              >
-                <Download size={13} />Import CSV
-              </button>
-            </>
+            <button
+              onClick={() => navigate('/employeur/beneficiaires/import')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Download size={13} />Import CSV
+            </button>
             <a
               href={`${api.defaults.baseURL}/dotations/export/csv?entreprise_id=${entrepriseId}`}
               download
@@ -679,20 +600,6 @@ export default function EmployeurBeneficiaires() {
           />
         )}
       </div>
-
-      {/* Modal import CSV */}
-      {importOpen && importFile && (
-        <ImportCsvModal
-          file={importFile}
-          rows={importRows}
-          resultats={importResultats}
-          isPending={importMutation.isPending}
-          isError={importMutation.isError}
-          error={importMutation.error}
-          onImport={(rows) => importMutation.mutate(rows)}
-          onClose={() => { setImportOpen(false); setImportResultats(null); importMutation.reset(); }}
-        />
-      )}
 
       {/* Modal ajout */}
       {modalOpen && (
@@ -1175,179 +1082,6 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── ImportCsvModal ───────────────────────────────────────────────────────────
-
-function ImportCsvModal({ file, rows, resultats, isPending, isError, error, onImport, onClose }: {
-  file: File;
-  rows: CsvRow[];
-  resultats: ImportResultat[] | null;
-  isPending: boolean;
-  isError: boolean;
-  error: any;
-  onImport: (rows: CsvRow[]) => void;
-  onClose: () => void;
-}) {
-  const valides = rows.filter((r) => r.prenom?.trim() && r.nom?.trim() && r.telephone?.replace(/\D/g, ''));
-  const invalides = rows.length - valides.length;
-
-  const nbOk      = resultats?.filter((r) => r.statut === 'OK').length ?? 0;
-  const nbIgnores = resultats?.filter((r) => r.statut === 'IGNORE').length ?? 0;
-  const nbErreurs = resultats?.filter((r) => r.statut === 'ERREUR').length ?? 0;
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
-          <div>
-            <div className="text-[13px] font-semibold text-slate-900">
-              {resultats ? 'Résultats de l\'import' : 'Aperçu de l\'import'}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {file.name} · {rows.length} ligne{rows.length !== 1 ? 's' : ''}
-            </div>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
-            <X size={16} />
-          </button>
-        </div>
-
-        {resultats ? (
-          /* ── Étape 2 : résultats ── */
-          <>
-            {/* Résumé */}
-            <div className="px-5 pt-4 pb-3 flex-shrink-0">
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-green-50 rounded-xl p-3 text-center">
-                  <div className="text-[20px] font-bold text-green-700">{nbOk}</div>
-                  <div className="text-[10px] text-green-600 mt-0.5">Importés</div>
-                </div>
-                <div className="bg-amber-50 rounded-xl p-3 text-center">
-                  <div className="text-[20px] font-bold text-amber-700">{nbIgnores}</div>
-                  <div className="text-[10px] text-amber-600 mt-0.5">Ignorés</div>
-                </div>
-                <div className="bg-red-50 rounded-xl p-3 text-center">
-                  <div className="text-[20px] font-bold text-red-700">{nbErreurs}</div>
-                  <div className="text-[10px] text-red-600 mt-0.5">Erreurs</div>
-                </div>
-              </div>
-              {nbIgnores > 0 && (
-                <div className="mt-2 text-[10px] text-amber-600 text-center">
-                  Les ignorés étaient déjà actifs dans votre entreprise.
-                </div>
-              )}
-            </div>
-
-            {/* Détail */}
-            <div className="flex-1 overflow-y-auto px-5 pb-3 space-y-1.5">
-              {resultats.map((r, i) => (
-                <div key={i} className={clsx(
-                  'flex items-center gap-2.5 px-3 py-2.5 rounded-lg',
-                  r.statut === 'OK' ? 'bg-green-50' : r.statut === 'IGNORE' ? 'bg-amber-50' : 'bg-red-50'
-                )}>
-                  {r.statut === 'OK'
-                    ? <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
-                    : r.statut === 'IGNORE'
-                    ? <AlertTriangle size={14} className="text-amber-500 flex-shrink-0" />
-                    : <XCircle size={14} className="text-red-500 flex-shrink-0" />}
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12px] font-medium text-slate-900 truncate">{r.prenom} {r.nom}</div>
-                    <div className="text-[10px] text-slate-400 truncate">{r.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0">
-              <button onClick={onClose}
-                className="w-full bg-[#4F46E5] text-white text-[13px] font-semibold py-3 rounded-xl hover:bg-[#4338CA] transition-colors">
-                Terminer
-              </button>
-            </div>
-          </>
-        ) : (
-          /* ── Étape 1 : préview ── */
-          <>
-            {/* Alerte lignes invalides */}
-            {invalides > 0 && (
-              <div className="mx-5 mt-3 px-3 py-2 bg-amber-50 border border-amber-100 rounded-lg text-[11px] text-amber-700 flex items-center gap-2 flex-shrink-0">
-                <AlertTriangle size={13} className="flex-shrink-0" />
-                {invalides} ligne{invalides > 1 ? 's' : ''} incomplète{invalides > 1 ? 's' : ''} — prénom, nom et téléphone requis
-              </div>
-            )}
-
-            {/* Template download */}
-            <div className="px-5 pt-3 flex-shrink-0">
-              <button onClick={telechargerModele}
-                className="flex items-center gap-1.5 text-[11px] text-[#4F46E5] hover:underline">
-                <FileText size={12} />Télécharger le modèle CSV
-              </button>
-            </div>
-
-            {/* Aperçu des lignes */}
-            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
-              <div className="text-[10px] text-slate-400 font-medium mb-2">
-                APERÇU — {rows.length} bénéficiaire{rows.length !== 1 ? 's' : ''} · {valides.length} valide{valides.length !== 1 ? 's' : ''}
-              </div>
-              {rows.map((row, i) => {
-                const ok = !!(row.prenom?.trim() && row.nom?.trim() && row.telephone?.replace(/\D/g, ''));
-                const niveauLabel: Record<string, string> = { EMPLOYE: 'Employé', CADRE: 'Cadre', MANAGER: 'Manager', DIRECTEUR: 'Directeur' };
-                const niv = (row.niveau || '').toUpperCase();
-                return (
-                  <div key={i} className={clsx(
-                    'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border',
-                    ok ? 'border-slate-100 bg-slate-50' : 'border-red-100 bg-red-50'
-                  )}>
-                    <div className="flex-shrink-0">
-                      {ok
-                        ? <CheckCircle size={15} className="text-green-500" />
-                        : <AlertCircle size={15} className="text-red-400" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-medium text-slate-900 truncate">
-                        {row.prenom || '—'} {row.nom || '—'}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono">{row.telephone || 'téléphone manquant'}</div>
-                    </div>
-                    {niveauLabel[niv] && (
-                      <span className="text-[9px] px-1.5 py-0.5 bg-white border border-slate-200 rounded text-slate-500 flex-shrink-0">
-                        {niveauLabel[niv]}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Actions */}
-            <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
-              {isError && (
-                <div className="text-[11px] text-red-500 text-center">
-                  {error?.response?.data?.error || 'Erreur lors de l\'import'}
-                </div>
-              )}
-              <button
-                onClick={() => onImport(valides)}
-                disabled={valides.length === 0 || isPending}
-                className="w-full bg-[#4F46E5] text-white text-[13px] font-semibold py-3 rounded-xl disabled:opacity-40 hover:bg-[#4338CA] transition-colors"
-              >
-                {isPending
-                  ? 'Importation en cours…'
-                  : `Importer ${valides.length} bénéficiaire${valides.length !== 1 ? 's' : ''}`}
-              </button>
-              <button onClick={onClose}
-                className="w-full text-[12px] text-slate-400 py-1.5 hover:text-slate-600 transition-colors">
-                Annuler
-              </button>
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }

@@ -50,6 +50,7 @@ import EmployeurRapports from './pages/employeur/Rapports';
 import EmployeurFacturation from './pages/employeur/Facturation';
 import EmployeurParametres from './pages/employeur/Parametres';
 import EmployeurKyb from './pages/employeur/KybDossier';
+import EmployeurImportCsv from './pages/employeur/ImportCsv';
 
 const ROLES_BENEFICIAIRE = ['BENEFICIAIRE'];
 const ROLES_COMMERCANT = ['COMMERCANT'];
@@ -161,6 +162,7 @@ export default function App() {
         <Route index element={<EmployeurDashboard />} />
         <Route path="wallet" element={<EmployeurWallet />} />
         <Route path="beneficiaires" element={<EmployeurBeneficiaires />} />
+        <Route path="beneficiaires/import" element={<EmployeurImportCsv />} />
         <Route path="dotations" element={<EmployeurDotations />} />
         <Route path="cartes" element={<EmployeurCartes />} />
         <Route path="rapports" element={<EmployeurRapports />} />
