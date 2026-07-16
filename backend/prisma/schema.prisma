@@ -131,7 +131,7 @@ model LienEntrepriseBeneficiaire {
   entreprise_id        String
   user_id              String
   niveau               NiveauSalarie
-  allocation_mensuelle Decimal       @db.Decimal(10,2)
+  allocation_mensuelle Decimal       @db.Decimal(10,2) @default(5000)
   date_debut           DateTime      @default(now())
   date_fin             DateTime?
   statut               StatutLien    @default(ACTIF)
