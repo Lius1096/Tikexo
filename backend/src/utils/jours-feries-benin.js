@@ -82,14 +82,31 @@ function estDimanche(date) {
 }
 
 /**
- * Vérifie si une date est un jour ouvré (ni férié, ni dimanche).
+ * Vérifie si une date est un samedi.
+ */
+function estSamedi(date) {
+  const d = typeof date === 'string' ? new Date(date) : new Date(date);
+  return d.getDay() === 6;
+}
+
+/**
+ * Vérifie si une date est un jour ouvré pour les transactions (ni férié, ni dimanche).
+ * Le samedi reste éligible pour les paiements en restaurant.
  */
 function estEligible(date) {
   return !estJourFerie(date) && !estDimanche(date);
 }
 
 /**
- * Compte les jours ouvrés dans un mois donné.
+ * Vérifie si une date est un jour ouvré pour les dotations (lundi → vendredi, ni férié).
+ * Les samedis sont exclus du calcul des titres-restaurant.
+ */
+function estJourOuvreDotation(date) {
+  return !estJourFerie(date) && !estDimanche(date) && !estSamedi(date);
+}
+
+/**
+ * Compte les jours ouvrés (lundi→vendredi, hors fériés) dans un mois donné.
  * Utilisé pour calculer le nombre de titres-restaurant à attribuer.
  */
 function compterJoursOuvresMois(annee, mois) {
@@ -98,14 +115,14 @@ function compterJoursOuvresMois(annee, mois) {
   let count = 0;
 
   for (let d = new Date(premier); d <= dernier; d.setDate(d.getDate() + 1)) {
-    if (estEligible(new Date(d))) count++;
+    if (estJourOuvreDotation(new Date(d))) count++;
   }
 
   return count;
 }
 
 /**
- * Retourne la liste des jours ouvrés d'un mois.
+ * Retourne la liste des jours ouvrés (lundi→vendredi, hors fériés) d'un mois.
  */
 function getJoursOuvresMois(annee, mois) {
   const premier = new Date(annee, mois - 1, 1);
@@ -113,7 +130,7 @@ function getJoursOuvresMois(annee, mois) {
   const jours = [];
 
   for (let d = new Date(premier); d <= dernier; d.setDate(d.getDate() + 1)) {
-    if (estEligible(new Date(d))) {
+    if (estJourOuvreDotation(new Date(d))) {
       jours.push(new Date(d));
     }
   }
@@ -124,7 +141,9 @@ function getJoursOuvresMois(annee, mois) {
 module.exports = {
   estJourFerie,
   estDimanche,
+  estSamedi,
   estEligible,
+  estJourOuvreDotation,
   compterJoursOuvresMois,
   getJoursOuvresMois,
 };
