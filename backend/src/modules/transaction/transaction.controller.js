@@ -66,4 +66,12 @@ async function exportCsv(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { creer, lister, getById, annuler, exportCsv };
+async function getStatsBenef(req, res, next) {
+  try {
+    const { beneficiaireId } = req.query;
+    if (!beneficiaireId) return res.status(400).json({ success: false, error: 'beneficiaireId requis' });
+    res.json({ success: true, data: await service.statsBenef(beneficiaireId) });
+  } catch (e) { next(e); }
+}
+
+module.exports = { creer, lister, getById, annuler, exportCsv, getStatsBenef };

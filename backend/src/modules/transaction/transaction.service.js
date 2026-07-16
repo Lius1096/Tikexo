@@ -160,6 +160,8 @@ async function lister(userId, role, filtres = {}) {
   else if (role === 'COMMERCANT') {
     const commercant = await prisma.commercant.findUnique({ where: { user_id: userId } });
     if (commercant) where.commercant_id = commercant.id;
+  } else if (filtres.beneficiaireId) {
+    where.beneficiaire_id = filtres.beneficiaireId;
   }
 
   const [total, items] = await Promise.all([
@@ -190,6 +192,46 @@ async function getById(id) {
   });
 }
 
+async function statsBenef(beneficiaireId) {
+  const now = new Date();
+  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [cesMoisAgg, totalAgg, topC] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { beneficiaire_id: beneficiaireId, createdAt: { gte: debutMois }, statut: 'VALIDEE' },
+      _sum: { montant_total: true },
+      _count: { id: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { beneficiaire_id: beneficiaireId, statut: 'VALIDEE' },
+      _sum: { montant_total: true },
+      _count: { id: true },
+    }),
+    prisma.transaction.groupBy({
+      by: ['commercant_id'],
+      where: { beneficiaire_id: beneficiaireId, statut: 'VALIDEE', createdAt: { gte: debutMois } },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 1,
+    }),
+  ]);
+
+  let restoFavori = null;
+  if (topC[0]) {
+    const c = await prisma.commercant.findUnique({ where: { id: topC[0].commercant_id }, select: { nom: true } });
+    restoFavori = { nom: c?.nom ?? '—', nbVisites: topC[0]._count.id };
+  }
+
+  const totalCount = totalAgg._count.id;
+  const totalSpend = Number(totalAgg._sum.montant_total || 0);
+
+  return {
+    cesMois: { total: Number(cesMoisAgg._sum.montant_total || 0), nb: cesMoisAgg._count.id },
+    panierMoyen: totalCount > 0 ? Math.round(totalSpend / totalCount) : 0,
+    restoFavori,
+  };
+}
+
 async function annuler(id, adminId) {
   const txn = await prisma.transaction.findUniqueOrThrow({ where: { id } });
 
@@ -215,4 +257,4 @@ async function annuler(id, adminId) {
   return { annulee: true };
 }
 
-module.exports = { creer, lister, getById, annuler };
+module.exports = { creer, lister, getById, annuler, statsBenef };

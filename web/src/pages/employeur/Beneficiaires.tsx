@@ -2,19 +2,22 @@ import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
-  Users, X, Wallet, CalendarDays, Plus, Phone, AlertCircle, LogOut,
+  Users, X, CalendarDays, Plus, Phone, AlertCircle, LogOut,
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
   SlidersHorizontal, LayoutGrid, ChevronDown, Zap, MoreHorizontal,
-  CheckCircle2, Clock, XCircle, CreditCard,
+  CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
+  ArrowUpRight, ShoppingBag,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt, fmtDate } from '../../utils/format';
+import { CarteVirtuelle, type CarteData } from '../../components/CarteVisuelle';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Carte {
   id: string; type: string; statut: string; numero_masque: string;
+  date_expiration?: string; nfc_active?: boolean;
 }
 interface DerniereDotation {
   montant_total: string; part_employeur: string;
@@ -487,15 +490,31 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
   const [sortieOpen, setSortieOpen]     = useState(false);
   const [optionSolde, setOptionSolde]   = useState<'CONSERVATION' | 'REMBOURSEMENT'>('CONSERVATION');
   const [moreOpen, setMoreOpen]         = useState(false);
+  const [copied, setCopied]             = useState(false);
 
+  // Queries
+  const { data: statsData } = useQuery({
+    queryKey: ['benef-stats', u.id],
+    queryFn: () => api.get(`/transactions/benef-stats?beneficiaireId=${u.id}`).then((r) => r.data.data),
+    staleTime: 60_000,
+  });
+
+  const { data: txData } = useQuery({
+    queryKey: ['benef-transactions', u.id],
+    queryFn: () =>
+      api.get(`/transactions?beneficiaireId=${u.id}&limit=4`).then((r) => r.data.data),
+    staleTime: 30_000,
+  });
+
+  const transactions: any[] = txData?.items || [];
+
+  // Mutations
   const rechargeMut = useMutation({
     mutationFn: () => api.post('/wallet/crediter-benef', {
       entrepriseId, beneficiaireId: u.id,
       montant: parseInt(montantRecharge.replace(/\D/g, ''), 10),
     }),
-    onSuccess: () => {
-      onRefresh(); setRechargeOpen(false); setMontantRecharge('');
-    },
+    onSuccess: () => { onRefresh(); setRechargeOpen(false); setMontantRecharge(''); },
   });
 
   const suspendreMut = useMutation({
@@ -516,19 +535,44 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
     },
   });
 
-  const { data: dotData } = useQuery({
-    queryKey: ['dotations-benef', entrepriseId, u.id],
-    queryFn: () =>
-      api.get(`/dotations?entrepriseId=${entrepriseId}&beneficiaireId=${u.id}&limit=6`).then((r) => r.data.data),
-    staleTime: 30_000,
+  const bloquerMut = useMutation({
+    mutationFn: () => api.post(`/cartes/${u.carte!.id}/bloquer`),
+    onSuccess: () => { onRefresh(); qc.invalidateQueries({ queryKey: ['benef-stats', u.id] }); },
   });
 
-  const dotations = dotData?.items || [];
+  const debloquerMut = useMutation({
+    mutationFn: () => api.post(`/cartes/${u.carte!.id}/debloquer`),
+    onSuccess: () => { onRefresh(); },
+  });
+
+  const physiqueMut = useMutation({
+    mutationFn: () => api.post(`/cartes/physique/demande/${u.id}`, { adresse_livraison: 'Cotonou' }),
+    onSuccess: () => onRefresh(),
+  });
+
+  function copierNumero() {
+    if (!u.carte) return;
+    navigator.clipboard.writeText(u.carte.numero_masque).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  // Carte pour le composant CarteVirtuelle
+  const carteData: CarteData | null = u.carte ? {
+    id: u.carte.id,
+    type: u.carte.type as 'VIRTUELLE' | 'PHYSIQUE',
+    statut: u.carte.statut as any,
+    numero_masque: u.carte.numero_masque,
+    date_expiration: u.carte.date_expiration ?? new Date(Date.now() + 3 * 365 * 864e5).toISOString(),
+    nfc_active: u.carte.nfc_active ?? true,
+    user: { nom: u.nom, prenom: u.prenom },
+  } : null;
 
   return (
     <div className="w-[320px] flex-shrink-0 bg-white rounded-xl border border-slate-100 flex flex-col overflow-hidden">
-      {/* Header panel */}
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
         <div className="text-[11px] text-slate-400 tracking-[0.5px] font-medium">DÉTAIL BÉNÉFICIAIRE</div>
         <button onClick={onClose} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-slate-100">
           <X size={12} className="text-slate-400" />
@@ -536,10 +580,10 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Avatar + infos */}
-        <div className="px-4 py-5 text-center border-b border-slate-100">
+        {/* Avatar + identité */}
+        <div className="px-4 pt-5 pb-4 text-center">
           <div className="relative inline-block mb-3">
-            <div className="w-16 h-16 rounded-full bg-[#EEF2FF] flex items-center justify-center text-[18px] font-bold text-[#4F46E5]">
+            <div className="w-[60px] h-[60px] rounded-full bg-slate-200 flex items-center justify-center text-[18px] font-bold text-slate-500">
               {initials}
             </div>
             <div className={clsx(
@@ -554,11 +598,12 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           {/* Tags */}
           <div className="flex items-center justify-center gap-1.5 mt-3 flex-wrap">
             <span className={clsx(
-              'text-[10px] font-medium px-2 py-0.5 rounded-full',
+              'inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full',
               st === 'actif' ? 'bg-[#ECFDF5] text-[#065F46]'
               : st === 'attente' ? 'bg-[#FFFBEB] text-[#92400E]'
               : 'bg-[#FEF2F2] text-[#991B1B]'
             )}>
+              <span className={clsx('w-1.5 h-1.5 rounded-full', st === 'actif' ? 'bg-[#10B981]' : st === 'attente' ? 'bg-amber-400' : 'bg-red-400')} />
               {st === 'actif' ? 'Actif' : st === 'attente' ? 'En attente' : 'Inactif'}
             </span>
             {u.carte && (
@@ -569,148 +614,186 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           </div>
         </div>
 
-        {/* Solde */}
-        <div className="px-4 py-3 border-b border-slate-100">
-          <div className="text-[10px] text-slate-400 mb-1">Solde TIKEXO</div>
-          <div className="font-mono text-[20px] font-bold text-slate-900">{fmt(solde)} <span className="text-[12px] font-normal text-slate-400">FCFA</span></div>
-        </div>
-
-        {/* Carte */}
-        {u.carte && (
-          <div className="px-4 py-3 border-b border-slate-100">
-            <div className="text-[10px] text-slate-400 mb-1.5">CARTE</div>
-            <div className="flex items-center gap-2.5 bg-slate-50 rounded-lg px-3 py-2.5">
-              <CreditCard size={14} className="text-slate-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-mono text-[11px] text-slate-700">{u.carte.numero_masque}</div>
-                <div className="text-[10px] text-slate-400">{u.carte.type === 'VIRTUELLE' ? 'Virtuelle' : 'Physique'}</div>
-              </div>
-              <span className={clsx(
-                'text-[10px] px-1.5 py-0.5 rounded-full font-medium',
-                u.carte.statut === 'ACTIVE' ? 'bg-[#ECFDF5] text-[#065F46]' : 'bg-[#FEF2F2] text-[#991B1B]'
-              )}>
-                {u.carte.statut === 'ACTIVE' ? 'Active' : 'Bloquée'}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Dotations récentes */}
-        {dotations.length > 0 && (
-          <div className="px-4 py-3 border-b border-slate-100">
-            <div className="text-[10px] text-slate-400 mb-2 flex items-center gap-1">
-              <CalendarDays size={10} />DOTATIONS RÉCENTES
-            </div>
-            <div className="space-y-1.5">
-              {dotations.slice(0, 3).map((d: any) => (
-                <div key={d.id} className="flex items-center justify-between">
-                  <div className="text-[11px] text-slate-600 capitalize">
-                    {new Date(d.mois_concerne).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-[11px] text-slate-800">{fmt(Number(d.part_employeur))}</span>
-                    <span className={clsx('text-[9px] px-1.5 py-0.5 rounded-full',
-                      d.statut === 'DISTRIBUE' ? 'bg-[#DBEAFE] text-[#1D4ED8]'
-                      : d.statut === 'VALIDE' ? 'bg-[#ECFDF5] text-[#065F46]'
-                      : 'bg-[#FFFBEB] text-[#92400E]'
-                    )}>
-                      {d.statut === 'DISTRIBUE' ? 'Distribué' : d.statut === 'VALIDE' ? 'Validé' : 'À valider'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="px-4 py-3 border-t border-slate-100 space-y-2">
-        {rechargeOpen ? (
-          <div className="space-y-2">
-            <div className="text-[11px] font-medium text-slate-700">Montant à créditer</div>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={montantRecharge}
-              onChange={(e) => setMontantRecharge(e.target.value.replace(/\D/g, ''))}
-              placeholder="ex : 5000"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#4F46E5]"
-            />
-            <div className="flex gap-2">
-              {[2500, 5000, 10000].map((v) => (
-                <button key={v} type="button" onClick={() => setMontantRecharge(String(v))}
-                  className="flex-1 text-[11px] border border-slate-200 rounded-lg py-1.5 text-slate-600 hover:border-[#4F46E5] transition-colors">
-                  {fmt(v)}
-                </button>
-              ))}
-            </div>
-            {rechargeMut.isError && (
-              <div className="text-[10px] text-red-500">
-                {(rechargeMut.error as any)?.response?.data?.message || 'Erreur'}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={() => rechargeMut.mutate()}
-                disabled={rechargeMut.isPending || !montantRecharge || parseInt(montantRecharge) < 100}
-                className="flex-1 bg-[#4F46E5] text-white text-[12px] font-medium py-2 rounded-lg disabled:opacity-50"
-              >
-                {rechargeMut.isPending ? 'Traitement…' : 'Confirmer'}
-              </button>
-              <button onClick={() => { setRechargeOpen(false); setMontantRecharge(''); }}
-                className="px-3 text-[12px] text-slate-400 border border-slate-200 rounded-lg hover:text-slate-600">
-                Annuler
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex gap-2">
+        {/* Boutons principaux */}
+        {!rechargeOpen ? (
+          <div className="flex gap-2 px-4 pb-4">
             <button
               onClick={() => setRechargeOpen(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-[#4F46E5] text-white text-[12px] font-medium py-2.5 rounded-lg hover:bg-[#4338CA] transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[#4F46E5] text-white text-[12px] font-semibold py-2.5 rounded-lg hover:bg-[#4338CA] transition-colors"
             >
               <Zap size={13} />Recharger
             </button>
             <div className="relative">
               <button
                 onClick={() => setMoreOpen((v) => !v)}
-                className="flex items-center gap-1 px-3 py-2.5 text-[12px] border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-1 px-3 py-2.5 text-[12px] border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors whitespace-nowrap"
               >
                 <MoreHorizontal size={14} />Plus d'actions
                 <ChevronDown size={11} />
               </button>
               {moreOpen && (
-                <div className="absolute bottom-full right-0 mb-1 w-48 bg-white border border-slate-100 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+                <div className="absolute bottom-full right-0 mb-1 w-52 bg-white border border-slate-100 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
                   {st === 'inactif' ? (
-                    <button
-                      onClick={() => reactiverMut.mutate()}
-                      disabled={reactiverMut.isPending}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-green-700 hover:bg-green-50 transition-colors"
-                    >
+                    <button onClick={() => reactiverMut.mutate()} disabled={reactiverMut.isPending}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-green-700 hover:bg-green-50">
                       <PlayCircle size={13} />Réactiver le compte
                     </button>
                   ) : (
-                    <button
-                      onClick={() => suspendreMut.mutate()}
-                      disabled={suspendreMut.isPending}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-amber-700 hover:bg-amber-50 transition-colors"
-                    >
+                    <button onClick={() => suspendreMut.mutate()} disabled={suspendreMut.isPending}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-amber-700 hover:bg-amber-50">
                       <PauseCircle size={13} />Suspendre le compte
                     </button>
                   )}
                   <div className="border-t border-slate-100 my-1" />
-                  <button
-                    onClick={() => { setMoreOpen(false); setSortieOpen(true); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-600 hover:bg-red-50 transition-colors"
-                  >
+                  <button onClick={() => { setMoreOpen(false); setSortieOpen(true); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-600 hover:bg-red-50">
                     <LogOut size={13} />Sortie de l'entreprise
                   </button>
                 </div>
               )}
             </div>
           </div>
+        ) : (
+          <div className="px-4 pb-4 space-y-2">
+            <div className="text-[11px] font-medium text-slate-700">Montant à créditer (XOF)</div>
+            <input type="text" inputMode="numeric" value={montantRecharge}
+              onChange={(e) => setMontantRecharge(e.target.value.replace(/\D/g, ''))}
+              placeholder="ex : 5000" autoFocus
+              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#4F46E5]"
+            />
+            <div className="flex gap-2">
+              {[2500, 5000, 10000].map((v) => (
+                <button key={v} type="button" onClick={() => setMontantRecharge(String(v))}
+                  className="flex-1 text-[11px] border border-slate-200 rounded-lg py-1.5 text-slate-600 hover:border-[#4F46E5]">
+                  {fmt(v)}
+                </button>
+              ))}
+            </div>
+            {rechargeMut.isError && <div className="text-[10px] text-red-500">{(rechargeMut.error as any)?.response?.data?.message || 'Erreur'}</div>}
+            <div className="flex gap-2">
+              <button onClick={() => rechargeMut.mutate()}
+                disabled={rechargeMut.isPending || !montantRecharge || parseInt(montantRecharge) < 100}
+                className="flex-1 bg-[#4F46E5] text-white text-[12px] font-medium py-2 rounded-lg disabled:opacity-50">
+                {rechargeMut.isPending ? 'Traitement…' : 'Confirmer'}
+              </button>
+              <button onClick={() => { setRechargeOpen(false); setMontantRecharge(''); }}
+                className="px-3 text-[12px] text-slate-400 border border-slate-200 rounded-lg">
+                Annuler
+              </button>
+            </div>
+          </div>
         )}
+
+        <div className="border-t border-slate-100" />
+
+        {/* Carte TIKEXO PASS */}
+        {carteData ? (
+          <div className="px-4 py-4">
+            <div className="text-[10px] text-slate-400 tracking-[0.5px] mb-2.5">CARTE</div>
+
+            {/* Carte visuelle — scale pour tenir dans 288px */}
+            <div style={{ width: 288, height: Math.round(288 * (214 / 340)), overflow: 'hidden', borderRadius: 13, position: 'relative' }}>
+              <div style={{ transform: `scale(${288 / 340})`, transformOrigin: 'top left', width: 340 }}>
+                <CarteVirtuelle carte={carteData} scale={1} />
+              </div>
+            </div>
+
+            {/* 3 actions carte */}
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              {u.carte!.statut === 'ACTIVE' ? (
+                <button onClick={() => bloquerMut.mutate()} disabled={bloquerMut.isPending}
+                  className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-red-50 hover:border-red-200 hover:text-red-600 transition-colors text-[10px]">
+                  <Lock size={13} />Bloquer
+                </button>
+              ) : (
+                <button onClick={() => debloquerMut.mutate()} disabled={debloquerMut.isPending}
+                  className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-green-50 hover:border-green-200 hover:text-green-700 transition-colors text-[10px]">
+                  <Unlock size={13} />Débloquer
+                </button>
+              )}
+              <button onClick={copierNumero}
+                className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors text-[10px]">
+                <Copy size={13} className={copied ? 'text-green-500' : ''} />
+                {copied ? 'Copié!' : 'Copier n°'}
+              </button>
+              <button onClick={() => physiqueMut.mutate()} disabled={physiqueMut.isPending || u.carte!.type === 'PHYSIQUE'}
+                className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors text-[10px] disabled:opacity-40 disabled:cursor-not-allowed">
+                <Send size={13} />Physique
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-4 py-4 text-center">
+            <div className="text-[10px] text-slate-400 tracking-[0.5px] mb-2">CARTE</div>
+            <div className="bg-slate-50 rounded-xl py-6 text-[11px] text-slate-400">Aucune carte émise</div>
+          </div>
+        )}
+
+        <div className="border-t border-slate-100" />
+
+        {/* Stats */}
+        <div className="px-4 py-4 grid grid-cols-2 gap-3">
+          <div>
+            <div className="text-[10px] text-slate-400 mb-1">DOTATION / MOIS</div>
+            <div className="font-semibold text-[14px] text-slate-900">
+              {benef.derniereDotation ? `${fmt(Number(benef.derniereDotation.part_employeur))} FCFA` : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 mb-1">CE MOIS</div>
+            <div className="font-semibold text-[14px] text-slate-900">
+              {statsData ? `${fmt(statsData.cesMois.total)} FCFA` : '—'}
+            </div>
+            {statsData && <div className="text-[10px] text-slate-400">{statsData.cesMois.nb} transaction{statsData.cesMois.nb !== 1 ? 's' : ''}</div>}
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 mb-1">PANIER MOYEN</div>
+            <div className="font-semibold text-[14px] text-slate-900">
+              {statsData ? fmt(statsData.panierMoyen) : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-400 mb-1">RESTO FAVORI</div>
+            <div className="font-semibold text-[13px] text-slate-900 leading-tight">
+              {statsData?.restoFavori?.nom ?? '—'}
+            </div>
+            {statsData?.restoFavori && (
+              <div className="text-[10px] text-slate-400">{statsData.restoFavori.nbVisites} visite{statsData.restoFavori.nbVisites !== 1 ? 's' : ''} / mois</div>
+            )}
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100" />
+
+        {/* Dernières transactions */}
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="text-[10px] text-slate-400 tracking-[0.5px]">DERNIÈRES TRANSACTIONS</div>
+            <button className="flex items-center gap-0.5 text-[10px] text-[#4F46E5] hover:underline">
+              Tout voir <ArrowUpRight size={10} />
+            </button>
+          </div>
+          {transactions.length === 0 ? (
+            <div className="py-4 text-center text-[11px] text-slate-300 flex flex-col items-center gap-1.5">
+              <ShoppingBag size={18} className="text-slate-200" />
+              Aucune transaction
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {transactions.map((t: any) => (
+                <div key={t.id} className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[12px] font-medium text-slate-900">{t.commercant?.nom ?? '—'}</div>
+                    <div className="text-[10px] text-slate-400">{tempsDepuis(t.createdAt)}</div>
+                  </div>
+                  <div className="font-mono text-[12px] font-semibold text-red-500">
+                    −{fmt(Number(t.montant_total))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal sortie */}
@@ -726,14 +809,9 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                 { val: 'CONSERVATION', title: 'Conserver le solde', desc: `L'employé garde ses ${fmt(solde)} pendant 90 jours.` },
                 { val: 'REMBOURSEMENT', title: 'Rembourser via Mobile Money', desc: `Les ${fmt(solde)} sont restitués. Solde à 0.` },
               ] as const).map(({ val, title, desc }) => (
-                <button
-                  key={val}
-                  onClick={() => setOptionSolde(val)}
-                  className={clsx(
-                    'w-full text-left px-4 py-3 rounded-xl border-2 transition-colors',
-                    optionSolde === val ? 'border-[#4F46E5] bg-[#EEF2FF]/50' : 'border-slate-200 hover:border-slate-300'
-                  )}
-                >
+                <button key={val} onClick={() => setOptionSolde(val)}
+                  className={clsx('w-full text-left px-4 py-3 rounded-xl border-2 transition-colors',
+                    optionSolde === val ? 'border-[#4F46E5] bg-[#EEF2FF]/50' : 'border-slate-200 hover:border-slate-300')}>
                   <div className="text-[12px] font-medium text-slate-900">{title}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">{desc}</div>
                 </button>
@@ -741,21 +819,16 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
             {sortieMut.isError && (
               <div className="text-[11px] text-red-500 text-center">
-                {(sortieMut.error as any)?.response?.data?.message || 'Erreur lors de la sortie'}
+                {(sortieMut.error as any)?.response?.data?.message || 'Erreur'}
               </div>
             )}
             <div className="flex gap-2">
-              <button
-                onClick={() => setSortieOpen(false)}
-                className="flex-1 border border-slate-200 text-slate-600 text-[12px] font-medium py-2.5 rounded-xl hover:bg-slate-50"
-              >
+              <button onClick={() => setSortieOpen(false)}
+                className="flex-1 border border-slate-200 text-slate-600 text-[12px] font-medium py-2.5 rounded-xl hover:bg-slate-50">
                 Annuler
               </button>
-              <button
-                onClick={() => sortieMut.mutate()}
-                disabled={sortieMut.isPending}
-                className="flex-1 bg-red-600 text-white text-[12px] font-medium py-2.5 rounded-xl disabled:opacity-50 hover:bg-red-700"
-              >
+              <button onClick={() => sortieMut.mutate()} disabled={sortieMut.isPending}
+                className="flex-1 bg-red-600 text-white text-[12px] font-medium py-2.5 rounded-xl disabled:opacity-50 hover:bg-red-700">
                 {sortieMut.isPending ? 'Traitement…' : 'Confirmer la sortie'}
               </button>
             </div>

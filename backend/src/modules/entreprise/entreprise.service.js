@@ -129,7 +129,7 @@ async function getBeneficiaires(entrepriseId) {
             where: { statut: { not: 'EXPIREE' } },
             orderBy: { createdAt: 'desc' },
             take: 1,
-            select: { id: true, type: true, statut: true, numero_masque: true },
+            select: { id: true, type: true, statut: true, numero_masque: true, date_expiration: true, nfc_active: true },
           },
           transactions: {
             orderBy: { createdAt: 'desc' },
