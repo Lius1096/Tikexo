@@ -45,14 +45,28 @@ const CSV_HEADERS_MAP: Record<string, keyof CsvRow> = {
   part_employeur: 'part_employeur', part: 'part_employeur', taux: 'part_employeur',
 };
 
+function splitCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') { inQuotes = !inQuotes; }
+    else if (ch === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+    else { current += ch; }
+  }
+  result.push(current.trim());
+  return result;
+}
+
 function parseCSV(text: string): { rows: CsvRow[]; headers: string[] } {
   const lines = text.trim().split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return { rows: [], headers: [] };
-  const rawHeaders = lines[0].split(',').map((h) =>
-    h.trim().toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/^"|"$/g, '')
+  const rawHeaders = splitCsvLine(lines[0]).map((h) =>
+    h.toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/^"|"$/g, '')
   );
   const rows = lines.slice(1).map((line) => {
-    const values = line.match(/(".*?"|[^,]*)/g)?.map((v) => v.trim().replace(/^"|"$/g, '')) ?? [];
+    const values = splitCsvLine(line);
     const row: any = {};
     rawHeaders.forEach((h, i) => { const k = CSV_HEADERS_MAP[h]; if (k) row[k] = values[i] ?? ''; });
     return row as CsvRow;
