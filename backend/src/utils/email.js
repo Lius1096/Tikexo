@@ -34,12 +34,14 @@ function getTransport() {
   const host    = process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : null);
   if (!host) return null;
 
-  const port = parseInt(process.env.SMTP_PORT || (isGmail ? '587' : '587'));
+  const port = parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '587'));
   _transport = nodemailer.createTransport({
     host,
     port,
     secure: port === 465,
     auth: { user, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
   });
 
   return _transport;
