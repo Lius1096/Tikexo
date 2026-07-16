@@ -56,8 +56,10 @@ function getTransport() {
 
 function getFromAddress(expediteur) {
   const resend = getResend();
-  if (resend) return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
-
+  if (resend) {
+    // RESEND_FROM permet de surcharger quand le domaine tikexo.bj est vérifié
+    return process.env.RESEND_FROM || 'onboarding@resend.dev';
+  }
   const gmailUser = process.env.EMAIL;
   if (gmailUser && gmailUser.includes('@gmail.com')) return `"TIKEXO" <${gmailUser}>`;
   return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
