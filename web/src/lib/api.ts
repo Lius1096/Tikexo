@@ -8,7 +8,12 @@ const BASE_URL = import.meta.env.VITE_API_URL
 
 const api = axios.create({
   baseURL: BASE_URL,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    // Empêche le navigateur de servir des 304 avec les anciennes données
+    // (problème observable sur /dotations après /calculer)
+    'Cache-Control': 'no-cache',
+  },
   withCredentials: true,
 });
 
