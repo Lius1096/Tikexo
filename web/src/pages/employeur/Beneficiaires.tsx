@@ -6,7 +6,7 @@ import {
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
   SlidersHorizontal, LayoutGrid, List, ChevronDown, Zap, MoreHorizontal,
   CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
-  ArrowUpRight, ShoppingBag, FileText, CheckCircle, AlertTriangle,
+  ArrowUpRight, ShoppingBag, FileText, CheckCircle, AlertTriangle, AlertCircle,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -687,6 +687,8 @@ export default function EmployeurBeneficiaires() {
           rows={importRows}
           resultats={importResultats}
           isPending={importMutation.isPending}
+          isError={importMutation.isError}
+          error={importMutation.error}
           onImport={(rows) => importMutation.mutate(rows)}
           onClose={() => { setImportOpen(false); setImportResultats(null); importMutation.reset(); }}
         />
@@ -1179,11 +1181,13 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
 
 // ─── ImportCsvModal ───────────────────────────────────────────────────────────
 
-function ImportCsvModal({ file, rows, resultats, isPending, onImport, onClose }: {
+function ImportCsvModal({ file, rows, resultats, isPending, isError, error, onImport, onClose }: {
   file: File;
   rows: CsvRow[];
   resultats: ImportResultat[] | null;
   isPending: boolean;
+  isError: boolean;
+  error: any;
   onImport: (rows: CsvRow[]) => void;
   onClose: () => void;
 }) {
@@ -1299,11 +1303,10 @@ function ImportCsvModal({ file, rows, resultats, isPending, onImport, onClose }:
                     'flex items-center gap-2.5 px-3 py-2.5 rounded-lg border',
                     ok ? 'border-slate-100 bg-slate-50' : 'border-red-100 bg-red-50'
                   )}>
-                    <div className={clsx(
-                      'w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold',
-                      ok ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
-                    )}>
-                      {ok ? '✓' : '!'}
+                    <div className="flex-shrink-0">
+                      {ok
+                        ? <CheckCircle size={15} className="text-green-500" />
+                        : <AlertCircle size={15} className="text-red-400" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[12px] font-medium text-slate-900 truncate">
@@ -1323,9 +1326,9 @@ function ImportCsvModal({ file, rows, resultats, isPending, onImport, onClose }:
 
             {/* Actions */}
             <div className="px-5 py-4 border-t border-slate-100 flex-shrink-0 space-y-2">
-              {importMutation.isError && (
+              {isError && (
                 <div className="text-[11px] text-red-500 text-center">
-                  {(importMutation.error as any)?.response?.data?.error || 'Erreur lors de l\'import'}
+                  {error?.response?.data?.error || 'Erreur lors de l\'import'}
                 </div>
               )}
               <button
