@@ -526,7 +526,7 @@ export default function EmployeurImportCsv() {
                   ['telephone', 'Obligatoire · 8 ou 10 chiffres'],
                   ['email', 'Optionnel'],
                   ['niveau', 'Optionnel · EMPLOYE par défaut'],
-                  ['valeur_repas', 'Optionnel · 5 000 XOF/mois par défaut'],
+                  ['valeur_repas', 'Optionnel · défaut par niveau : 5k / 8k / 10k / 15k XOF'],
                 ].map(([col, hint]) => (
                   <div key={col} className="flex items-start gap-2">
                     <code className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono flex-shrink-0">{col}</code>
