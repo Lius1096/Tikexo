@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   Users, X, CalendarDays, Plus, Phone, AlertCircle, LogOut,
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
-  SlidersHorizontal, LayoutGrid, ChevronDown, Zap, MoreHorizontal,
+  SlidersHorizontal, LayoutGrid, List, ChevronDown, Zap, MoreHorizontal,
   CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
   ArrowUpRight, ShoppingBag,
 } from 'lucide-react';
@@ -99,6 +99,24 @@ export default function EmployeurBeneficiaires() {
   const [utilisateurExistant, setUtilisateurExistant] = useState<{ id: string; nom: string; prenom: string } | null>(null);
   const checkTelRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Filtres + Vue
+  const [filtresOpen, setFiltresOpen]     = useState(false);
+  const [vueMode, setVueMode]             = useState<'table' | 'grid'>('table');
+  const [filtreCarte, setFiltreCarte]     = useState<'' | 'avec' | 'sans' | 'bloquee'>('');
+  const [filtreDotation, setFiltreDotation] = useState<'' | 'avec' | 'sans'>('');
+  const [triPar, setTriPar]               = useState<'' | 'nom' | 'dotation' | 'activite'>('');
+  const filtresRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filtresOpen) return;
+    function handle(e: MouseEvent) {
+      if (filtresRef.current && !filtresRef.current.contains(e.target as Node))
+        setFiltresOpen(false);
+    }
+    document.addEventListener('mousedown', handle);
+    return () => document.removeEventListener('mousedown', handle);
+  }, [filtresOpen]);
+
   const { data, isLoading } = useQuery({
     queryKey: ['beneficiaires-entreprise', entrepriseId],
     queryFn: () =>
@@ -109,24 +127,42 @@ export default function EmployeurBeneficiaires() {
   const items: BenefItem[] = data || [];
 
   // Counts
-  const total    = items.length;
-  const nbActifs = items.filter((b) => statut(b) === 'actif').length;
-  const nbAttente = items.filter((b) => statut(b) === 'attente').length;
+  const total      = items.length;
+  const nbActifs   = items.filter((b) => statut(b) === 'actif').length;
+  const nbAttente  = items.filter((b) => statut(b) === 'attente').length;
   const nbInactifs = items.filter((b) => statut(b) === 'inactif').length;
-  const pctActifs = total > 0 ? Math.round((nbActifs / total) * 100) : 0;
+  const pctActifs  = total > 0 ? Math.round((nbActifs / total) * 100) : 0;
 
   // Filtrage
-  const filtered = items.filter((b) => {
-    const matchTab =
-      tab === 'tous' || statut(b) === (tab === 'actifs' ? 'actif' : tab === 'attente' ? 'attente' : 'inactif');
-    const q = search.toLowerCase();
-    const matchSearch = !q ||
-      b.user.nom.toLowerCase().includes(q) ||
-      b.user.prenom.toLowerCase().includes(q) ||
-      b.user.telephone.includes(q) ||
-      (b.user.email_perso?.toLowerCase() ?? '').includes(q);
-    return matchTab && matchSearch;
-  });
+  const filtresActifs = [filtreCarte, filtreDotation, triPar].filter(Boolean).length;
+
+  const filtered = items
+    .filter((b) => {
+      const matchTab =
+        tab === 'tous' || statut(b) === (tab === 'actifs' ? 'actif' : tab === 'attente' ? 'attente' : 'inactif');
+      const q = search.toLowerCase();
+      const matchSearch = !q ||
+        b.user.nom.toLowerCase().includes(q) ||
+        b.user.prenom.toLowerCase().includes(q) ||
+        b.user.telephone.includes(q) ||
+        (b.user.email_perso?.toLowerCase() ?? '').includes(q);
+      const matchCarte =
+        filtreCarte === ''       ? true :
+        filtreCarte === 'avec'   ? !!b.user.carte :
+        filtreCarte === 'sans'   ? !b.user.carte :
+        b.user.carte?.statut === 'BLOQUEE';
+      const matchDotation =
+        filtreDotation === ''     ? true :
+        filtreDotation === 'avec' ? !!b.derniereDotation :
+        !b.derniereDotation;
+      return matchTab && matchSearch && matchCarte && matchDotation;
+    })
+    .sort((a, z) => {
+      if (triPar === 'nom')      return `${a.user.prenom} ${a.user.nom}`.localeCompare(`${z.user.prenom} ${z.user.nom}`);
+      if (triPar === 'dotation') return Number(z.derniereDotation?.part_employeur || 0) - Number(a.derniereDotation?.part_employeur || 0);
+      if (triPar === 'activite') return new Date(z.user.derniereActivite || 0).getTime() - new Date(a.user.derniereActivite || 0).getTime();
+      return 0;
+    });
 
   const selected = items.find((b) => b.id === selectedId) ?? null;
 
@@ -280,130 +316,270 @@ export default function EmployeurBeneficiaires() {
 
           {/* Toolbar */}
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
-            <span className="text-[11px] text-slate-400 flex-1">{filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</span>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-              <SlidersHorizontal size={13} />Filtres
-            </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
-              <LayoutGrid size={13} />Vue
+            <span className="text-[11px] text-slate-400 flex-1">
+              {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}
+              {filtresActifs > 0 && <span className="ml-1 text-[#4F46E5]">· {filtresActifs} filtre{filtresActifs > 1 ? 's' : ''} actif{filtresActifs > 1 ? 's' : ''}</span>}
+            </span>
+
+            {/* Filtres dropdown */}
+            <div className="relative" ref={filtresRef}>
+              <button
+                onClick={() => setFiltresOpen((v) => !v)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 text-[12px] border rounded-lg transition-colors',
+                  filtresOpen || filtresActifs > 0
+                    ? 'border-[#4F46E5] text-[#4F46E5] bg-[#EEF2FF]'
+                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                )}
+              >
+                <SlidersHorizontal size={13} />
+                Filtres
+                {filtresActifs > 0 && (
+                  <span className="ml-0.5 bg-[#4F46E5] text-white text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                    {filtresActifs}
+                  </span>
+                )}
+              </button>
+
+              {filtresOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-xl z-30 p-4 space-y-4">
+                  {/* Statut carte */}
+                  <div>
+                    <div className="text-[10px] font-semibold text-slate-400 tracking-[0.5px] mb-2">STATUT CARTE</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        ['', 'Tous'],
+                        ['avec', 'Avec carte'],
+                        ['sans', 'Sans carte'],
+                        ['bloquee', 'Bloquée'],
+                      ] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => setFiltreCarte(val)}
+                          className={clsx('text-[11px] px-2.5 py-1 rounded-lg border transition-colors',
+                            filtreCarte === val
+                              ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                              : 'border-slate-200 text-slate-600 hover:border-[#4F46E5]')}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Dotation */}
+                  <div>
+                    <div className="text-[10px] font-semibold text-slate-400 tracking-[0.5px] mb-2">DOTATION</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        ['', 'Tous'],
+                        ['avec', 'Avec dotation'],
+                        ['sans', 'Sans dotation'],
+                      ] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => setFiltreDotation(val)}
+                          className={clsx('text-[11px] px-2.5 py-1 rounded-lg border transition-colors',
+                            filtreDotation === val
+                              ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                              : 'border-slate-200 text-slate-600 hover:border-[#4F46E5]')}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tri */}
+                  <div>
+                    <div className="text-[10px] font-semibold text-slate-400 tracking-[0.5px] mb-2">TRIER PAR</div>
+                    <div className="flex flex-col gap-0.5">
+                      {([
+                        ['', 'Par défaut'],
+                        ['nom', 'Nom A → Z'],
+                        ['dotation', 'Dotation décroissante'],
+                        ['activite', 'Dernière activité'],
+                      ] as const).map(([val, label]) => (
+                        <button key={val} onClick={() => setTriPar(val)}
+                          className={clsx('text-left text-[11px] px-2.5 py-1.5 rounded-lg transition-colors',
+                            triPar === val
+                              ? 'bg-[#EEF2FF] text-[#4F46E5] font-medium'
+                              : 'text-slate-600 hover:bg-slate-50')}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {filtresActifs > 0 && (
+                    <button
+                      onClick={() => { setFiltreCarte(''); setFiltreDotation(''); setTriPar(''); }}
+                      className="w-full text-[11px] text-slate-400 hover:text-red-500 hover:bg-red-50 py-1.5 rounded-lg border border-slate-200 transition-colors"
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Vue toggle */}
+            <button
+              onClick={() => setVueMode((v) => v === 'table' ? 'grid' : 'table')}
+              className={clsx(
+                'flex items-center gap-1.5 px-3 py-1.5 text-[12px] border rounded-lg transition-colors',
+                vueMode === 'grid'
+                  ? 'border-[#4F46E5] text-[#4F46E5] bg-[#EEF2FF]'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              )}
+            >
+              {vueMode === 'table' ? <LayoutGrid size={13} /> : <List size={13} />}
+              {vueMode === 'table' ? 'Grille' : 'Tableau'}
             </button>
           </div>
 
-          {/* Table */}
+          {/* Table / Grille */}
           <div className="overflow-auto flex-1">
-            <table className="w-full border-collapse min-w-[560px]">
-              <thead className="sticky top-0 bg-white z-10">
-                <tr>
-                  <th className="w-8 px-4 py-2.5"><input type="checkbox" className="rounded border-slate-300" /></th>
-                  {['BÉNÉFICIAIRE', 'NIVEAU', 'STATUT CARTE', 'SOLDE', 'DOTATION / DERNIÈRE ACTIVITÉ'].map((h) => (
-                    <th key={h} className="text-[10px] text-slate-400 text-left px-3 py-2.5 font-normal tracking-[0.5px] border-b border-slate-100">
-                      {h}
-                    </th>
+            {vueMode === 'grid' ? (
+              /* ── Vue grille ── */
+              isLoading ? (
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 p-4 animate-pulse">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 mb-3" />
+                      <div className="h-3 bg-slate-200 rounded w-2/3 mb-1.5" />
+                      <div className="h-2 bg-slate-200 rounded w-1/2" />
+                    </div>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b border-slate-50">
-                      <td className="px-4 py-3"><div className="w-4 h-4 bg-slate-100 animate-pulse rounded" /></td>
-                      {[80, 60, 60, 55, 100].map((w, j) => (
-                        <td key={j} className="px-3 py-3">
-                          <div className={`h-3 bg-slate-100 animate-pulse rounded`} style={{ width: w }} />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
-                ) : filtered.length === 0 ? (
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Users size={28} className="text-slate-200 mx-auto mb-2" />
+                  <div className="text-sm text-slate-400">Aucun bénéficiaire{search && ' trouvé'}</div>
+                </div>
+              ) : (
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  {filtered.map((b, idx) => (
+                    <BenefCard
+                      key={b.id}
+                      benef={b}
+                      isSelected={b.id === selectedId}
+                      onClick={() => setSelectedId(b.id === selectedId ? null : b.id)}
+                      palette={PALETTE[idx % PALETTE.length]}
+                    />
+                  ))}
+                </div>
+              )
+            ) : (
+              /* ── Vue tableau ── */
+              <table className="w-full border-collapse min-w-[560px]">
+                <thead className="sticky top-0 bg-white z-10">
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
-                      <Users size={28} className="text-slate-200 mx-auto mb-2" />
-                      <div className="text-sm text-slate-400">Aucun bénéficiaire{search && ' trouvé'}</div>
-                      {!search && (
-                        <button
-                          onClick={() => { setForm(FORM_VIDE); setErreur(null); setUtilisateurExistant(null); setModalOpen(true); }}
-                          className="mt-3 flex items-center gap-1.5 bg-[#4F46E5] text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-[#4338CA] mx-auto"
-                        >
-                          <Plus size={13} />Ajouter le premier salarié
-                        </button>
-                      )}
-                    </td>
+                    <th className="w-8 px-4 py-2.5"><input type="checkbox" className="rounded border-slate-300" /></th>
+                    {['BÉNÉFICIAIRE', 'NIVEAU', 'STATUT CARTE', 'SOLDE', 'DOTATION / DERNIÈRE ACTIVITÉ'].map((h) => (
+                      <th key={h} className="text-[10px] text-slate-400 text-left px-3 py-2.5 font-normal tracking-[0.5px] border-b border-slate-100">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  filtered.map((b, idx) => {
-                    const [bg, fg] = PALETTE[idx % PALETTE.length];
-                    const initials = `${b.user.prenom[0] ?? ''}${b.user.nom[0] ?? ''}`.toUpperCase();
-                    const solde = Number(b.user.wallet?.solde || 0);
-                    const st = statut(b);
-                    const isSelected = b.id === selectedId;
-
-                    return (
-                      <tr
-                        key={b.id}
-                        onClick={() => setSelectedId(b.id === selectedId ? null : b.id)}
-                        className={clsx(
-                          'border-b border-slate-50 last:border-0 cursor-pointer transition-colors',
-                          isSelected ? 'bg-[#EEF2FF]/40' : 'hover:bg-slate-50/60'
-                        )}
-                      >
-                        <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                          <input type="checkbox" className="rounded border-slate-300" />
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="relative flex-shrink-0">
-                              <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold"
-                                style={{ background: bg, color: fg }}>
-                                {initials}
-                              </div>
-                              <div className={clsx(
-                                'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white',
-                                st === 'actif' ? 'bg-green-400' : st === 'attente' ? 'bg-amber-400' : 'bg-slate-300'
-                              )} />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-[12px] font-medium text-slate-900 truncate">
-                                {b.user.prenom} {b.user.nom}
-                              </div>
-                              <div className="text-[10px] text-slate-400 font-mono truncate">
-                                {b.user.email_perso || b.user.telephone}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-3 py-3">
-                          <NiveauBadge niveau={b.niveau} />
-                        </td>
-                        <td className="px-3 py-3">
-                          {b.user.carte ? (
-                            <span className={clsx(
-                              'inline-flex items-center gap-1 text-[11px] font-medium',
-                              b.user.carte.statut === 'ACTIVE' ? 'text-[#10B981]' : 'text-[#EF4444]'
-                            )}>
-                              <span className={clsx('w-1.5 h-1.5 rounded-full', b.user.carte.statut === 'ACTIVE' ? 'bg-[#10B981]' : 'bg-[#EF4444]')} />
-                              {b.user.carte.statut === 'ACTIVE' ? 'Active' : 'Bloquée'}
-                            </span>
-                          ) : (
-                            <span className="text-[11px] text-slate-300 italic">Non émise</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-3 font-mono text-[12px] text-slate-900 font-medium">
-                          {fmt(solde)}
-                        </td>
-                        <td className="px-3 py-3">
-                          <div className="text-[12px] text-slate-900 font-medium">
-                            {b.derniereDotation ? `${fmt(Number(b.derniereDotation.part_employeur))} FCFA` : '—'}
-                          </div>
-                          <div className="text-[10px] text-slate-400">
-                            {tempsDepuis(b.user.derniereActivite)}
-                          </div>
-                        </td>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i} className="border-b border-slate-50">
+                        <td className="px-4 py-3"><div className="w-4 h-4 bg-slate-100 animate-pulse rounded" /></td>
+                        {[80, 60, 60, 55, 100].map((w, j) => (
+                          <td key={j} className="px-3 py-3">
+                            <div className="h-3 bg-slate-100 animate-pulse rounded" style={{ width: w }} />
+                          </td>
+                        ))}
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                    ))
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-12 text-center">
+                        <Users size={28} className="text-slate-200 mx-auto mb-2" />
+                        <div className="text-sm text-slate-400">Aucun bénéficiaire{search && ' trouvé'}</div>
+                        {!search && (
+                          <button
+                            onClick={() => { setForm(FORM_VIDE); setErreur(null); setUtilisateurExistant(null); setModalOpen(true); }}
+                            className="mt-3 flex items-center gap-1.5 bg-[#4F46E5] text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-[#4338CA] mx-auto"
+                          >
+                            <Plus size={13} />Ajouter le premier salarié
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((b, idx) => {
+                      const [bg, fg] = PALETTE[idx % PALETTE.length];
+                      const initials = `${b.user.prenom[0] ?? ''}${b.user.nom[0] ?? ''}`.toUpperCase();
+                      const solde = Number(b.user.wallet?.solde || 0);
+                      const st = statut(b);
+                      const isSelected = b.id === selectedId;
+
+                      return (
+                        <tr
+                          key={b.id}
+                          onClick={() => setSelectedId(b.id === selectedId ? null : b.id)}
+                          className={clsx(
+                            'border-b border-slate-50 last:border-0 cursor-pointer transition-colors',
+                            isSelected ? 'bg-[#EEF2FF]/40' : 'hover:bg-slate-50/60'
+                          )}
+                        >
+                          <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                            <input type="checkbox" className="rounded border-slate-300" />
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="relative flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-semibold"
+                                  style={{ background: bg, color: fg }}>
+                                  {initials}
+                                </div>
+                                <div className={clsx(
+                                  'absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white',
+                                  st === 'actif' ? 'bg-green-400' : st === 'attente' ? 'bg-amber-400' : 'bg-slate-300'
+                                )} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-[12px] font-medium text-slate-900 truncate">
+                                  {b.user.prenom} {b.user.nom}
+                                </div>
+                                <div className="text-[10px] text-slate-400 font-mono truncate">
+                                  {b.user.email_perso || b.user.telephone}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3">
+                            <NiveauBadge niveau={b.niveau} />
+                          </td>
+                          <td className="px-3 py-3">
+                            {b.user.carte ? (
+                              <span className={clsx(
+                                'inline-flex items-center gap-1 text-[11px] font-medium',
+                                b.user.carte.statut === 'ACTIVE' ? 'text-[#10B981]' : 'text-[#EF4444]'
+                              )}>
+                                <span className={clsx('w-1.5 h-1.5 rounded-full', b.user.carte.statut === 'ACTIVE' ? 'bg-[#10B981]' : 'bg-[#EF4444]')} />
+                                {b.user.carte.statut === 'ACTIVE' ? 'Active' : 'Bloquée'}
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-300 italic">Non émise</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 font-mono text-[12px] text-slate-900 font-medium">
+                            {fmt(solde)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <div className="text-[12px] text-slate-900 font-medium">
+                              {b.derniereDotation ? `${fmt(Number(b.derniereDotation.part_employeur))} FCFA` : '—'}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {tempsDepuis(b.user.derniereActivite)}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 
@@ -473,6 +649,65 @@ function NiveauBadge({ niveau }: { niveau: string }) {
     <span className={clsx('inline-block text-[10px] font-medium px-2 py-0.5 rounded-full', NIVEAU_COLORS[niveau] ?? 'bg-slate-100 text-slate-600')}>
       {niveauLabel[niveau] ?? niveau}
     </span>
+  );
+}
+
+// ─── BenefCard (vue grille) ───────────────────────────────────────────────────
+
+function BenefCard({ benef, isSelected, onClick, palette }: {
+  benef: BenefItem; isSelected: boolean; onClick: () => void; palette: string[];
+}) {
+  const [bg, fg] = palette;
+  const initials = `${benef.user.prenom[0] ?? ''}${benef.user.nom[0] ?? ''}`.toUpperCase();
+  const st = statut(benef);
+  const solde = Number(benef.user.wallet?.solde || 0);
+
+  return (
+    <div
+      onClick={onClick}
+      className={clsx(
+        'rounded-xl border p-4 cursor-pointer transition-all hover:shadow-sm',
+        isSelected ? 'border-[#4F46E5] bg-[#EEF2FF]/20' : 'border-slate-100 hover:border-slate-200'
+      )}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="relative">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-[12px] font-semibold"
+            style={{ background: bg, color: fg }}
+          >
+            {initials}
+          </div>
+          <div className={clsx(
+            'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white',
+            st === 'actif' ? 'bg-green-400' : st === 'attente' ? 'bg-amber-400' : 'bg-slate-300'
+          )} />
+        </div>
+        <NiveauBadge niveau={benef.niveau} />
+      </div>
+      <div className="text-[13px] font-semibold text-slate-900 truncate">
+        {benef.user.prenom} {benef.user.nom}
+      </div>
+      <div className="text-[10px] text-slate-400 truncate mb-3">
+        {benef.user.email_perso || benef.user.telephone}
+      </div>
+      <div className="flex items-center justify-between pt-2.5 border-t border-slate-100">
+        <div className="font-mono text-[12px] font-semibold text-slate-800">
+          {fmt(solde)} <span className="text-[10px] text-slate-400 font-sans font-normal">XOF</span>
+        </div>
+        {benef.user.carte ? (
+          <span className={clsx(
+            'inline-flex items-center gap-1 text-[10px] font-medium',
+            benef.user.carte.statut === 'ACTIVE' ? 'text-green-600' : 'text-red-500'
+          )}>
+            <span className={clsx('w-1.5 h-1.5 rounded-full', benef.user.carte.statut === 'ACTIVE' ? 'bg-green-400' : 'bg-red-400')} />
+            {benef.user.carte.statut === 'ACTIVE' ? 'Active' : 'Bloquée'}
+          </span>
+        ) : (
+          <span className="text-[10px] text-slate-300 italic">Sans carte</span>
+        )}
+      </div>
+    </div>
   );
 }
 
