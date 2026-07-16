@@ -13,7 +13,7 @@ const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
 const carteUtils = require('../../utils/carte');
 const { envoyerEmailAsync } = require('../../utils/email');
-const { bienvenueBeneficiaire } = require('../../utils/emailTemplates');
+const { bienvenueBeneficiaire, reactivationCompte } = require('../../utils/emailTemplates');
 
 async function lister(filtres = {}) {
   const { entrepriseId, statut } = filtres;
@@ -272,11 +272,16 @@ async function reactiver(userId, entrepriseId, adminId) {
     err.statusCode = 404;
     throw err;
   }
+  // Générer un nouveau mot de passe temporaire avant la mise à jour
+  const motDePasseTemp = genererMotDePasseTemp();
+  const hash = await bcrypt.hash(motDePasseTemp, BCRYPT_ROUNDS);
+
   const user = await prisma.user.update({
     where: { id: userId },
-    data: { statut: 'ACTIF' },
-    select: { id: true, nom: true, prenom: true, statut: true },
+    data: { statut: 'ACTIF', mot_de_passe_hash: hash },
+    select: { id: true, nom: true, prenom: true, statut: true, email_perso: true },
   });
+
   if (adminId) {
     await prisma.auditLog.create({
       data: {
@@ -288,6 +293,23 @@ async function reactiver(userId, entrepriseId, adminId) {
       },
     });
   }
+
+  // Email de réactivation avec nouveau mot de passe
+  if (user.email_perso) {
+    const entreprise = await prisma.entreprise.findUnique({
+      where: { id: entrepriseId },
+      select: { nom: true },
+    });
+    const { html, text } = reactivationCompte(user.prenom, entreprise?.nom ?? 'votre entreprise', motDePasseTemp);
+    envoyerEmailAsync({
+      to: user.email_perso,
+      subject: 'Votre compte TIKEXO a été réactivé',
+      html,
+      text,
+      expediteur: 'hello',
+    }).catch(() => {});
+  }
+
   return user;
 }
 

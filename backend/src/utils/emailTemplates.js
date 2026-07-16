@@ -349,10 +349,41 @@ function alerteInterne(type, details) {
   return { html, text };
 }
 
+/**
+ * Réactivation de compte bénéficiaire
+ */
+function reactivationCompte(prenom, entreprise, motDePasse) {
+  const html = layout({
+    titre: 'Votre compte TIKEXO est réactivé',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      <p style="color:#555;margin:0 0 20px">
+        <strong>${entreprise}</strong> a réactivé votre accès à la plateforme TIKEXO.
+        Vous pouvez vous reconnecter dès maintenant avec les identifiants ci-dessous.
+      </p>
+      <div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
+        <p style="color:#1A3C5E;font-weight:600;margin:0 0 10px;font-size:14px">Vos identifiants de connexion</p>
+        <p style="color:#555;margin:0 0 6px;font-size:13px">📧 <strong>Email :</strong> votre adresse email personnelle</p>
+        <p style="color:#555;margin:0;font-size:13px">🔑 <strong>Nouveau mot de passe :</strong> <code style="background:#e8f0fe;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:14px;color:#1A3C5E">${motDePasse}</code></p>
+        <p style="color:#888;font-size:11px;margin:10px 0 0">Modifiez ce mot de passe dès votre première connexion.</p>
+      </div>
+      <p style="color:#888;font-size:13px;margin:0">
+        Des questions ? Contactez <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+      </p>
+    `,
+    bouton: { url: 'https://tikexo.vercel.app/login', label: 'Se connecter' },
+  });
+
+  const text = `Votre compte TIKEXO est réactivé, ${prenom} !\n\n${entreprise} a rétabli votre accès.\n\nNouveau mot de passe : ${motDePasse}\n(Modifiez-le dès votre première connexion)\n\nConnectez-vous sur : https://tikexo.vercel.app/login\n\nSupport : support@tikexo.bj`;
+
+  return { html, text };
+}
+
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
   resetMotDePasse,
+  reactivationCompte,
   mutationTraitee,
   inscriptionEntrepriseConfirmee,
   kybApprouve,
