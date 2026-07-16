@@ -154,8 +154,7 @@ async function inscrire({ entreprise: e, admin: a }) {
         entreprise_id: entreprise.id,
         user_id: newUser.id,
         niveau: 'DIRECTEUR',
-        valeur_titre: dotationMax || 5000,
-        taux_participation: 60,
+        allocation_mensuelle: dotationMax || 15000,
         statut: 'ACTIF',
       },
     });

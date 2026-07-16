@@ -43,14 +43,12 @@ async function exportCsv(req, res, next) {
       take: 5000,
     });
 
-    const header = 'Date;Entreprise;Bénéficiaire;Montant total;Part employeur;Part salarié;Statut';
+    const header = 'Date;Entreprise;Bénéficiaire;Allocation mensuelle (XOF);Statut';
     const rows = items.map((d) => [
       new Date(d.createdAt).toLocaleDateString('fr-FR'),
       d.entreprise?.nom ?? '',
       d.beneficiaire ? `${d.beneficiaire.prenom} ${d.beneficiaire.nom}` : '',
       parseFloat(d.montant_total).toFixed(2),
-      parseFloat(d.part_employeur).toFixed(2),
-      parseFloat(d.part_salarie).toFixed(2),
       d.statut,
     ].join(';'));
 

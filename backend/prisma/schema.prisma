@@ -127,17 +127,16 @@ model KybDocument {
 }
 
 model LienEntrepriseBeneficiaire {
-  id                  String        @id @default(cuid())
-  entreprise_id       String
-  user_id             String
-  niveau              NiveauSalarie
-  valeur_titre        Decimal       @db.Decimal(10,2)
-  taux_participation  Decimal       @db.Decimal(5,2)
-  date_debut          DateTime      @default(now())
-  date_fin            DateTime?
-  statut              StatutLien    @default(ACTIF)
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  id                   String        @id @default(cuid())
+  entreprise_id        String
+  user_id              String
+  niveau               NiveauSalarie
+  allocation_mensuelle Decimal       @db.Decimal(10,2)
+  date_debut           DateTime      @default(now())
+  date_fin             DateTime?
+  statut               StatutLien    @default(ACTIF)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   entreprise          Entreprise    @relation(fields: [entreprise_id], references: [id])
   user                User          @relation("UserLiens", fields: [user_id], references: [id])
@@ -290,10 +289,7 @@ model Dotation {
   entreprise_id    String
   beneficiaire_id  String
   lien_id          String
-  nb_titres        Int
   montant_total    Decimal        @db.Decimal(10,2)
-  part_employeur   Decimal        @db.Decimal(10,2)
-  part_salarie     Decimal        @db.Decimal(10,2)
   mois_concerne    DateTime
   statut           StatutDotation @default(CALCULE)
   valide_par       String?

@@ -50,8 +50,7 @@ beforeAll(async () => {
       entreprise_id: entrepriseId,
       user_id: beneficiaireId,
       niveau: 'EMPLOYE',
-      valeur_titre: 2500,
-      taux_participation: 60,
+      allocation_mensuelle: 5000,
       statut: 'ACTIF',
     },
   });
@@ -73,7 +72,7 @@ describe('Dotation — Tests d\'intégration TIKEXO', () => {
   const moisConcerne = '2026-06-01';
   let dotationId;
 
-  it('Calcul dotations : nb_titres correct selon jours ouvrés (hors fériés, hors dimanche)', async () => {
+  it('Calcul dotations : montant_total = allocation_mensuelle du lien', async () => {
     const res = await request(app)
       .post('/api/v1/dotations/calculer')
       .set('Authorization', `Bearer ${tokenRH}`)
@@ -81,11 +80,10 @@ describe('Dotation — Tests d\'intégration TIKEXO', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.dotations).toHaveLength(1);
-    expect(res.body.data.joursOuvres).toBeGreaterThan(0);
 
     dotationId = res.body.data.dotations[0].id;
     const dot = res.body.data.dotations[0];
-    expect(dot.nb_titres).toBe(res.body.data.joursOuvres);
+    expect(parseFloat(dot.montant_total)).toBe(5000);
   });
 
   it('Impossible de créer 2 dotations pour le même salarié le même mois', async () => {

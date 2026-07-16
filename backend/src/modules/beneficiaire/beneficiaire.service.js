@@ -96,7 +96,7 @@ async function modifier(id, data) {
   return prisma.user.update({ where: { id }, data: updateData });
 }
 
-async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, tauxParticipation }, adminId) {
+async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMensuelle }, adminId) {
   // Vérifier qu'il n'y a pas déjà un lien ACTIF
   const lienActif = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
@@ -115,10 +115,10 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
 
   if (entreprise.dotation_max) {
     const plafond = parseFloat(entreprise.dotation_max.toString());
-    const valeur  = parseFloat(valeurTitre.toString());
+    const valeur  = parseFloat(allocationMensuelle.toString());
     if (valeur > plafond) {
       const err = new Error(
-        `Valeur du titre (${valeur.toLocaleString('fr-FR')} XOF) dépasse le plafond de dotation de l'entreprise (${Math.floor(plafond).toLocaleString('fr-FR')} XOF)`
+        `Allocation mensuelle (${valeur.toLocaleString('fr-FR')} XOF) dépasse le plafond de l'entreprise (${Math.floor(plafond).toLocaleString('fr-FR')} XOF)`
       );
       err.statusCode = 400;
       err.code = 'DOTATION_MAX_DEPASSEE';
@@ -139,8 +139,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
         where: { id: lienTermine.id },
         data: {
           niveau,
-          valeur_titre: valeurTitre,
-          taux_participation: tauxParticipation,
+          allocation_mensuelle: allocationMensuelle,
           statut: 'ACTIF',
           date_debut: new Date(),
           date_fin: null,
@@ -153,7 +152,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
             action: 'REEMBAUCHE_EMPLOYE',
             entite: 'LienEntrepriseBeneficiaire',
             entite_id: updated.id,
-            apres: { entreprise_id: entrepriseId, niveau, valeur_titre: valeurTitre },
+            apres: { entreprise_id: entrepriseId, niveau, allocation_mensuelle: allocationMensuelle },
           },
         });
       }
@@ -165,8 +164,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, valeurTitre, 
         entreprise_id: entrepriseId,
         user_id: userId,
         niveau,
-        valeur_titre: valeurTitre,
-        taux_participation: tauxParticipation,
+        allocation_mensuelle: allocationMensuelle,
         statut: 'ACTIF',
       },
     });
@@ -308,8 +306,7 @@ async function importerEnMasse(entrepriseId, rows, adminId) {
       await rattacherEntreprise(user.id, {
         entrepriseId,
         niveau,
-        valeurTitre: parseFloat(row.valeur_repas) || 1500,
-        tauxParticipation: parseFloat(row.part_employeur) || 100,
+        allocationMensuelle: parseFloat(row.valeur_repas) || 5000,
       }, adminId);
 
       resultats.push({ prenom: user.prenom, nom: user.nom, telephone: user.telephone, statut: 'OK', message: 'Importé avec succès' });

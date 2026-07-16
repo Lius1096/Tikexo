@@ -188,8 +188,7 @@ async function main() {
       entreprise_id: entrepriseDemo.id,
       user_id: adminRH.id,
       niveau: 'DIRECTEUR',
-      valeur_titre: 5000,
-      taux_participation: 60,
+      allocation_mensuelle: 15000,
       statut: 'ACTIF',
     },
   });
@@ -209,8 +208,7 @@ async function main() {
       entreprise_id: entrepriseDemo.id,
       user_id: beneficiaireDemo.id,
       niveau: 'EMPLOYE',
-      valeur_titre: 2500,
-      taux_participation: 60,
+      allocation_mensuelle: 5000,
       statut: 'ACTIF',
     },
   });
@@ -294,8 +292,7 @@ async function main() {
       entreprise_id: entreprise2.id,
       user_id: gestionnaireRH.id,
       niveau: 'DIRECTEUR',
-      valeur_titre: 5000,
-      taux_participation: 60,
+      allocation_mensuelle: 15000,
       statut: 'ACTIF',
     },
   });
@@ -346,8 +343,7 @@ async function main() {
       entreprise_id: entreprise2.id,
       user_id: beneficiaire2.id,
       niveau: 'EMPLOYE',
-      valeur_titre: 2500,
-      taux_participation: 60,
+      allocation_mensuelle: 5000,
       statut: 'ACTIF',
     },
   });

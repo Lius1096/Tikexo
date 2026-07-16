@@ -21,7 +21,7 @@ interface Carte {
   date_expiration?: string; nfc_active?: boolean;
 }
 interface DerniereDotation {
-  montant_total: string; part_employeur: string;
+  montant_total: string;
   mois_concerne: string; statut: string; createdAt: string;
 }
 interface BenefItem {
@@ -41,13 +41,13 @@ interface BenefItem {
 interface AjoutForm {
   prenom: string; nom: string; telephone: string;
   email_perso: string; niveau: string;
-  valeur_titre: string; taux_participation: string;
+  allocation_mensuelle: string;
 }
 
 
 const FORM_VIDE: AjoutForm = {
   prenom: '', nom: '', telephone: '', email_perso: '',
-  niveau: 'EMPLOYE', valeur_titre: '1500', taux_participation: '100',
+  niveau: 'EMPLOYE', allocation_mensuelle: '5000',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ export default function EmployeurBeneficiaires() {
     })
     .sort((a, z) => {
       if (triPar === 'nom')      return `${a.user.prenom} ${a.user.nom}`.localeCompare(`${z.user.prenom} ${z.user.nom}`);
-      if (triPar === 'dotation') return Number(z.derniereDotation?.part_employeur || 0) - Number(a.derniereDotation?.part_employeur || 0);
+      if (triPar === 'dotation') return Number(z.derniereDotation?.montant_total || 0) - Number(a.derniereDotation?.montant_total || 0);
       if (triPar === 'activite') return new Date(z.user.derniereActivite || 0).getTime() - new Date(a.user.derniereActivite || 0).getTime();
       return 0;
     });
@@ -181,8 +181,7 @@ export default function EmployeurBeneficiaires() {
       const userId = creerRes.data.id;
       await api.post(`/beneficiaires/${userId}/rattacher`, {
         entrepriseId, niveau: f.niveau,
-        valeurTitre: parseFloat(f.valeur_titre) || 1500,
-        tauxParticipation: parseFloat(f.taux_participation) || 100,
+        allocationMensuelle: parseFloat(f.allocation_mensuelle) || 5000,
       });
       return userId;
     },
@@ -574,7 +573,7 @@ export default function EmployeurBeneficiaires() {
                           </td>
                           <td className="px-3 py-3">
                             <div className="text-[12px] text-slate-900 font-medium">
-                              {b.derniereDotation ? `${fmt(Number(b.derniereDotation.part_employeur))} FCFA` : '—'}
+                              {b.derniereDotation ? `${fmt(Number(b.derniereDotation.montant_total))} FCFA` : '—'}
                             </div>
                             <div className="text-[10px] text-slate-400">
                               {tempsDepuis(b.user.derniereActivite)}
@@ -983,7 +982,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           <div>
             <div className="text-[10px] text-slate-400 mb-1">DOTATION / MOIS</div>
             <div className="font-semibold text-[14px] text-slate-900">
-              {benef.derniereDotation ? `${fmt(Number(benef.derniereDotation.part_employeur))} FCFA` : '—'}
+              {benef.derniereDotation ? `${fmt(Number(benef.derniereDotation.montant_total))} FCFA` : '—'}
             </div>
           </div>
           <div>
@@ -1188,21 +1187,14 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Valeur par repas (XOF)</label>
-              <input type="number" inputMode="numeric" value={form.valeur_titre}
-                onChange={(e) => patchForm({ valeur_titre: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Part employeur (%)</label>
-              <input type="number" inputMode="numeric" min="0" max="100" value={form.taux_participation}
-                onChange={(e) => patchForm({ taux_participation: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
-              />
-            </div>
+          <div>
+            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Allocation mensuelle (XOF)</label>
+            <input type="number" inputMode="numeric" value={form.allocation_mensuelle}
+              onChange={(e) => patchForm({ allocation_mensuelle: e.target.value })}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
+              placeholder="ex : 5000"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">Montant fixe crédité chaque mois sur le wallet repas du salarié.</p>
           </div>
 
           {erreur && (

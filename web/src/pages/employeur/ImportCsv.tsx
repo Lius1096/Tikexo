@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 
 interface CsvRow {
   prenom: string; nom: string; telephone: string;
-  email?: string; niveau?: string; valeur_repas?: string; part_employeur?: string;
+  email?: string; niveau?: string; valeur_repas?: string;
 }
 
 interface RowError {
@@ -32,7 +32,7 @@ interface ImportResultat {
 const FIELD_LABELS: Record<string, string> = {
   prenom: 'Prénom', nom: 'Nom', telephone: 'Téléphone',
   email: 'Email pro', niveau: 'Niveau',
-  valeur_repas: 'Dotation FCFA', part_employeur: 'Part employeur',
+  valeur_repas: 'Allocation mensuelle (XOF)',
 };
 
 const CSV_HEADERS_MAP: Record<string, keyof CsvRow> = {
@@ -41,8 +41,7 @@ const CSV_HEADERS_MAP: Record<string, keyof CsvRow> = {
   telephone: 'telephone', téléphone: 'telephone', tel: 'telephone',
   email: 'email',
   niveau: 'niveau',
-  valeur_repas: 'valeur_repas', valeur: 'valeur_repas',
-  part_employeur: 'part_employeur', part: 'part_employeur', taux: 'part_employeur',
+  valeur_repas: 'valeur_repas', valeur: 'valeur_repas', allocation: 'valeur_repas',
 };
 
 function splitCsvLine(line: string): string[] {
@@ -100,9 +99,11 @@ function fmtSize(bytes: number): string {
 
 function telechargerModele() {
   const content = [
-    'prenom,nom,telephone,email,niveau,valeur_repas,part_employeur',
-    'Kofi,Mensah,0197000001,kofi@gmail.com,EMPLOYE,1500,100',
-    'Aïcha,Bello,0196000002,,CADRE,2000,80',
+    'prenom,nom,telephone,email,niveau,valeur_repas',
+    'Kofi,Mensah,0197000001,kofi@gmail.com,EMPLOYE,5000',
+    'Aïcha,Bello,0196000002,,CADRE,8000',
+    'Jean-Baptiste,Houngbo,0195000003,,MANAGER,10000',
+    'Fatoumata,Dossou,0194000004,fatoumata@gmail.com,DIRECTEUR,15000',
   ].join('\n');
   const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -525,8 +526,7 @@ export default function EmployeurImportCsv() {
                   ['telephone', 'Obligatoire · 8 ou 10 chiffres'],
                   ['email', 'Optionnel'],
                   ['niveau', 'Optionnel · EMPLOYE par défaut'],
-                  ['valeur_repas', 'Optionnel · 1500 XOF par défaut'],
-                  ['part_employeur', 'Optionnel · 100 % par défaut'],
+                  ['valeur_repas', 'Optionnel · 5 000 XOF/mois par défaut'],
                 ].map(([col, hint]) => (
                   <div key={col} className="flex items-start gap-2">
                     <code className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-mono flex-shrink-0">{col}</code>

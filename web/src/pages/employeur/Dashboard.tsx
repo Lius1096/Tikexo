@@ -28,10 +28,7 @@ interface DotationItem {
   id: string;
   statut: 'CALCULE' | 'VALIDE' | 'DISTRIBUE';
   montant_total: string;
-  part_employeur: string;
-  part_salarie: string;
   mois_concerne: string;
-  nb_titres: number;
   lien: {
     niveau: string;
     user: { nom: string; prenom: string };
@@ -55,7 +52,7 @@ interface BenefLien {
 interface StatsData {
   beneficiaires: { total: number; actifs: number; enAttente: number };
   consommationYTD: number;
-  parMois: Array<{ mois: number; emp: number; sal: number; total: number }>;
+  parMois: Array<{ mois: number; total: number }>;
   topConsommateurs: Array<{ user: { id: string; nom: string; prenom: string }; total: number; nb_transactions: number }>;
 }
 
@@ -150,14 +147,13 @@ export default function EmployeurDashboard() {
     .slice(0, moisCourant + 1)
     .map((m) => ({
       month: MOIS_FR[m.mois],
-      emp: Math.round(m.emp / 1000),
-      sal: Math.round(m.sal / 1000),
+      total: Math.round(m.total / 1000),
     }));
 
   // Pour la flow strip : dotations distribuées ce mois (issus de dotationsRecentes)
   const totalDote = dotationsRecentes
     .filter((d) => d.statut === 'VALIDE' || d.statut === 'DISTRIBUE')
-    .reduce((s, d) => s + Number(d.part_employeur), 0);
+    .reduce((s, d) => s + Number(d.montant_total), 0);
   const totalDepenses = dotationsRecentes
     .filter((d) => d.statut === 'DISTRIBUE')
     .reduce((s, d) => s + Number(d.montant_total), 0);
@@ -328,8 +324,7 @@ export default function EmployeurDashboard() {
                       contentStyle={{ fontSize: 11, borderRadius: 6, border: '0.5px solid #e2e8f0' }}
                       formatter={(v: number) => [`${v} K XOF`]}
                     />
-                    <Bar dataKey="emp" fill="#1A3C5E" radius={[3, 3, 0, 0]} name="Part employeur" />
-                    <Bar dataKey="sal" fill="#0EA5E9" radius={[3, 3, 0, 0]} name="Part salarié" />
+                    <Bar dataKey="total" fill="#1A3C5E" radius={[3, 3, 0, 0]} name="Allocations" />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -340,11 +335,7 @@ export default function EmployeurDashboard() {
               <div className="flex gap-3.5 mt-2.5">
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
                   <div className="w-2 h-2 rounded-[2px] bg-tikexo-primary flex-shrink-0" />
-                  Part employeur
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <div className="w-2 h-2 rounded-[2px] bg-tikexo-accent flex-shrink-0" />
-                  Part salarié
+                  Allocations distribuées
                 </div>
               </div>
             </div>
@@ -395,10 +386,10 @@ export default function EmployeurDashboard() {
                           {d.lien.user.prenom} {d.lien.user.nom}
                         </div>
                         <div className="text-[11px] text-slate-500">
-                          {niveauLabel[d.lien.niveau] ?? d.lien.niveau} · {d.nb_titres} jours
+                          {niveauLabel[d.lien.niveau] ?? d.lien.niveau}
                         </div>
                       </div>
-                      <div className="font-mono text-[13px] text-slate-900 flex-shrink-0">{fmt(d.part_employeur)}</div>
+                      <div className="font-mono text-[13px] text-slate-900 flex-shrink-0">{fmt(d.montant_total)}</div>
                       <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium flex-shrink-0', statutDotBadge[d.statut] ?? 'bg-slate-100 text-slate-700')}>
                         {statutDotLabel[d.statut] ?? d.statut}
                       </span>

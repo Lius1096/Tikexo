@@ -25,9 +25,6 @@ interface DotationItem {
   id: string;
   statut: string;
   montant_total: string;
-  part_employeur: string;
-  part_salarie: string;
-  nb_titres: number;
   mois_concerne: string;
   valide_at?: string | null;
   distribue_at?: string | null;
@@ -136,7 +133,7 @@ export default function EmployeurDotations() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-slate-100">
-              {['BÉNÉFICIAIRE', 'NIVEAU', 'TITRES', 'PART EMPLOYEUR', 'MOIS', 'STATUT'].map((h) => (
+              {['BÉNÉFICIAIRE', 'NIVEAU', 'ALLOCATION', 'MOIS', 'STATUT'].map((h) => (
                 <th key={h} className="text-[10px] text-slate-500 text-left px-4 py-2.5 font-normal tracking-[0.5px]">{h}</th>
               ))}
             </tr>
@@ -146,7 +143,7 @@ export default function EmployeurDotations() {
               <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-400">Chargement…</td></tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center">
+                <td colSpan={5} className="px-4 py-8 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <CalendarDays size={24} className="text-slate-300" />
                     <div className="text-sm text-slate-400">Aucune dotation. Lancez le calcul du mois.</div>
@@ -178,8 +175,7 @@ export default function EmployeurDotations() {
                     <td className="px-4 py-3">
                       <span className="text-[10px] text-slate-500 bg-slate-50 px-1.5 py-0.5 rounded-[10px]">{niveauLabel[d.lien.niveau] ?? d.lien.niveau}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-slate-700">{d.nb_titres} jours</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{fmt(d.part_employeur)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-900">{fmt(d.montant_total)}</td>
                     <td className="px-4 py-3 text-xs text-slate-500 capitalize">{mois}</td>
                     <td className="px-4 py-3">
                       <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium', statutBadge[d.statut] ?? 'bg-slate-100 text-slate-700')}>
@@ -261,23 +257,9 @@ function Drawer({
               <span className="text-[11px] text-slate-500">Mois concerné</span>
               <span className="text-xs font-medium text-slate-900 capitalize">{mois}</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[11px] text-slate-500">Jours ouvrés</span>
-              <span className="text-xs font-medium text-slate-900">{dotation.nb_titres} titres</span>
-            </div>
-            <div className="border-t border-slate-200 pt-2.5 space-y-1.5">
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] text-slate-500">Part employeur</span>
-                <span className="font-mono text-xs font-semibold text-tikexo-primary">{fmt(dotation.part_employeur)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-[11px] text-slate-500">Part salarié</span>
-                <span className="font-mono text-xs text-slate-600">{fmt(dotation.part_salarie)}</span>
-              </div>
-              <div className="flex justify-between items-center border-t border-slate-200 pt-1.5">
-                <span className="text-[11px] text-slate-700 font-medium">Total dotation</span>
-                <span className="font-mono text-xs font-semibold text-slate-900">{fmt(dotation.montant_total)}</span>
-              </div>
+            <div className="flex justify-between items-center border-t border-slate-200 pt-2.5">
+              <span className="text-[11px] text-slate-700 font-medium">Allocation mensuelle</span>
+              <span className="font-mono text-xs font-semibold text-tikexo-primary">{fmt(dotation.montant_total)}</span>
             </div>
           </div>
 

@@ -51,8 +51,7 @@ beforeAll(async () => {
       entreprise_id: entAId,
       user_id: userBenefId,
       niveau: 'EMPLOYE',
-      valeur_titre: 2500,
-      taux_participation: 60,
+      allocation_mensuelle: 5000,
       statut: 'ACTIF',
     },
   });

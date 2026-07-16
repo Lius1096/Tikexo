@@ -2,14 +2,10 @@
 // Les dotations sont des écritures internes — ZÉRO appel FedaPay
 const prisma = require('../../config/database');
 const { transfererEntreWallets } = require('../../utils/ledger');
-const { compterJoursOuvresMois } = require('../../utils/jours-feries-benin');
 const { dotationQueue } = require('../../queues/index');
 
 async function calculer(entrepriseId, moisConcerne) {
   const mois = new Date(moisConcerne);
-  const annee = mois.getFullYear();
-  const moisNum = mois.getMonth() + 1;
-  const joursOuvres = compterJoursOuvresMois(annee, moisNum);
 
   const liens = await prisma.lienEntrepriseBeneficiaire.findMany({
     where: { entreprise_id: entrepriseId, statut: 'ACTIF' },
@@ -19,7 +15,6 @@ async function calculer(entrepriseId, moisConcerne) {
   const dotations = [];
 
   for (const lien of liens) {
-    // Vérifier qu'une dotation n'existe pas déjà pour ce mois
     const existing = await prisma.dotation.findUnique({
       where: { lien_id_mois_concerne: { lien_id: lien.id, mois_concerne: mois } },
     });
@@ -29,22 +24,14 @@ async function calculer(entrepriseId, moisConcerne) {
       continue;
     }
 
-    const valeurTitre = parseFloat(lien.valeur_titre.toString());
-    const tauxParticipation = parseFloat(lien.taux_participation.toString()) / 100;
-    const nbTitres = joursOuvres;
-    const montantTotal = valeurTitre * nbTitres;
-    const partEmployeur = Math.round(montantTotal * tauxParticipation * 100) / 100;
-    const partSalarie = Math.round((montantTotal - partEmployeur) * 100) / 100;
+    const montant = Math.round(parseFloat(lien.allocation_mensuelle.toString()) * 100) / 100;
 
     const dotation = await prisma.dotation.create({
       data: {
         entreprise_id: entrepriseId,
         beneficiaire_id: lien.user_id,
         lien_id: lien.id,
-        nb_titres: nbTitres,
-        montant_total: montantTotal,
-        part_employeur: partEmployeur,
-        part_salarie: partSalarie,
+        montant_total: montant,
         mois_concerne: mois,
         statut: 'CALCULE',
       },
@@ -53,7 +40,7 @@ async function calculer(entrepriseId, moisConcerne) {
     dotations.push(dotation);
   }
 
-  return { dotations, joursOuvres, mois: moisConcerne };
+  return { dotations, mois: moisConcerne };
 }
 
 async function valider(dotationIds, adminId) {
@@ -80,7 +67,7 @@ async function valider(dotationIds, adminId) {
   // Réserver les montants sur le wallet de chaque entreprise
   const parEntreprise = dotations.reduce((acc, d) => {
     if (!acc[d.entreprise_id]) acc[d.entreprise_id] = 0;
-    acc[d.entreprise_id] += parseFloat(d.part_employeur.toString());
+    acc[d.entreprise_id] += parseFloat(d.montant_total.toString());
     return acc;
   }, {});
 
@@ -112,7 +99,7 @@ async function distribuer(dotationIds, adminId) {
   // Grouper par entreprise pour vérifier le solde avant d'enqueuer
   const parEntreprise = dotations.reduce((acc, d) => {
     if (!acc[d.entreprise_id]) acc[d.entreprise_id] = { total: 0, dotations: [] };
-    acc[d.entreprise_id].total += parseFloat(d.part_employeur.toString());
+    acc[d.entreprise_id].total += parseFloat(d.montant_total.toString());
     acc[d.entreprise_id].dotations.push(d);
     return acc;
   }, {});
@@ -149,7 +136,7 @@ async function distribuer(dotationIds, adminId) {
         beneficiaireId: dotation.beneficiaire_id,
         walletEntrepriseId: walletEntreprise.id,
         walletBenefId: walletBenef.id,
-        montant: parseFloat(dotation.part_employeur.toString()),
+        montant: parseFloat(dotation.montant_total.toString()),
         entrepriseId: dotation.entreprise_id,
       },
     });

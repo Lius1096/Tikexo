@@ -20,13 +20,11 @@ export default function EmployeurRapports() {
 
   const chartData = React.useMemo(() => {
     if (!dotations?.items) return [];
-    const byMonth: Record<string, { emp: number; sal: number; total: number }> = {};
+    const byMonth: Record<string, { total: number }> = {};
     for (const d of dotations.items) {
       const m = new Date(d.mois_concerne);
       const key = `${m.getFullYear()}-${String(m.getMonth()).padStart(2, '0')}`;
-      if (!byMonth[key]) byMonth[key] = { emp: 0, sal: 0, total: 0 };
-      byMonth[key].emp += Number(d.part_employeur);
-      byMonth[key].sal += Number(d.part_salarie);
+      if (!byMonth[key]) byMonth[key] = { total: 0 };
       byMonth[key].total += Number(d.montant_total);
     }
     return Object.entries(byMonth)
@@ -34,8 +32,6 @@ export default function EmployeurRapports() {
       .slice(-6)
       .map(([key, v]) => ({
         month: MOIS_FR[parseInt(key.split('-')[1], 10)],
-        employeur: Math.round(v.emp / 1000),
-        salarie: Math.round(v.sal / 1000),
         total: Math.round(v.total / 1000),
       }));
   }, [dotations]);
@@ -89,16 +85,12 @@ export default function EmployeurRapports() {
                     contentStyle={{ fontSize: 11, borderRadius: 6, border: '0.5px solid #e2e8f0' }}
                     formatter={(v: number) => [`${v} K XOF`]}
                   />
-                  <Bar dataKey="employeur" fill="#1A3C5E" radius={[3, 3, 0, 0]} name="Part employeur" />
-                  <Bar dataKey="salarie" fill="#0EA5E9" radius={[3, 3, 0, 0]} name="Part salarié" />
+                  <Bar dataKey="total" fill="#1A3C5E" radius={[3, 3, 0, 0]} name="Dotations distribuées" />
                 </BarChart>
               </ResponsiveContainer>
               <div className="flex gap-4 mt-2">
                 <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <div className="w-2 h-2 rounded-[2px] bg-tikexo-primary" />Part employeur
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                  <div className="w-2 h-2 rounded-[2px] bg-tikexo-accent" />Part salarié
+                  <div className="w-2 h-2 rounded-[2px] bg-tikexo-primary" />Allocations distribuées
                 </div>
               </div>
             </>

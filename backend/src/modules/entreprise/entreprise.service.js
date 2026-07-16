@@ -141,7 +141,7 @@ async function getBeneficiaires(entrepriseId) {
       dotations: {
         orderBy: { createdAt: 'desc' },
         take: 1,
-        select: { montant_total: true, part_employeur: true, mois_concerne: true, statut: true, createdAt: true },
+        select: { montant_total: true, mois_concerne: true, statut: true, createdAt: true },
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -244,17 +244,15 @@ async function getStats(entrepriseId) {
       statut: 'DISTRIBUE',
       distribue_at: { gte: debutAnnee },
     },
-    select: { montant_total: true, part_employeur: true, part_salarie: true, distribue_at: true },
+    select: { montant_total: true, distribue_at: true },
   });
 
   const consommationYTD = dotationsAnnee.reduce((s, d) => s + parseFloat(d.montant_total), 0);
 
   // Agrégation par mois de l'année courante (indices 0-11)
-  const parMois = Array.from({ length: 12 }, (_, i) => ({ mois: i, emp: 0, sal: 0, total: 0 }));
+  const parMois = Array.from({ length: 12 }, (_, i) => ({ mois: i, total: 0 }));
   for (const d of dotationsAnnee) {
     const m = new Date(d.distribue_at).getMonth();
-    parMois[m].emp += parseFloat(d.part_employeur);
-    parMois[m].sal += parseFloat(d.part_salarie);
     parMois[m].total += parseFloat(d.montant_total);
   }
 
