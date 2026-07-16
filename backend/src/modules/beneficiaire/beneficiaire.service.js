@@ -12,7 +12,7 @@ const { validerKYCViaBeneficiaire, cascadeKYCApresDepart } = require('../../util
 const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
 const carteUtils = require('../../utils/carte');
-const { envoyerEmailAsync } = require('../../utils/email');
+const { envoyerEmail, envoyerEmailAsync } = require('../../utils/email');
 const { bienvenueBeneficiaire, reactivationCompte } = require('../../utils/emailTemplates');
 
 async function lister(filtres = {}) {
@@ -218,13 +218,13 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
         await prisma.user.update({ where: { id: userId }, data: { mot_de_passe_hash: hash } });
       }
       const { html, text } = bienvenueBeneficiaire(userInfo.prenom, entreprise.nom, motDePasseTemp);
-      envoyerEmailAsync({
+      envoyerEmail({
         to: userInfo.email_perso,
         subject: `Bienvenue sur TIKEXO — ${entreprise.nom}`,
         html,
         text,
         expediteur: 'hello',
-      }).catch(() => {});
+      }).catch(err => console.error('[EMAIL BIENVENUE] Échec envoi vers', userInfo.email_perso, err.message));
     }
   }
 
@@ -310,13 +310,15 @@ async function reactiver(userId, entrepriseId, adminId) {
       select: { nom: true },
     });
     const { html, text } = reactivationCompte(user.prenom, entreprise?.nom ?? 'votre entreprise', motDePasseTemp);
-    envoyerEmailAsync({
+    envoyerEmail({
       to: user.email_perso,
       subject: 'Votre compte TIKEXO a été réactivé',
       html,
       text,
       expediteur: 'hello',
-    }).catch(() => {});
+    }).catch(err => console.error('[EMAIL REACTIVATION] Échec envoi vers', user.email_perso, err.message));
+  } else {
+    console.warn('[EMAIL REACTIVATION] Pas d\'email_perso pour userId', userId);
   }
 
   return user;
