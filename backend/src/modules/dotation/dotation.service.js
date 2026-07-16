@@ -19,12 +19,21 @@ async function calculer(entrepriseId, moisConcerne) {
       where: { lien_id_mois_concerne: { lien_id: lien.id, mois_concerne: mois } },
     });
 
+    const montant = Math.round(parseFloat(lien.allocation_mensuelle.toString()) * 100) / 100;
+
     if (existing) {
-      dotations.push(existing);
+      if (existing.statut !== 'IGNORE') {
+        dotations.push(existing);
+        continue;
+      }
+      // Dotation ignorée → la réinitialiser avec le montant courant
+      const updated = await prisma.dotation.update({
+        where: { id: existing.id },
+        data: { montant_total: montant, statut: 'CALCULE', valide_par: null, valide_at: null },
+      });
+      dotations.push(updated);
       continue;
     }
-
-    const montant = Math.round(parseFloat(lien.allocation_mensuelle.toString()) * 100) / 100;
 
     const dotation = await prisma.dotation.create({
       data: {
