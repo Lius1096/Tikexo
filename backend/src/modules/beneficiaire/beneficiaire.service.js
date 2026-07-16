@@ -265,16 +265,25 @@ async function suspendre(userId, entrepriseId, adminId) {
 
 async function reactiver(userId, entrepriseId, adminId) {
   const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
-    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
   });
   if (!lien) {
     const err = new Error('Bénéficiaire non rattaché à cette entreprise');
     err.statusCode = 404;
     throw err;
   }
+
   // Générer un nouveau mot de passe temporaire avant la mise à jour
   const motDePasseTemp = genererMotDePasseTemp();
   const hash = await bcrypt.hash(motDePasseTemp, BCRYPT_ROUNDS);
+
+  // Si l'employé est sorti (TERMINE), remettre le lien à ACTIF
+  if (lien.statut === 'TERMINE') {
+    await prisma.lienEntrepriseBeneficiaire.update({
+      where: { id: lien.id },
+      data: { statut: 'ACTIF' },
+    });
+  }
 
   const user = await prisma.user.update({
     where: { id: userId },
