@@ -195,8 +195,22 @@ export default function EmployeurBeneficiaires() {
 
   return (
     <div className="min-h-full bg-[#F8FAFC] flex flex-col">
+      {/* Barre de recherche globale */}
+      <div className="px-6 pt-4 pb-3 bg-white border-b border-slate-100">
+        <div className="relative">
+          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Rechercher un bénéficiaire, une transaction..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/20 transition-colors placeholder:text-slate-400"
+          />
+        </div>
+      </div>
+
       {/* Header */}
-      <div className="px-6 pt-6 pb-4 bg-white border-b border-slate-100">
+      <div className="px-6 pt-4 pb-4 bg-white border-b border-slate-100">
         <div className="text-[11px] text-slate-400 mb-1">Pilotage / Bénéficiaires</div>
         <div className="flex items-end justify-between gap-4">
           <div>
@@ -205,14 +219,14 @@ export default function EmployeurBeneficiaires() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-600 hover:bg-slate-50 transition-colors">
-              <Upload size={13} />Import CSV
+              <Download size={13} />Import CSV
             </button>
             <a
               href={`${api.defaults.baseURL}/dotations/export/csv?entreprise_id=${entrepriseId}`}
               download
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-600 hover:bg-slate-50 transition-colors"
             >
-              <Download size={13} />Exporter
+              <Upload size={13} />Exporter
             </a>
             <button
               onClick={() => { setForm(FORM_VIDE); setErreur(null); setUtilisateurExistant(null); setModalOpen(true); }}
@@ -266,16 +280,7 @@ export default function EmployeurBeneficiaires() {
 
           {/* Toolbar */}
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-slate-100">
-            <div className="relative flex-1 max-w-xs">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Rechercher dans ${filtered.length} résultats`}
-                className="w-full pl-8 pr-3 py-1.5 text-[12px] border border-slate-200 rounded-lg focus:outline-none focus:border-[#4F46E5] focus:ring-1 focus:ring-[#4F46E5]/20"
-              />
-            </div>
+            <span className="text-[11px] text-slate-400 flex-1">{filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</span>
             <button className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 transition-colors">
               <SlidersHorizontal size={13} />Filtres
             </button>
