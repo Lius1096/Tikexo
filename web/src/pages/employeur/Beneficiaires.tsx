@@ -81,9 +81,17 @@ function tempsDepuis(date: string | null): string {
 }
 
 function statut(b: BenefItem): 'actif' | 'attente' | 'inactif' {
+  if (b.statut === 'TERMINE') return 'inactif';
   if (b.user.statut === 'BLOQUE') return 'inactif';
-  if (b.user.statut === 'ACTIF' && b.user.carte) return 'actif';
+  if (b.user.statut === 'ACTIF') return 'actif';
   return 'attente';
+}
+
+function statutLabel(b: BenefItem): string {
+  if (b.statut === 'TERMINE') return 'Sorti';
+  if (b.user.statut === 'BLOQUE') return 'Suspendu';
+  if (b.user.statut === 'ACTIF') return 'Actif';
+  return 'En attente';
 }
 
 // ─── Page principale ───────────────────────────────────────────────────────────
@@ -292,7 +300,7 @@ export default function EmployeurBeneficiaires() {
         <StatCard icon={<Clock size={18} className="text-[#F59E0B]" />} bg="bg-[#FFFBEB]"
           label="EN ATTENTE" value={String(nbAttente)} sub="non activés > 30 jours" />
         <StatCard icon={<XCircle size={18} className="text-[#EF4444]" />} bg="bg-[#FEF2F2]"
-          label="INACTIFS" value={String(nbInactifs)} sub="congé / suspendu" />
+          label="INACTIFS" value={String(nbInactifs)} sub="sortis / suspendus" />
       </div>
 
       {/* Body — table + panel */}
@@ -546,8 +554,11 @@ export default function EmployeurBeneficiaires() {
                                 )} />
                               </div>
                               <div className="min-w-0">
-                                <div className="text-[12px] font-medium text-slate-900 truncate">
+                                <div className="text-[12px] font-medium text-slate-900 truncate flex items-center gap-1.5">
                                   {b.user.prenom} {b.user.nom}
+                                  {b.statut === 'TERMINE' && (
+                                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 flex-shrink-0">SORTI</span>
+                                  )}
                                 </div>
                                 <div className="text-[10px] text-slate-400 font-mono truncate">
                                   {b.user.email_perso || b.user.telephone}
@@ -852,8 +863,8 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
               : st === 'attente' ? 'bg-[#FFFBEB] text-[#92400E]'
               : 'bg-[#FEF2F2] text-[#991B1B]'
             )}>
-              <span className={clsx('w-1.5 h-1.5 rounded-full', st === 'actif' ? 'bg-[#10B981]' : st === 'attente' ? 'bg-amber-400' : 'bg-red-400')} />
-              {st === 'actif' ? 'Actif' : st === 'attente' ? 'En attente' : 'Inactif'}
+              <span className={clsx('w-1.5 h-1.5 rounded-full', st === 'actif' ? 'bg-[#10B981]' : st === 'attente' ? 'bg-amber-400' : 'bg-slate-400')} />
+              {statutLabel(benef)}
             </span>
             {u.carte && (
               <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E]">
@@ -893,11 +904,15 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                       <PauseCircle size={13} />Suspendre le compte
                     </button>
                   )}
-                  <div className="border-t border-slate-100 my-1" />
-                  <button onClick={() => { setMoreOpen(false); setSortieOpen(true); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-600 hover:bg-red-50">
-                    <LogOut size={13} />Sortie de l'entreprise
-                  </button>
+                  {benef.statut !== 'TERMINE' && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <button onClick={() => { setMoreOpen(false); setSortieOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-600 hover:bg-red-50">
+                        <LogOut size={13} />Sortie de l'entreprise
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
