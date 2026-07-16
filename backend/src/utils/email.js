@@ -25,18 +25,33 @@ let _transport = null;
 function getTransport() {
   if (_transport) return _transport;
 
-  const { SMTP_HOST, SMTP_USER, SMTP_PASS, SMTP_PORT } = process.env;
-  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) return null;
+  // Priorité : variables SMTP explicites, puis EMAIL/EMAIL_PASSWORD (Gmail)
+  const user = process.env.SMTP_USER || process.env.EMAIL;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
+  if (!user || !pass) return null;
 
-  const port = parseInt(SMTP_PORT || '587');
+  const isGmail = (process.env.SMTP_HOST || '').includes('gmail') || user.includes('@gmail.com');
+  const host    = process.env.SMTP_HOST || (isGmail ? 'smtp.gmail.com' : null);
+  if (!host) return null;
+
+  const port = parseInt(process.env.SMTP_PORT || (isGmail ? '587' : '587'));
   _transport = nodemailer.createTransport({
-    host: SMTP_HOST,
+    host,
     port,
     secure: port === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    auth: { user, pass },
   });
 
   return _transport;
+}
+
+// Adresse expéditrice réelle : Gmail impose que le from = compte authentifié
+function getFromAddress(expediteur) {
+  const gmailUser = process.env.EMAIL;
+  if (gmailUser && gmailUser.includes('@gmail.com')) {
+    return `"TIKEXO" <${gmailUser}>`;
+  }
+  return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
 }
 
 /**
@@ -55,8 +70,8 @@ async function envoyerEmailAsync({ to, subject, html, text, expediteur = 'norepl
 }
 
 async function envoyerEmail({ to, subject, html, text, expediteur = 'noreply', replyTo }) {
-  const from    = EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
-  const replyTo_ = replyTo ?? REPLY_TO[expediteur] ?? 'support@tikexo.bj';
+  const from     = getFromAddress(expediteur);
+  const replyTo_ = replyTo ?? REPLY_TO[expediteur] ?? process.env.MAIL_RECEIVER ?? 'support@tikexo.bj';
 
   if (process.env.NODE_ENV !== 'production') {
     console.log([
