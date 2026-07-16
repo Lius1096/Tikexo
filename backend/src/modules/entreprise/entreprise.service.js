@@ -117,21 +117,48 @@ async function suspendre(entrepriseId, adminId) {
 }
 
 async function getBeneficiaires(entrepriseId) {
-  return prisma.lienEntrepriseBeneficiaire.findMany({
-    where: {
-      entreprise_id: entrepriseId,
-      statut: 'ACTIF',
-    },
+  const liens = await prisma.lienEntrepriseBeneficiaire.findMany({
+    where: { entreprise_id: entrepriseId },
     include: {
       user: {
         select: {
           id: true, nom: true, prenom: true, telephone: true,
           email_perso: true, statut: true,
           wallet: { select: { solde: true, currency: true } },
+          cartesVirtuelles: {
+            where: { statut: { not: 'EXPIREE' } },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { id: true, type: true, statut: true, numero_masque: true },
+          },
+          transactions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            select: { createdAt: true },
+          },
         },
       },
+      dotations: {
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        select: { montant_total: true, part_employeur: true, mois_concerne: true, statut: true, createdAt: true },
+      },
     },
+    orderBy: { createdAt: 'desc' },
   });
+
+  return liens.map((l) => ({
+    ...l,
+    user: {
+      ...l.user,
+      carte: l.user.cartesVirtuelles?.[0] ?? null,
+      derniereActivite: l.user.transactions?.[0]?.createdAt ?? null,
+      cartesVirtuelles: undefined,
+      transactions: undefined,
+    },
+    derniereDotation: l.dotations?.[0] ?? null,
+    dotations: undefined,
+  }));
 }
 
 async function getWallet(entrepriseId) {
