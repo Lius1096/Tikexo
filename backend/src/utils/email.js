@@ -1,5 +1,6 @@
-// Utilitaire email TIKEXO — Nodemailer + senders nommés
+// Utilitaire email TIKEXO — Resend API (priorité) + Nodemailer SMTP (fallback)
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { emailQueue } = require('../queues/index');
 
 // Adresses expéditrices officielles TIKEXO
@@ -11,7 +12,6 @@ const EXPEDITEURS = {
   ops:         '"TIKEXO Ops" <ops@tikexo.bj>',
 };
 
-// Adresses de réponse selon le contexte
 const REPLY_TO = {
   noreply:     'support@tikexo.bj',
   hello:       'support@tikexo.bj',
@@ -20,12 +20,20 @@ const REPLY_TO = {
   ops:         'ops@tikexo.bj',
 };
 
-let _transport = null;
+// ─── Resend ───────────────────────────────────────────────────────────────────
+let _resend = null;
+function getResend() {
+  if (_resend) return _resend;
+  if (!process.env.RESEND_API_KEY) return null;
+  _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
+// ─── Nodemailer (SMTP fallback) ───────────────────────────────────────────────
+let _transport = null;
 function getTransport() {
   if (_transport) return _transport;
 
-  // Priorité : variables SMTP explicites, puis EMAIL/EMAIL_PASSWORD (Gmail)
   const user = process.env.SMTP_USER || process.env.EMAIL;
   const pass = process.env.SMTP_PASS || process.env.EMAIL_PASSWORD;
   if (!user || !pass) return null;
@@ -36,8 +44,7 @@ function getTransport() {
 
   const port = parseInt(process.env.SMTP_PORT || (isGmail ? '465' : '587'));
   _transport = nodemailer.createTransport({
-    host,
-    port,
+    host, port,
     secure: port === 465,
     auth: { user, pass },
     connectionTimeout: 15000,
@@ -47,30 +54,16 @@ function getTransport() {
   return _transport;
 }
 
-// Adresse expéditrice réelle : Gmail impose que le from = compte authentifié
 function getFromAddress(expediteur) {
+  const resend = getResend();
+  if (resend) return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
+
   const gmailUser = process.env.EMAIL;
-  if (gmailUser && gmailUser.includes('@gmail.com')) {
-    return `"TIKEXO" <${gmailUser}>`;
-  }
+  if (gmailUser && gmailUser.includes('@gmail.com')) return `"TIKEXO" <${gmailUser}>`;
   return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
 }
 
-/**
- * Envoie un email TIKEXO.
- * @param {Object} opts
- * @param {string} opts.to          Destinataire
- * @param {string} opts.subject     Objet
- * @param {string} opts.html        Corps HTML
- * @param {string} [opts.text]      Corps texte brut (fallback)
- * @param {keyof EXPEDITEURS} [opts.expediteur='noreply']  Sender nommé
- * @param {string} [opts.replyTo]   Reply-To custom (override)
- */
-// Ajoute l'email en queue — réponse immédiate, envoi asynchrone
-async function envoyerEmailAsync({ to, subject, html, text, expediteur = 'noreply', replyTo } = {}) {
-  return emailQueue.add('send', { to, subject, html, text, expediteur, replyTo });
-}
-
+// ─── Envoi ────────────────────────────────────────────────────────────────────
 async function envoyerEmail({ to, subject, html, text, expediteur = 'noreply', replyTo }) {
   const from     = getFromAddress(expediteur);
   const replyTo_ = replyTo ?? REPLY_TO[expediteur] ?? process.env.MAIL_RECEIVER ?? 'support@tikexo.bj';
@@ -89,13 +82,25 @@ async function envoyerEmail({ to, subject, html, text, expediteur = 'noreply', r
     return;
   }
 
-  const transport = getTransport();
-  if (!transport) {
-    console.warn('[TIKEXO EMAIL] SMTP non configuré — email non envoyé vers', to);
+  // 1. Resend API (si clé dispo)
+  const resend = getResend();
+  if (resend) {
+    const { error } = await resend.emails.send({ from, to, subject, html, text, replyTo: replyTo_ });
+    if (error) throw new Error(error.message);
     return;
   }
 
+  // 2. Nodemailer SMTP (fallback)
+  const transport = getTransport();
+  if (!transport) {
+    console.warn('[TIKEXO EMAIL] Aucun provider configuré — email non envoyé vers', to);
+    return;
+  }
   await transport.sendMail({ from, replyTo: replyTo_, to, subject, html, text });
+}
+
+async function envoyerEmailAsync({ to, subject, html, text, expediteur = 'noreply', replyTo } = {}) {
+  return emailQueue.add('send', { to, subject, html, text, expediteur, replyTo });
 }
 
 function masquerEmail(email) {
