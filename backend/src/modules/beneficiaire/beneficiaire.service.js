@@ -279,4 +279,55 @@ async function reactiver(userId, entrepriseId, adminId) {
   return user;
 }
 
-module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver };
+async function importerEnMasse(entrepriseId, rows, adminId) {
+  const resultats = [];
+
+  for (const row of rows) {
+    const telephone = (row.telephone || '').replace(/\D/g, '');
+    const prenom = (row.prenom || '').trim();
+    const nom    = (row.nom    || '').trim();
+
+    if (!prenom || !nom) {
+      resultats.push({ prenom, nom, telephone, statut: 'ERREUR', message: 'Prénom et nom requis' });
+      continue;
+    }
+    if (!telephone || (telephone.length !== 8 && telephone.length !== 10)) {
+      resultats.push({ prenom, nom, telephone, statut: 'ERREUR', message: 'Numéro de téléphone invalide (8 ou 10 chiffres)' });
+      continue;
+    }
+
+    try {
+      const user = await creer({
+        prenom, nom, telephone,
+        email_perso: row.email?.trim() || undefined,
+      });
+
+      const niveauBrut = (row.niveau || '').toUpperCase().trim();
+      const niveau = ['EMPLOYE', 'CADRE', 'MANAGER', 'DIRECTEUR'].includes(niveauBrut) ? niveauBrut : 'EMPLOYE';
+
+      await rattacherEntreprise(user.id, {
+        entrepriseId,
+        niveau,
+        valeurTitre: parseFloat(row.valeur_repas) || 1500,
+        tauxParticipation: parseFloat(row.part_employeur) || 100,
+      }, adminId);
+
+      resultats.push({ prenom: user.prenom, nom: user.nom, telephone: user.telephone, statut: 'OK', message: 'Importé avec succès' });
+    } catch (err) {
+      resultats.push({
+        prenom, nom, telephone,
+        statut: err.statusCode === 409 ? 'IGNORE' : 'ERREUR',
+        message: err.message || 'Erreur inconnue',
+      });
+    }
+  }
+
+  return {
+    resultats,
+    ok:      resultats.filter((r) => r.statut === 'OK').length,
+    ignores: resultats.filter((r) => r.statut === 'IGNORE').length,
+    erreurs: resultats.filter((r) => r.statut === 'ERREUR').length,
+  };
+}
+
+module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver, importerEnMasse };

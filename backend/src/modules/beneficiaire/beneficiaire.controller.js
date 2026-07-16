@@ -50,4 +50,16 @@ async function reactiver(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { lister, creer, getById, modifier, rechercherParTelephone, rattacherEntreprise, traiterSortie, suspendre, reactiver };
+async function importerEnMasse(req, res, next) {
+  try {
+    const { entrepriseId, rows } = req.body;
+    if (!entrepriseId || !Array.isArray(rows) || rows.length === 0)
+      return res.status(400).json({ success: false, error: 'entrepriseId et rows requis' });
+    if (rows.length > 500)
+      return res.status(400).json({ success: false, error: 'Maximum 500 lignes par import' });
+    const data = await service.importerEnMasse(entrepriseId, rows, req.user.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { lister, creer, getById, modifier, rechercherParTelephone, rattacherEntreprise, traiterSortie, suspendre, reactiver, importerEnMasse };
