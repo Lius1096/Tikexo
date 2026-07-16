@@ -211,7 +211,7 @@ export default function EmployeurBeneficiaires() {
 
       {/* Header */}
       <div className="px-6 pt-4 pb-4 bg-white border-b border-slate-100">
-        <div className="text-[11px] text-slate-400 mb-1">Pilotage / Bénéficiaires</div>
+        <div className="text-[11px] text-slate-400 mb-1">{user?.entrepriseNom ?? 'Employeur'} / Bénéficiaires</div>
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 tracking-tight">Bénéficiaires</h1>
