@@ -369,4 +369,46 @@ async function enregistrerFcmToken(userId, fcmToken) {
   });
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken };
+const MSG_OUBLIE = 'Si un compte correspond à cet email, un code de réinitialisation vous a été envoyé.';
+
+async function motDePasseOublie(email) {
+  const emailNorm = email?.trim()?.toLowerCase();
+  const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
+  if (!user) return { message: MSG_OUBLIE };
+
+  const code = await creerOtp(prisma, user.telephone);
+  const { html, text } = templates.resetMotDePasse(user.prenom, code);
+  await envoyerEmail({
+    to: emailNorm,
+    subject: 'Réinitialisation de votre mot de passe TIKEXO',
+    html,
+    text,
+    expediteur: 'hello',
+  });
+
+  return { message: MSG_OUBLIE };
+}
+
+async function reinitialiserMotDePasse(email, code, nouveauMotDePasse) {
+  const emailNorm = email?.trim()?.toLowerCase();
+  const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
+  if (!user) {
+    const err = new Error('Code ou email incorrect'); err.statusCode = 401; throw err;
+  }
+
+  const resultat = await verifierOtpUtil(prisma, user.telephone, code);
+  if (!resultat.valide) {
+    const err = new Error(resultat.motif); err.statusCode = 401; throw err;
+  }
+
+  if (!nouveauMotDePasse || nouveauMotDePasse.length < 6) {
+    const err = new Error('Mot de passe trop court (6 caractères minimum)'); err.statusCode = 400; throw err;
+  }
+
+  const hash = await bcrypt.hash(nouveauMotDePasse, BCRYPT_ROUNDS);
+  await prisma.user.update({ where: { id: user.id }, data: { mot_de_passe_hash: hash } });
+
+  return { message: 'Mot de passe réinitialisé avec succès' };
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse };

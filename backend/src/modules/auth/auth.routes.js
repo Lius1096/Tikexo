@@ -32,6 +32,11 @@ router.get('/pin/statut', authController.statutPin);
 // PIN oublié — envoie un code à l'email personnel
 router.post('/pin/oublie', limiterOtp, authController.pinOublie);
 
+// Mot de passe oublié — envoie un OTP à l'email
+router.post('/mot-de-passe/oublie', limiterOtp, authController.motDePasseOublie);
+// Réinitialiser le mot de passe avec l'OTP reçu
+router.post('/mot-de-passe/reinitialiser', limiterLogin, authController.reinitialiserMotDePasse);
+
 // Se déconnecter
 router.post('/logout', authentifier, authController.logout);
 

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wallet, Building2, Store, Lock, ArrowRight, UserCircle, AlertTriangle, Eye, EyeOff, Mail } from 'lucide-react';
+import { Wallet, Building2, Store, Lock, ArrowRight, UserCircle, AlertTriangle, Eye, EyeOff, Mail, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
-type Step = 'credentials' | 'wrong_portal';
+type Step = 'credentials' | 'wrong_portal' | 'forgot' | 'reset';
 
 interface WrongPortalInfo {
   prenom: string;
@@ -47,6 +48,13 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
   const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState('');
   const [wrongPortal, setWrongPortal] = useState<WrongPortalInfo | null>(null);
+
+  // Forgot / reset password
+  const [forgotEmail, setForgotEmail]   = useState('');
+  const [resetCode, setResetCode]       = useState('');
+  const [newPassword, setNewPassword]   = useState('');
+  const [showNewPwd, setShowNewPwd]     = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   // Déjà authentifié au chargement
   useEffect(() => {
@@ -93,6 +101,36 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
       } catch { /* le layout gère la gate */ }
     }
     window.location.href = redirectTo;
+  }
+
+  async function handleForgotSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!forgotEmail.trim()) { setError('Entrez votre adresse email.'); return; }
+    setError(''); setLoading(true);
+    try {
+      await api.post('/auth/mot-de-passe/oublie', { email: forgotEmail.trim().toLowerCase() });
+      setStep('reset');
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Erreur lors de l\'envoi. Vérifiez votre email.');
+    } finally { setLoading(false); }
+  }
+
+  async function handleResetSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetCode.trim()) { setError('Entrez le code reçu par email.'); return; }
+    if (newPassword.length < 6) { setError('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+    setError(''); setLoading(true);
+    try {
+      await api.post('/auth/mot-de-passe/reinitialiser', {
+        email: forgotEmail.trim().toLowerCase(),
+        code: resetCode.trim(),
+        nouveau_mot_de_passe: newPassword,
+      });
+      setResetSuccess(true);
+      setTimeout(() => { setStep('credentials'); setResetSuccess(false); setResetCode(''); setNewPassword(''); }, 2500);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || 'Code incorrect ou expiré.');
+    } finally { setLoading(false); }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -161,7 +199,7 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
             </div>
 
             {/* Mot de passe */}
-            <div className="mb-5">
+            <div className="mb-1">
               <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">MOT DE PASSE</div>
               <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus-within:border-tikexo-accent focus-within:bg-white transition-colors">
                 <Lock size={15} className="text-slate-400 flex-shrink-0" />
@@ -182,6 +220,16 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
                   {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
+            </div>
+
+            <div className="text-right mb-4">
+              <button
+                type="button"
+                onClick={() => { setForgotEmail(email); setStep('forgot'); setError(''); }}
+                className="text-[11px] text-tikexo-accent hover:underline"
+              >
+                Mot de passe oublié ?
+              </button>
             </div>
 
             {error && (
@@ -257,6 +305,92 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
             </button>
           </div>
         )}
+        {/* ── Mot de passe oublié : saisie email ── */}
+        {step === 'forgot' && (
+          <form onSubmit={handleForgotSubmit} className="px-6 py-6" noValidate>
+            <button type="button" onClick={() => { setStep('credentials'); setError(''); }} className="text-[11px] text-slate-400 hover:text-slate-600 mb-4">← Retour</button>
+            <div className="text-base font-medium text-slate-900 mb-1">Mot de passe oublié</div>
+            <div className="text-xs text-slate-500 leading-relaxed mb-5">
+              Entrez votre email. Vous recevrez un code à 6 chiffres pour réinitialiser votre mot de passe.
+            </div>
+
+            <div className="mb-5">
+              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">ADRESSE EMAIL</div>
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus-within:border-tikexo-accent focus-within:bg-white transition-colors">
+                <Mail size={15} className="text-slate-400 flex-shrink-0" />
+                <input
+                  type="email" autoFocus autoComplete="email"
+                  className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder-slate-400"
+                  placeholder="vous@exemple.com"
+                  value={forgotEmail}
+                  onChange={(e) => { setForgotEmail(e.target.value); setError(''); }}
+                />
+              </div>
+            </div>
+
+            {error && <div className="text-[11px] text-tikexo-danger mb-4 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+
+            <button type="submit" disabled={loading} className="w-full bg-tikexo-primary text-white rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 hover:bg-tikexo-accent transition-colors disabled:opacity-60">
+              {loading ? 'Envoi en cours…' : 'Envoyer le code'}
+              {!loading && <ArrowRight size={16} />}
+            </button>
+          </form>
+        )}
+
+        {/* ── Réinitialisation : code + nouveau mot de passe ── */}
+        {step === 'reset' && (
+          <form onSubmit={handleResetSubmit} className="px-6 py-6" noValidate>
+            <button type="button" onClick={() => { setStep('forgot'); setError(''); }} className="text-[11px] text-slate-400 hover:text-slate-600 mb-4">← Retour</button>
+            <div className="text-base font-medium text-slate-900 mb-1">Nouveau mot de passe</div>
+            <div className="text-xs text-slate-500 leading-relaxed mb-5">
+              Entrez le code reçu par email et choisissez un nouveau mot de passe (6 caractères min.).
+            </div>
+
+            {resetSuccess && (
+              <div className="flex items-center gap-2 text-[12px] text-green-700 mb-4 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
+                <CheckCircle size={14} className="flex-shrink-0" />
+                Mot de passe réinitialisé ! Redirection vers la connexion…
+              </div>
+            )}
+
+            <div className="mb-3">
+              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">CODE REÇU PAR EMAIL</div>
+              <input
+                type="text" inputMode="numeric" autoFocus maxLength={6}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-tikexo-accent/20 focus:border-tikexo-accent tracking-[4px] text-center font-mono"
+                placeholder="· · · · · ·"
+                value={resetCode}
+                onChange={(e) => { setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+              />
+            </div>
+
+            <div className="mb-5">
+              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">NOUVEAU MOT DE PASSE</div>
+              <div className="flex items-center gap-2 border border-slate-200 rounded-lg px-3 py-2.5 bg-slate-50 focus-within:border-tikexo-accent focus-within:bg-white transition-colors">
+                <Lock size={15} className="text-slate-400 flex-shrink-0" />
+                <input
+                  type={showNewPwd ? 'text' : 'password'}
+                  className="flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder-slate-400"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
+                  autoComplete="new-password"
+                />
+                <button type="button" onClick={() => setShowNewPwd(v => !v)} className="text-slate-400 hover:text-slate-600" tabIndex={-1}>
+                  {showNewPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              </div>
+            </div>
+
+            {error && <div className="text-[11px] text-tikexo-danger mb-4 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
+
+            <button type="submit" disabled={loading || resetSuccess} className="w-full bg-tikexo-primary text-white rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 hover:bg-tikexo-accent transition-colors disabled:opacity-60">
+              {loading ? 'Réinitialisation…' : 'Réinitialiser le mot de passe'}
+              {!loading && !resetSuccess && <ArrowRight size={16} />}
+            </button>
+          </form>
+        )}
+
       </div>
 
       <div className="text-[10px] text-white/30 mt-6 text-center">

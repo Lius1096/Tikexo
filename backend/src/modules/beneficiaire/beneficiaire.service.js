@@ -1,7 +1,13 @@
 // Service bénéficiaire TIKEXO
 const prisma = require('../../config/database');
+const bcrypt = require('bcryptjs');
 
 const ALLOCATION_PAR_NIVEAU = { EMPLOYE: 5000, CADRE: 8000, MANAGER: 10000, DIRECTEUR: 15000 };
+const BCRYPT_ROUNDS = 12;
+
+function genererMotDePasseTemp() {
+  return 'Tikexo@' + Math.floor(1000 + Math.random() * 9000);
+}
 const { validerKYCViaBeneficiaire, cascadeKYCApresDepart } = require('../../utils/kyc');
 const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
@@ -200,19 +206,25 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
 
   // Email bienvenue — uniquement au premier rattachement (pas ré-embauche)
   if (estPremierRattachement) {
-    const user = await prisma.user.findUnique({
+    const userInfo = await prisma.user.findUnique({
       where: { id: userId },
-      select: { prenom: true, email_perso: true },
+      select: { prenom: true, email_perso: true, mot_de_passe_hash: true },
     });
-    if (user?.email_perso) {
-      const { html, text } = bienvenueBeneficiaire(user.prenom, entreprise.nom);
+    if (userInfo?.email_perso) {
+      let motDePasseTemp = null;
+      if (!userInfo.mot_de_passe_hash) {
+        motDePasseTemp = genererMotDePasseTemp();
+        const hash = await bcrypt.hash(motDePasseTemp, BCRYPT_ROUNDS);
+        await prisma.user.update({ where: { id: userId }, data: { mot_de_passe_hash: hash } });
+      }
+      const { html, text } = bienvenueBeneficiaire(userInfo.prenom, entreprise.nom, motDePasseTemp);
       envoyerEmailAsync({
-        to: user.email_perso,
+        to: userInfo.email_perso,
         subject: `Bienvenue sur TIKEXO — ${entreprise.nom}`,
         html,
         text,
         expediteur: 'hello',
-      }).catch(() => {}); // fire-and-forget — l'échec email ne bloque pas le rattachement
+      }).catch(() => {});
     }
   }
 

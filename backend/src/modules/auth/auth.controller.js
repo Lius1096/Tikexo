@@ -167,4 +167,20 @@ async function enregistrerFcmToken(req, res, next) {
   }
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken };
+async function motDePasseOublie(req, res, next) {
+  try {
+    const { email } = req.body;
+    const data = await authService.motDePasseOublie(email);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function reinitialiserMotDePasse(req, res, next) {
+  try {
+    const { email, code, nouveau_mot_de_passe } = req.body;
+    const data = await authService.reinitialiserMotDePasse(email, code, nouveau_mot_de_passe);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse };

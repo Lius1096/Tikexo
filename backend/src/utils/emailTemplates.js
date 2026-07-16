@@ -83,28 +83,64 @@ function pinReset(code) {
 }
 
 /**
- * Bienvenue — premier accès bénéficiaire
+ * Bienvenue — premier accès bénéficiaire (email + mot de passe)
  */
-function bienvenueBeneficiaire(prenom, entreprise) {
+function bienvenueBeneficiaire(prenom, entreprise, motDePasseTemp) {
+  const accesHtml = motDePasseTemp
+    ? `<div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
+        <p style="color:#1A3C5E;font-weight:600;margin:0 0 10px;font-size:14px">Vos identifiants de connexion</p>
+        <p style="color:#555;margin:0 0 6px;font-size:13px">📧 <strong>Email :</strong> votre adresse email personnelle</p>
+        <p style="color:#555;margin:0;font-size:13px">🔑 <strong>Mot de passe temporaire :</strong> <code style="background:#e8f0fe;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:14px;color:#1A3C5E">${motDePasseTemp}</code></p>
+        <p style="color:#888;font-size:11px;margin:10px 0 0">Modifiez ce mot de passe dès votre première connexion.</p>
+      </div>`
+    : `<p style="color:#555;margin:0 0 16px">Connectez-vous avec votre adresse email et le mot de passe que vous avez défini.</p>`;
+
   const html = layout({
     titre: `Bienvenue, ${prenom} !`,
     corps: `
       <p style="color:#555;margin:0 0 16px">
         <strong>${entreprise}</strong> vous a enregistré(e) sur la plateforme TIKEXO.<br>
-        Vos titres-repas sont maintenant accessibles via votre numéro de téléphone.
+        Vos titres-repas digitaux sont prêts à l'emploi.
       </p>
+      ${accesHtml}
       <ul style="color:#555;padding-left:20px;margin:0 0 20px">
-        <li style="margin-bottom:8px">Connectez-vous avec votre numéro de téléphone</li>
-        <li style="margin-bottom:8px">Créez votre code PIN à 4 chiffres au premier accès</li>
-        <li>Utilisez vos titres dans les restaurants partenaires TIKEXO</li>
+        <li style="margin-bottom:8px">Connectez-vous sur <a href="https://tikexo.vercel.app/login" style="color:${COULEUR_ACCENT}">tikexo.vercel.app</a></li>
+        <li style="margin-bottom:8px">Consultez votre solde et votre carte virtuelle</li>
+        <li>Payez chez les restaurants partenaires TIKEXO</li>
       </ul>
       <p style="color:#888;font-size:13px;margin:0">
         Des questions ? Contactez <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
       </p>
     `,
+    bouton: { url: 'https://tikexo.vercel.app/login', label: 'Accéder à mon espace' },
   });
 
-  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\nConnectez-vous avec votre téléphone et créez votre PIN.\n\nSupport : support@tikexo.bj`;
+  const textAcces = motDePasseTemp
+    ? `Mot de passe temporaire : ${motDePasseTemp}\n(Modifiez-le dès votre première connexion)\n\n`
+    : '';
+  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\n\n${textAcces}Connectez-vous sur : https://tikexo.vercel.app/login\n\nSupport : support@tikexo.bj`;
+
+  return { html, text };
+}
+
+/**
+ * Réinitialisation de mot de passe
+ */
+function resetMotDePasse(prenom, code) {
+  const html = layout({
+    titre: 'Réinitialisation de votre mot de passe',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      <p style="color:#555;margin:0 0 20px">Vous avez demandé à réinitialiser votre mot de passe TIKEXO. Voici votre code :</p>
+      <div style="text-align:center;margin:0 0 20px">
+        <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#1A3C5E;font-family:monospace">${code}</span>
+      </div>
+      <p style="color:#888;font-size:13px;margin:0 0 8px">Ce code expire dans <strong>10 minutes</strong>.</p>
+      <p style="color:#888;font-size:13px;margin:0">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
+    `,
+  });
+
+  const text = `Réinitialisation de mot de passe TIKEXO\n\nBonjour ${prenom},\n\nVotre code de réinitialisation : ${code}\n\nCe code expire dans 10 minutes.`;
 
   return { html, text };
 }
@@ -316,6 +352,7 @@ function alerteInterne(type, details) {
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
+  resetMotDePasse,
   mutationTraitee,
   inscriptionEntrepriseConfirmee,
   kybApprouve,
