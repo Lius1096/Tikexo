@@ -7,7 +7,7 @@ import {
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
   SlidersHorizontal, LayoutGrid, List, ChevronDown, Zap, MoreHorizontal,
   CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
-  ArrowUpRight, ShoppingBag,
+  ArrowUpRight, ShoppingBag, Pencil, Save,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ interface BenefItem {
   id: string;
   niveau: string;
   statut: string;
+  allocation_mensuelle: string;
   user: {
     id: string; nom: string; prenom: string;
     telephone: string; email_perso?: string; statut: string;
@@ -751,6 +752,14 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
   const [optionSolde, setOptionSolde]   = useState<'CONSERVATION' | 'REMBOURSEMENT'>('CONSERVATION');
   const [moreOpen, setMoreOpen]         = useState(false);
   const [copied, setCopied]             = useState(false);
+  const [editOpen, setEditOpen]         = useState(false);
+  const [editForm, setEditForm]         = useState({
+    prenom: u.prenom, nom: u.nom, telephone: u.telephone,
+    email_perso: u.email_perso ?? '',
+    niveau: benef.niveau,
+    allocation_mensuelle: benef.allocation_mensuelle ?? '',
+  });
+  const patchEdit = (p: Partial<typeof editForm>) => setEditForm((f) => ({ ...f, ...p }));
 
   // Queries
   const { data: statsData } = useQuery({
@@ -775,6 +784,15 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
       montant: parseInt(montantRecharge.replace(/\D/g, ''), 10),
     }),
     onSuccess: () => { onRefresh(); setRechargeOpen(false); setMontantRecharge(''); },
+  });
+
+  const modifierMut = useMutation({
+    mutationFn: () => api.put(`/beneficiaires/${u.id}`, {
+      ...editForm,
+      entrepriseId,
+      allocationMensuelle: editForm.allocation_mensuelle,
+    }),
+    onSuccess: () => { onRefresh(); setEditOpen(false); },
   });
 
   const suspendreMut = useMutation({
@@ -893,6 +911,11 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
               </button>
               {moreOpen && (
                 <div className="absolute bottom-full right-0 mb-1 w-52 bg-white border border-slate-100 rounded-xl shadow-lg z-20 py-1 overflow-hidden">
+                  <button onClick={() => { setMoreOpen(false); setEditOpen(true); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-slate-700 hover:bg-slate-50">
+                    <Pencil size={13} />Modifier le profil
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
                   {st === 'inactif' ? (
                     <button onClick={() => reactiverMut.mutate()} disabled={reactiverMut.isPending}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-green-700 hover:bg-green-50">
@@ -941,6 +964,79 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                 {rechargeMut.isPending ? 'Traitement…' : 'Confirmer'}
               </button>
               <button onClick={() => { setRechargeOpen(false); setMontantRecharge(''); }}
+                className="px-3 text-[12px] text-slate-400 border border-slate-200 rounded-lg">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Formulaire d'édition du profil */}
+        {editOpen && (
+          <div className="px-4 pb-4 space-y-3">
+            <div className="text-[11px] font-semibold text-slate-700 tracking-[0.5px]">MODIFIER LE PROFIL</div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-slate-400 mb-1 block">Prénom</label>
+                <input value={editForm.prenom} onChange={e => patchEdit({ prenom: e.target.value })}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[#4F46E5]" />
+              </div>
+              <div>
+                <label className="text-[10px] text-slate-400 mb-1 block">Nom</label>
+                <input value={editForm.nom} onChange={e => patchEdit({ nom: e.target.value })}
+                  className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[#4F46E5]" />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block">Téléphone</label>
+              <input value={editForm.telephone} onChange={e => patchEdit({ telephone: e.target.value })}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[#4F46E5]" />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block">Email</label>
+              <input type="email" value={editForm.email_perso} onChange={e => patchEdit({ email_perso: e.target.value })}
+                placeholder="email@exemple.com"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[#4F46E5]" />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block">Niveau</label>
+              <div className="grid grid-cols-4 gap-1">
+                {(['EMPLOYE', 'CADRE', 'MANAGER', 'DIRECTEUR'] as const).map((n) => (
+                  <button key={n} type="button"
+                    onClick={() => patchEdit({ niveau: n, allocation_mensuelle: String(ALLOCATION_PAR_NIVEAU[n]) })}
+                    className={clsx(
+                      'text-[10px] py-1.5 rounded-lg border font-medium transition-colors',
+                      editForm.niveau === n
+                        ? 'bg-[#4F46E5] text-white border-[#4F46E5]'
+                        : 'border-slate-200 text-slate-600 hover:border-[#4F46E5]'
+                    )}>
+                    {n === 'EMPLOYE' ? 'Employé' : n === 'CADRE' ? 'Cadre' : n === 'MANAGER' ? 'Mgr' : 'Dir'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block">Allocation mensuelle (XOF)</label>
+              <input type="number" value={editForm.allocation_mensuelle}
+                onChange={e => patchEdit({ allocation_mensuelle: e.target.value })}
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] font-mono focus:outline-none focus:border-[#4F46E5]" />
+            </div>
+
+            {modifierMut.isError && (
+              <div className="text-[10px] text-red-500">{(modifierMut.error as any)?.response?.data?.message || 'Erreur'}</div>
+            )}
+
+            <div className="flex gap-2">
+              <button onClick={() => modifierMut.mutate()} disabled={modifierMut.isPending}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-[#4F46E5] text-white text-[12px] font-medium py-2 rounded-lg disabled:opacity-50">
+                <Save size={12} />{modifierMut.isPending ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+              <button onClick={() => setEditOpen(false)}
                 className="px-3 text-[12px] text-slate-400 border border-slate-200 rounded-lg">
                 Annuler
               </button>

@@ -99,9 +99,21 @@ async function getById(id) {
 }
 
 async function modifier(id, data) {
-  // email_perso est immuable — on l'exclut de la mise à jour
-  const { email_perso, role, ...updateData } = data;
-  return prisma.user.update({ where: { id }, data: updateData });
+  const { role, entrepriseId, niveau, allocationMensuelle, ...userFields } = data;
+
+  const user = await prisma.user.update({ where: { id }, data: userFields });
+
+  if (entrepriseId && (niveau || allocationMensuelle)) {
+    const lienData = {};
+    if (niveau) lienData.niveau = niveau;
+    if (allocationMensuelle) lienData.allocation_mensuelle = parseFloat(allocationMensuelle);
+    await prisma.lienEntrepriseBeneficiaire.updateMany({
+      where: { user_id: id, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
+      data: lienData,
+    });
+  }
+
+  return user;
 }
 
 async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMensuelle }, adminId) {
