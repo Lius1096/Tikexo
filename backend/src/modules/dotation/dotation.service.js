@@ -183,4 +183,26 @@ async function getById(id) {
   });
 }
 
-module.exports = { calculer, valider, distribuer, lister, getById };
+async function ignorer(dotationIds, adminId) {
+  const dotations = await prisma.dotation.findMany({
+    where: { id: { in: dotationIds }, statut: 'CALCULE' },
+  });
+
+  if (dotations.length === 0) {
+    const err = new Error('Aucune dotation CALCULÉE à ignorer');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  await Promise.all(
+    dotations.map((d) =>
+      prisma.$executeRaw`
+        UPDATE "Dotation" SET statut = 'IGNORE' WHERE id = ${d.id} AND statut = 'CALCULE'
+      `
+    )
+  );
+
+  return { ignorees: dotations.length };
+}
+
+module.exports = { calculer, valider, distribuer, ignorer, lister, getById };

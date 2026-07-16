@@ -9,6 +9,7 @@ router.use(authentifier);
 router.post('/calculer', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.calculer);
 router.post('/valider', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.valider);
 router.post('/distribuer', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.distribuer);
+router.post('/ignorer', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.ignorer);
 router.get('/', ctrl.lister);
 router.get('/export/csv', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.exportCsv);
 router.get('/:id', ctrl.getById);

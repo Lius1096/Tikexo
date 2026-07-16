@@ -19,6 +19,12 @@ async function distribuer(req, res, next) {
     res.json({ success: true, data: await service.distribuer(dotationIds, req.user.id) });
   } catch (e) { next(e); }
 }
+async function ignorer(req, res, next) {
+  try {
+    const { dotationIds } = req.body;
+    res.json({ success: true, data: await service.ignorer(dotationIds, req.user.id) });
+  } catch (e) { next(e); }
+}
 async function lister(req, res, next) {
   try { res.json({ success: true, data: await service.lister(req.query) }); } catch (e) { next(e); }
 }
@@ -59,4 +65,4 @@ async function exportCsv(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { calculer, valider, distribuer, lister, getById, exportCsv };
+module.exports = { calculer, valider, distribuer, ignorer, lister, getById, exportCsv };

@@ -573,6 +573,7 @@ enum StatutDotation {
   CALCULE
   VALIDE
   DISTRIBUE
+  IGNORE
 }
 
 enum StatutMutation {
