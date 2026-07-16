@@ -1,5 +1,7 @@
 // Service bénéficiaire TIKEXO
 const prisma = require('../../config/database');
+
+const ALLOCATION_PAR_NIVEAU = { EMPLOYE: 5000, CADRE: 8000, MANAGER: 10000, DIRECTEUR: 15000 };
 const { validerKYCViaBeneficiaire, cascadeKYCApresDepart } = require('../../utils/kyc');
 const { normaliserTelephone } = require('../../utils/telephone');
 const { detecterRattachement, traiterSortie: sortieService } = require('../mutation/mutation.service');
@@ -306,7 +308,7 @@ async function importerEnMasse(entrepriseId, rows, adminId) {
       await rattacherEntreprise(user.id, {
         entrepriseId,
         niveau,
-        allocationMensuelle: parseFloat(row.valeur_repas) || 5000,
+        allocationMensuelle: parseFloat(row.valeur_repas) || ALLOCATION_PAR_NIVEAU[niveau] || 5000,
       }, adminId);
 
       resultats.push({ prenom: user.prenom, nom: user.nom, telephone: user.telephone, statut: 'OK', message: 'Importé avec succès' });

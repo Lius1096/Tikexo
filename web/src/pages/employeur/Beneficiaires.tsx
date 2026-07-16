@@ -58,6 +58,9 @@ const NIVEAUX = [
   { value: 'MANAGER', label: 'Manager' },
   { value: 'DIRECTEUR', label: 'Directeur' },
 ];
+const ALLOCATION_PAR_NIVEAU: Record<string, number> = {
+  EMPLOYE: 5000, CADRE: 8000, MANAGER: 10000, DIRECTEUR: 15000,
+};
 const niveauLabel: Record<string, string> = {
   EMPLOYE: 'Employé', CADRE: 'Cadre', MANAGER: 'Manager', DIRECTEUR: 'Directeur',
 };
@@ -1174,7 +1177,7 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
             <label className="block text-[11px] font-medium text-slate-700 mb-2">Niveau</label>
             <div className="grid grid-cols-4 gap-2">
               {NIVEAUX.map((n) => (
-                <button key={n.value} type="button" onClick={() => patchForm({ niveau: n.value })}
+                <button key={n.value} type="button" onClick={() => patchForm({ niveau: n.value, allocation_mensuelle: String(ALLOCATION_PAR_NIVEAU[n.value] ?? 5000) })}
                   className={clsx(
                     'text-[11px] font-medium py-2 rounded-lg border transition-colors',
                     form.niveau === n.value
@@ -1194,7 +1197,9 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
               className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
               placeholder="ex : 5000"
             />
-            <p className="text-[10px] text-slate-400 mt-1">Montant fixe crédité chaque mois sur le wallet repas du salarié.</p>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Défaut pour ce niveau : <span className="font-medium text-slate-500">{(ALLOCATION_PAR_NIVEAU[form.niveau] ?? 5000).toLocaleString('fr-FR')} XOF/mois</span>. Modifiable librement.
+            </p>
           </div>
 
           {erreur && (
