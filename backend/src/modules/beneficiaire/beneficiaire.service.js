@@ -99,7 +99,7 @@ async function getById(id) {
 }
 
 async function modifier(id, data) {
-  const { role, entrepriseId, niveau, allocationMensuelle, ...userFields } = data;
+  const { role, entrepriseId, niveau, allocationMensuelle, allocation_mensuelle, ...userFields } = data;
 
   const user = await prisma.user.update({ where: { id }, data: userFields });
 
