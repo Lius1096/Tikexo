@@ -15,9 +15,6 @@ const prismaTransactionMock = jest.fn();
 const prismaMock = {
   $transaction: jest.fn((fn) => fn(prismaMock)),
   $executeRaw: jest.fn().mockResolvedValue(1),
-  ledgerEntry: {
-    create: jest.fn(),
-  },
   wallet: {
     findUniqueOrThrow: jest.fn(),
     findUnique: jest.fn(),
