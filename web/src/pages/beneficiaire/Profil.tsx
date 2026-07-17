@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { User, Building2, Phone, Mail, Shield, Download, XCircle, AlertTriangle, FileText, ExternalLink } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { RGPD, texteRetentionPersonnelles, texteRetentionFinancieres } from '../../utils/rgpd';
 
 export default function BeneficiaireProfil() {
   const { user, logout } = useAuth();
@@ -129,7 +130,7 @@ export default function BeneficiaireProfil() {
             <div className="p-4 space-y-3">
               {/* Info conservation */}
               <div className="bg-slate-50 rounded-xl px-4 py-3 text-[11px] text-slate-500 leading-relaxed">
-                Vos données personnelles sont conservées <strong>3 ans</strong> après clôture du compte. Vos transactions financières sont conservées <strong>5 ans</strong> conformément à la réglementation UEMOA.
+                Vos données personnelles sont conservées <strong>{texteRetentionPersonnelles}</strong>. Vos transactions financières sont conservées <strong>{texteRetentionFinancieres}</strong>.
               </div>
 
               {/* Télécharger mes données */}
@@ -166,7 +167,7 @@ export default function BeneficiaireProfil() {
 
               {/* Contact DPO */}
               <a
-                href="mailto:rgpd@tikexo.bj"
+                href={`mailto:${RGPD.contact_dpo}`}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
               >
                 <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
@@ -174,7 +175,7 @@ export default function BeneficiaireProfil() {
                 </div>
                 <div>
                   <div className="text-[12px] font-medium text-slate-900">Contacter le DPO</div>
-                  <div className="text-[10px] text-slate-400">rgpd@tikexo.bj — rectification, opposition, suppression</div>
+                  <div className="text-[10px] text-slate-400">{RGPD.contact_dpo} — rectification, opposition, suppression</div>
                 </div>
               </a>
 
@@ -212,7 +213,7 @@ export default function BeneficiaireProfil() {
               <ul className="list-disc list-inside space-y-1">
                 <li>Votre nom, email et téléphone seront anonymisés.</li>
                 <li>Votre wallet et carte seront fermés.</li>
-                <li>Vos transactions sont conservées 5 ans (obligation légale).</li>
+                <li>Vos transactions sont conservées {RGPD.retention_donnees_financieres_ans} ans (obligation légale UEMOA/BCEAO).</li>
                 <li>Cette action est <strong>irréversible</strong>.</li>
               </ul>
             </div>

@@ -1,91 +1,93 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
+import { RGPD, texteRetentionPersonnelles, texteRetentionFinancieres } from '../utils/rgpd';
 
-const SECTIONS = [
-  {
-    titre: '1. Objet et champ d\'application',
-    contenu: `Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation de la plateforme TIKEXO, service de tickets restaurant numériques édité et exploité par TIKEXO SAS, opérant en République du Bénin.
+function getSections() {
+  return [
+    {
+      titre: "1. Objet et champ d'application",
+      contenu: `Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation de la plateforme TIKEXO, service de tickets restaurant numériques édité et exploité par TIKEXO SAS, opérant en République du Bénin.
 
 En créant ou en utilisant un compte TIKEXO, vous acceptez sans réserve les présentes CGU ainsi que notre Politique de confidentialité. Si vous n'acceptez pas ces conditions, vous ne devez pas utiliser le service.`,
-  },
-  {
-    titre: '2. Description du service',
-    contenu: `TIKEXO est une plateforme SaaS de gestion de tickets restaurant numériques permettant :
+    },
+    {
+      titre: '2. Description du service',
+      contenu: `TIKEXO est une plateforme SaaS de gestion de tickets restaurant numériques permettant :
 • Aux employeurs (entreprises) d'attribuer des allocations repas mensuelles à leurs salariés.
 • Aux bénéficiaires (salariés) de régler leurs repas chez les commerçants partenaires via wallet numérique, carte virtuelle ou QR code.
 • Aux commerçants partenaires d'accepter les paiements TIKEXO.
 
 TIKEXO n'est pas un établissement bancaire. Le wallet TIKEXO est un compte de monnaie électronique prépayé à usage limité (repas).`,
-  },
-  {
-    titre: '3. Création de compte et responsabilités',
-    contenu: `3.1. Employeur : L'entreprise s'engage à ne renseigner que des employés ayant un contrat de travail en cours et ayant consenti à l'utilisation de TIKEXO.
+    },
+    {
+      titre: '3. Création de compte et responsabilités',
+      contenu: `3.1. Employeur : L'entreprise s'engage à ne renseigner que des employés ayant un contrat de travail en cours et ayant consenti à l'utilisation de TIKEXO.
 
 3.2. Bénéficiaire : L'employé reçoit un lien d'invitation sur son email professionnel. En complétant son profil (email personnel + mot de passe), il crée son compte TIKEXO et accepte les présentes CGU.
 
-3.3. Sécurité : Chaque utilisateur est responsable de la confidentialité de ses identifiants. Tout usage frauduleux doit être signalé immédiatement à support@tikexo.bj.`,
-  },
-  {
-    titre: '4. Données personnelles et RGPD',
-    contenu: `TIKEXO collecte et traite vos données personnelles dans le cadre de la fourniture du service.
+3.3. Sécurité : Chaque utilisateur est responsable de la confidentialité de ses identifiants. Tout usage frauduleux doit être signalé immédiatement à ${RGPD.contact_support}.`,
+    },
+    {
+      titre: '4. Données personnelles et RGPD',
+      contenu: `TIKEXO collecte et traite vos données personnelles dans le cadre de la fourniture du service.
 
 Données collectées : nom, prénom, numéro de téléphone, email professionnel, email personnel, données de transactions (montant, date, commerçant).
 
-Bases légales du traitement :
-• Exécution du contrat (Art. 6(1)(b) RGPD) pour la gestion du compte et des paiements.
-• Obligation légale (Art. 6(1)(c) RGPD) pour la conservation des données financières conformément à la réglementation UEMOA et aux obligations LCB-FT (Lutte Contre le Blanchiment et le Financement du Terrorisme).
+Base légale : ${RGPD.base_legale}.
 
 Durées de conservation :
-• Données personnelles identifiantes : 3 ans après la clôture du compte.
-• Données financières (transactions, mouvements de wallet) : 5 ans minimum, conformément à la réglementation UEMOA et BCEAO.
+• Données personnelles identifiantes : ${texteRetentionPersonnelles}.
+• Données financières (transactions, mouvements de wallet) : ${texteRetentionFinancieres}.
 • Logs d'audit de sécurité : conservés indéfiniment pour la lutte anti-fraude.
 
 Vos droits (Art. 15 à 22 RGPD) :
 • Droit d'accès et de portabilité : téléchargez vos données depuis votre profil TIKEXO.
-• Droit de rectification : contactez support@tikexo.bj.
+• Droit de rectification : contactez ${RGPD.contact_support}.
 • Droit à l'effacement : applicable aux données personnelles identifiantes. Les données financières ne peuvent être supprimées avant l'expiration du délai légal de conservation.
 • Droit d'opposition : pour les traitements fondés sur l'intérêt légitime.
 
-Contact DPO (Délégué à la Protection des Données) : rgpd@tikexo.bj`,
-  },
-  {
-    titre: '5. Utilisation du wallet et des fonds',
-    contenu: `5.1. Le solde TIKEXO est crédité exclusivement par l'employeur et ne peut être utilisé que chez les commerçants partenaires TIKEXO pour le règlement de repas.
+Contact DPO (Délégué à la Protection des Données) : ${RGPD.contact_dpo}`,
+    },
+    {
+      titre: '5. Utilisation du wallet et des fonds',
+      contenu: `5.1. Le solde TIKEXO est crédité exclusivement par l'employeur et ne peut être utilisé que chez les commerçants partenaires TIKEXO pour le règlement de repas.
 
 5.2. Le solde non dépensé est conservé 90 jours après la fin du contrat de travail, puis remboursé à l'employeur selon les conditions contractuelles.
 
 5.3. En cas de clôture de compte TIKEXO, tout solde résiduel doit être dépensé avant la clôture. TIKEXO ne procède pas au remboursement en espèces ou virement du solde bénéficiaire sans accord de l'employeur.`,
-  },
-  {
-    titre: '6. Fin de la relation de travail',
-    contenu: `6.1. Sortie normale : à la fin du contrat de travail, l'employeur procède à la "Sortie de l'entreprise" depuis son espace TIKEXO. L'accès du salarié est suspendu dans un délai de 24 heures.
+    },
+    {
+      titre: '6. Fin de la relation de travail',
+      contenu: `6.1. Sortie normale : à la fin du contrat de travail, l'employeur procède à la "Sortie de l'entreprise" depuis son espace TIKEXO. L'accès du salarié est suspendu dans un délai de 24 heures.
 
 6.2. Exclusion définitive : en cas de faute grave, l'employeur peut exclure définitivement un salarié. Cette action bloque toute ré-embauche via TIKEXO dans la même entreprise.
 
 6.3. Le salarié sorti peut exercer son droit à la clôture de compte depuis son profil TIKEXO.`,
-  },
-  {
-    titre: '7. Responsabilité et limitation',
-    contenu: `TIKEXO ne peut être tenu responsable des interruptions de service dues à des maintenances, incidents techniques ou cas de force majeure. La responsabilité de TIKEXO est limitée aux montants versés par l'utilisateur sur les 12 derniers mois.
+    },
+    {
+      titre: '7. Responsabilité et limitation',
+      contenu: `TIKEXO ne peut être tenu responsable des interruptions de service dues à des maintenances, incidents techniques ou cas de force majeure. La responsabilité de TIKEXO est limitée aux montants versés par l'utilisateur sur les 12 derniers mois.
 
 TIKEXO se réserve le droit de suspendre tout compte en cas de suspicion de fraude, d'utilisation abusive ou de violation des présentes CGU.`,
-  },
-  {
-    titre: '8. Modification des CGU',
-    contenu: `TIKEXO peut modifier les présentes CGU à tout moment. Les utilisateurs seront informés par email au moins 30 jours avant l'entrée en vigueur des nouvelles conditions. L'utilisation continue du service après cette date vaut acceptation des nouvelles CGU.`,
-  },
-  {
-    titre: '9. Droit applicable et juridiction',
-    contenu: `Les présentes CGU sont régies par le droit béninois. Tout litige relatif à leur interprétation ou exécution sera soumis aux juridictions compétentes de Cotonou, République du Bénin.
+    },
+    {
+      titre: '8. Modification des CGU',
+      contenu: `TIKEXO peut modifier les présentes CGU à tout moment. Les utilisateurs seront informés par email au moins 30 jours avant l'entrée en vigueur des nouvelles conditions. L'utilisation continue du service après cette date vaut acceptation des nouvelles CGU.`,
+    },
+    {
+      titre: '9. Droit applicable et juridiction',
+      contenu: `Les présentes CGU sont régies par le droit béninois. Tout litige relatif à leur interprétation ou exécution sera soumis aux juridictions compétentes de Cotonou, République du Bénin.
 
-Pour toute question : support@tikexo.bj
-DPO / RGPD : rgpd@tikexo.bj`,
-  },
-];
+Pour toute question : ${RGPD.contact_support}
+DPO / RGPD : ${RGPD.contact_dpo}`,
+    },
+  ];
+}
 
 export default function CGU() {
   const navigate = useNavigate();
+  const sections = getSections();
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -100,7 +102,7 @@ export default function CGU() {
             <Shield size={16} className="text-[#4F46E5]" />
             <span className="text-[14px] font-semibold text-slate-900">Conditions Générales d'Utilisation</span>
           </div>
-          <div className="ml-auto text-[10px] text-slate-400">Version du 17 juillet 2026</div>
+          <div className="ml-auto text-[10px] text-slate-400">Version du {RGPD.version_cgu}</div>
         </div>
       </div>
 
@@ -117,7 +119,7 @@ export default function CGU() {
         </div>
 
         {/* Sections */}
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <div key={s.titre} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
               <h2 className="text-[13px] font-semibold text-slate-900">{s.titre}</h2>
@@ -132,7 +134,7 @@ export default function CGU() {
         <div className="text-center pb-8">
           <div className="text-[11px] text-slate-400">
             Questions ? Contactez-nous à{' '}
-            <a href="mailto:rgpd@tikexo.bj" className="text-[#4F46E5] underline">rgpd@tikexo.bj</a>
+            <a href={`mailto:${RGPD.contact_dpo}`} className="text-[#4F46E5] underline">{RGPD.contact_dpo}</a>
           </div>
         </div>
       </div>

@@ -458,6 +458,8 @@ async function completerInvitation(token, { emailPerso, motDePasse }) {
   return { ...tokens, user: { id: user.id, role: user.role, nom: user.nom, prenom: user.prenom, email: emailNorm } };
 }
 
+const RGPD = require('../../utils/rgpd');
+
 async function exporterMesDonnees(userId) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -497,10 +499,10 @@ async function exporterMesDonnees(userId) {
     entreprises: user.liensBeneficiaire,
     transactions: user.transactions,
     rgpd: {
-      base_legale: 'Contrat (Art. 6(1)(b) RGPD) + Obligation légale (Art. 6(1)(c) RGPD)',
-      retention_donnees_personnelles: '3 ans après clôture',
-      retention_donnees_financieres: '5 ans (réglementation UEMOA)',
-      contact_dpo: 'rgpd@tikexo.bj',
+      base_legale: RGPD.base_legale,
+      retention_donnees_personnelles: RGPD.texte_retention_personnelles,
+      retention_donnees_financieres: RGPD.texte_retention_financieres,
+      contact_dpo: RGPD.contact_dpo,
     },
   };
 }
@@ -517,7 +519,7 @@ async function cloturerCompte(userId) {
 
   const solde = user.wallet ? parseFloat(user.wallet.solde.toString()) : 0;
   if (solde > 0) {
-    const err = new Error(`Votre wallet contient encore ${solde.toLocaleString('fr-FR')} XOF. Dépensez-le ou contactez le support avant de clôturer.`);
+    const err = new Error(`Votre wallet contient encore ${solde.toLocaleString('fr-FR')} XOF. Dépensez-le ou contactez ${RGPD.contact_support} avant de clôturer.`);
     err.statusCode = 400;
     throw err;
   }
@@ -552,7 +554,7 @@ async function cloturerCompte(userId) {
     });
   });
 
-  return { message: 'Compte clôturé. Vos données personnelles ont été anonymisées. Vos transactions sont conservées 5 ans conformément à la réglementation UEMOA.' };
+  return { message: `Compte clôturé. Vos données personnelles ont été anonymisées. Vos transactions sont conservées ${RGPD.retention_donnees_financieres_ans} ans conformément à la ${RGPD.reglementation_financiere}.` };
 }
 
 module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation, exporterMesDonnees, cloturerCompte };
