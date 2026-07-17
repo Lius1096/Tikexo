@@ -751,6 +751,8 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
   const [sortieOpen, setSortieOpen]     = useState(false);
   const [optionSolde, setOptionSolde]   = useState<'CONSERVATION' | 'REMBOURSEMENT'>('CONSERVATION');
   const [moreOpen, setMoreOpen]         = useState(false);
+  const [exclureOpen, setExclureOpen]   = useState(false);
+  const [confirmText, setConfirmText]   = useState('');
   const [copied, setCopied]             = useState(false);
   const [editOpen, setEditOpen]         = useState(false);
   const [editForm, setEditForm]         = useState({
@@ -810,6 +812,14 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] });
       setSortieOpen(false); onClose();
+    },
+  });
+
+  const exclureMut = useMutation({
+    mutationFn: () => api.post(`/beneficiaires/${u.id}/exclure`, { entrepriseId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['beneficiaires-entreprise', entrepriseId] });
+      setExclureOpen(false); onClose();
     },
   });
 
@@ -927,12 +937,21 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                       <PauseCircle size={13} />Suspendre le compte
                     </button>
                   )}
-                  {benef.statut !== 'TERMINE' && (
+                  {benef.statut !== 'TERMINE' && benef.statut !== 'EXCLU' && (
                     <>
                       <div className="border-t border-slate-100 my-1" />
                       <button onClick={() => { setMoreOpen(false); setSortieOpen(true); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-600 hover:bg-red-50">
                         <LogOut size={13} />Sortie de l'entreprise
+                      </button>
+                    </>
+                  )}
+                  {benef.statut !== 'EXCLU' && (
+                    <>
+                      <div className="border-t border-slate-100 my-1" />
+                      <button onClick={() => { setMoreOpen(false); setConfirmText(''); setExclureOpen(true); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[12px] text-red-800 hover:bg-red-100 font-medium">
+                        <XCircle size={13} />Exclure définitivement
                       </button>
                     </>
                   )}
@@ -1190,6 +1209,55 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
               <button onClick={() => sortieMut.mutate()} disabled={sortieMut.isPending}
                 className="flex-1 bg-red-600 text-white text-[12px] font-medium py-2.5 rounded-xl disabled:opacity-50 hover:bg-red-700">
                 {sortieMut.isPending ? 'Traitement…' : 'Confirmer la sortie'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal exclusion définitive */}
+      {exclureOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <XCircle size={16} className="text-red-700" />
+              </div>
+              <div className="text-[14px] font-bold text-red-800">Exclusion définitive</div>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 space-y-1.5">
+              <div className="text-[12px] font-semibold text-red-800">Cette action est irréversible.</div>
+              <div className="text-[11px] text-red-700">
+                <strong>{u.prenom} {u.nom}</strong> ne pourra plus jamais être ré-embauché dans votre entreprise, ni réactivé via TIKEXO.
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-600 mb-1.5">
+                Tapez <strong className="text-red-700 font-mono">EXCLURE</strong> pour confirmer
+              </label>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={e => setConfirmText(e.target.value)}
+                placeholder="EXCLURE"
+                className="w-full border-2 border-red-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:border-red-500"
+              />
+            </div>
+            {exclureMut.isError && (
+              <div className="text-[11px] text-red-500 text-center">
+                {(exclureMut.error as any)?.response?.data?.error || 'Erreur'}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <button onClick={() => setExclureOpen(false)}
+                className="flex-1 border border-slate-200 text-slate-600 text-[12px] font-medium py-2.5 rounded-xl hover:bg-slate-50">
+                Annuler
+              </button>
+              <button
+                onClick={() => exclureMut.mutate()}
+                disabled={confirmText !== 'EXCLURE' || exclureMut.isPending}
+                className="flex-1 bg-red-700 text-white text-[12px] font-medium py-2.5 rounded-xl disabled:opacity-40 hover:bg-red-800">
+                {exclureMut.isPending ? 'Traitement…' : 'Exclure définitivement'}
               </button>
             </div>
           </div>

@@ -24,6 +24,7 @@ const checkEntrepriseRH = (req, res, next) => {
 
 router.post('/:id/suspendre',  autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.suspendre);
 router.post('/:id/reactiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.reactiver);
+router.post('/:id/exclure',   autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseRH, ctrl.exclure);
 
 router.post(
   '/:id/sortie',

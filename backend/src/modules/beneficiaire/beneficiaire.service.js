@@ -146,6 +146,17 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
     }
   }
 
+  // Bloquer la ré-embauche d'un employé exclu définitivement
+  const lienExclu = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'EXCLU' },
+  });
+  if (lienExclu) {
+    const err = new Error('Cet employé a été exclu définitivement de cette entreprise. Ré-embauche impossible.');
+    err.statusCode = 403;
+    err.code = 'EMPLOYE_EXCLU';
+    throw err;
+  }
+
   // Cas ré-embauche : lien TERMINE existant → réactiver
   const lienTermine = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'TERMINE' },
@@ -274,7 +285,63 @@ async function suspendre(userId, entrepriseId, adminId) {
   return user;
 }
 
+async function exclure(userId, entrepriseId, adminId) {
+  const lienExcluExistant = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'EXCLU' },
+  });
+  if (lienExcluExistant) {
+    const err = new Error('Cet employé est déjà exclu définitivement de cette entreprise');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE', 'EN_COURS_PREAVIS'] } },
+    orderBy: { updatedAt: 'desc' },
+  });
+  if (!lien) {
+    const err = new Error('Bénéficiaire non rattaché à cette entreprise');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  await prisma.lienEntrepriseBeneficiaire.update({
+    where: { id: lien.id },
+    data: { statut: 'EXCLU', date_fin: new Date() },
+  });
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { statut: 'BLOQUE' },
+    select: { id: true, nom: true, prenom: true, statut: true },
+  });
+
+  if (adminId) {
+    await prisma.auditLog.create({
+      data: {
+        user_id: adminId,
+        action: 'EXCLUSION_DEFINITIVE_BENEFICIAIRE',
+        entite: 'LienEntrepriseBeneficiaire',
+        entite_id: lien.id,
+        apres: { statut: 'EXCLU', entreprise_id: entrepriseId },
+      },
+    });
+  }
+
+  return user;
+}
+
 async function reactiver(userId, entrepriseId, adminId) {
+  const lienExclu = await prisma.lienEntrepriseBeneficiaire.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, statut: 'EXCLU' },
+  });
+  if (lienExclu) {
+    const err = new Error('Cet employé a été exclu définitivement de cette entreprise. Réactivation impossible.');
+    err.statusCode = 403;
+    err.code = 'EMPLOYE_EXCLU';
+    throw err;
+  }
+
   const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
   });
@@ -385,4 +452,4 @@ async function importerEnMasse(entrepriseId, rows, adminId) {
   };
 }
 
-module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver, importerEnMasse };
+module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver, exclure, importerEnMasse };

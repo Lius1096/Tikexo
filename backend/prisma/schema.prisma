@@ -482,6 +482,7 @@ enum StatutLien {
   ACTIF
   TERMINE
   EN_COURS_PREAVIS
+  EXCLU
 }
 
 enum NiveauSalarie {
