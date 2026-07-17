@@ -458,4 +458,101 @@ async function completerInvitation(token, { emailPerso, motDePasse }) {
   return { ...tokens, user: { id: user.id, role: user.role, nom: user.nom, prenom: user.prenom, email: emailNorm } };
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation };
+async function exporterMesDonnees(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true, nom: true, prenom: true, telephone: true,
+      email_perso: true, email_pro: true, role: true, statut: true, createdAt: true,
+      wallet: { select: { solde: true, currency: true, statut: true } },
+      liensBeneficiaire: {
+        select: {
+          niveau: true, allocation_mensuelle: true, statut: true,
+          date_debut: true, date_fin: true,
+          entreprise: { select: { nom: true } },
+        },
+      },
+      transactions: {
+        select: {
+          montant_total: true, statut: true, createdAt: true,
+          commercant: { select: { nom: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 500,
+      },
+    },
+  });
+  if (!user) { const err = new Error('Compte introuvable'); err.statusCode = 404; throw err; }
+
+  return {
+    export_date: new Date().toISOString(),
+    version: '1.0',
+    titulaire: {
+      id: user.id, nom: user.nom, prenom: user.prenom,
+      telephone: user.telephone, email_perso: user.email_perso,
+      email_pro: user.email_pro, role: user.role, statut: user.statut,
+      membre_depuis: user.createdAt,
+    },
+    wallet: user.wallet,
+    entreprises: user.liensBeneficiaire,
+    transactions: user.transactions,
+    rgpd: {
+      base_legale: 'Contrat (Art. 6(1)(b) RGPD) + Obligation légale (Art. 6(1)(c) RGPD)',
+      retention_donnees_personnelles: '3 ans après clôture',
+      retention_donnees_financieres: '5 ans (réglementation UEMOA)',
+      contact_dpo: 'rgpd@tikexo.bj',
+    },
+  };
+}
+
+async function cloturerCompte(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, statut: true, wallet: { select: { solde: true } } },
+  });
+  if (!user) { const err = new Error('Compte introuvable'); err.statusCode = 404; throw err; }
+  if (user.statut === 'ARCHIVE') {
+    const err = new Error('Ce compte est déjà clôturé'); err.statusCode = 409; throw err;
+  }
+
+  const solde = user.wallet ? parseFloat(user.wallet.solde.toString()) : 0;
+  if (solde > 0) {
+    const err = new Error(`Votre wallet contient encore ${solde.toLocaleString('fr-FR')} XOF. Dépensez-le ou contactez le support avant de clôturer.`);
+    err.statusCode = 400;
+    throw err;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        nom: 'Compte', prenom: 'Supprimé',
+        telephone: `ANON_${userId}`,
+        email_perso: null, email_pro: null,
+        mot_de_passe_hash: null, pin_hash: null,
+        fcm_token: null, invitation_token: null,
+        statut: 'ARCHIVE',
+      },
+    });
+    await tx.wallet.updateMany({
+      where: { user_id: userId },
+      data: { statut: 'FERME' },
+    });
+    await tx.carteDigi.updateMany({
+      where: { user_id: userId, statut: 'ACTIVE' },
+      data: { statut: 'BLOQUEE' },
+    });
+    await tx.auditLog.create({
+      data: {
+        user_id: userId,
+        action: 'CLOTURE_COMPTE_RGPD',
+        entite: 'User', entite_id: userId,
+        apres: { statut: 'ARCHIVE', anonymise: true },
+      },
+    });
+  });
+
+  return { message: 'Compte clôturé. Vos données personnelles ont été anonymisées. Vos transactions sont conservées 5 ans conformément à la réglementation UEMOA.' };
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation, exporterMesDonnees, cloturerCompte };

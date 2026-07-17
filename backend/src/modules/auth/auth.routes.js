@@ -46,6 +46,10 @@ router.get('/profil', limiterProfil, authentifier, authController.getProfil);
 // Enregistrer le token Firebase Cloud Messaging pour les push notifications
 router.post('/fcm-token', authentifier, authController.enregistrerFcmToken);
 
+// RGPD — authentifié
+router.get('/mes-donnees', authentifier, authController.exporterMesDonnees);
+router.post('/cloturer-compte', authentifier, authController.cloturerCompte);
+
 // Invitation bénéficiaire — routes publiques (pas d'authentification)
 router.get('/invitation/:token', authController.validerInvitation);
 router.post('/invitation/complete', authController.completerInvitation);

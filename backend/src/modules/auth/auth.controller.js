@@ -183,6 +183,22 @@ async function reinitialiserMotDePasse(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function exporterMesDonnees(req, res, next) {
+  try {
+    const data = await authService.exporterMesDonnees(req.user.id);
+    res.setHeader('Content-Disposition', `attachment; filename="tikexo-mes-donnees-${new Date().toISOString().slice(0,10)}.json"`);
+    res.setHeader('Content-Type', 'application/json');
+    res.json(data);
+  } catch (err) { next(err); }
+}
+
+async function cloturerCompte(req, res, next) {
+  try {
+    const data = await authService.cloturerCompte(req.user.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 async function validerInvitation(req, res, next) {
   try {
     const data = await authService.validerInvitation(req.params.token);
@@ -198,4 +214,4 @@ async function completerInvitation(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation };
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation, exporterMesDonnees, cloturerCompte };

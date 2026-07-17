@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Eye, EyeOff, CheckCircle, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -22,6 +22,7 @@ export default function Invitation() {
   const [confirmation, setConfirmation] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [showConf, setShowConf] = useState(false);
+  const [cguAccepted, setCguAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formErr, setFormErr] = useState('');
 
@@ -49,6 +50,7 @@ export default function Invitation() {
     if (!emailPerso.trim()) { setFormErr('Veuillez saisir votre email personnel.'); return; }
     if (motDePasse.length < 8) { setFormErr('Le mot de passe doit contenir au moins 8 caractères.'); return; }
     if (motDePasse !== confirmation) { setFormErr('Les mots de passe ne correspondent pas.'); return; }
+    if (!cguAccepted) { setFormErr('Vous devez accepter les Conditions Générales d\'Utilisation.'); return; }
 
     setSubmitting(true);
     const emailNorm = emailPerso.trim().toLowerCase();
@@ -181,9 +183,22 @@ export default function Invitation() {
                 </div>
               )}
 
+              {/* Acceptation CGU */}
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={cguAccepted} onChange={e => setCguAccepted(e.target.checked)}
+                  className="mt-0.5 accent-[#4F46E5]" />
+                <span className="text-[11px] text-slate-600 leading-relaxed">
+                  J'accepte les{' '}
+                  <Link to="/cgu" target="_blank" className="text-[#4F46E5] underline">
+                    Conditions Générales d'Utilisation
+                  </Link>{' '}
+                  et la politique de traitement de mes données personnelles (RGPD).
+                </span>
+              </label>
+
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !cguAccepted}
                 className="w-full bg-[#4F46E5] hover:bg-[#4338CA] disabled:opacity-60 text-white font-semibold rounded-xl py-3 text-sm transition-colors flex items-center justify-center gap-2"
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
