@@ -13,6 +13,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt, fmtDate } from '../../utils/format';
 import { CarteVirtuelle, type CarteData } from '../../components/CarteVisuelle';
+import ImportCsvBeneficiaires from '../../components/ImportCsvBeneficiaires';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -216,7 +217,7 @@ export default function EmployeurBeneficiaires() {
   });
 
   const telValide = /^\d{10}$/.test(form.telephone.replace(/\D/g, ''));
-  const formValide = telValide && (utilisateurExistant || (form.prenom.trim() && form.nom.trim()));
+  const formValide = telValide && !!(utilisateurExistant || (form.prenom.trim() && form.nom.trim()));
 
   function patchForm(p: Partial<AjoutForm>) {
     setForm((f) => ({ ...f, ...p }));
@@ -618,6 +619,7 @@ export default function EmployeurBeneficiaires() {
       {/* Modal ajout */}
       {modalOpen && (
         <AjoutModal
+          entrepriseId={entrepriseId}
           form={form}
           patchForm={patchForm}
           utilisateurExistant={utilisateurExistant}
@@ -1269,7 +1271,8 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
 
 // ─── AjoutModal ───────────────────────────────────────────────────────────────
 
-function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, telValide, isPending, onSubmit, onClose }: {
+function AjoutModal({ entrepriseId, form, patchForm, utilisateurExistant, erreur, formValide, telValide, isPending, onSubmit, onClose }: {
+  entrepriseId: string;
   form: AjoutForm;
   patchForm: (p: Partial<AjoutForm>) => void;
   utilisateurExistant: { id: string; nom: string; prenom: string } | null;
@@ -1280,24 +1283,54 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
   onSubmit: () => void;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <div>
-            <div className="text-[13px] font-semibold text-slate-900">
-              {utilisateurExistant ? 'Ré-embauche' : 'Nouveau bénéficiaire'}
-            </div>
-            <div className="text-[11px] text-slate-400 mt-0.5">
-              {utilisateurExistant ? 'Réactivation du lien entreprise' : 'Compte TIKEXO créé automatiquement'}
-            </div>
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1">
-            <X size={18} />
-          </button>
-        </div>
+  const [mode, setMode] = useState<'manuel' | 'import'>('manuel');
 
-        <div className="px-5 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+  return (
+    <div className="fixed inset-0 bg-white z-50 flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+        <div>
+          <div className="text-[15px] font-semibold text-slate-900">
+            {mode === 'import' ? 'Importer des bénéficiaires' : utilisateurExistant ? 'Ré-embauche' : 'Nouveau bénéficiaire'}
+          </div>
+          <div className="text-[11px] text-slate-400 mt-0.5">
+            {mode === 'import'
+              ? 'Ajout en masse depuis un fichier CSV'
+              : utilisateurExistant ? 'Réactivation du lien entreprise' : 'Compte TIKEXO créé automatiquement'}
+          </div>
+        </div>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-6 pt-3 border-b border-slate-100 flex-shrink-0">
+        {([
+          ['manuel', 'Saisie manuelle'],
+          ['import', 'Import CSV'],
+        ] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setMode(key)}
+            className={clsx(
+              'px-3 py-2.5 text-[13px] font-medium rounded-t border-b-2 -mb-px transition-colors',
+              mode === key
+                ? 'border-[#4F46E5] text-[#4F46E5]'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto px-6 py-6">
+        {mode === 'import' ? (
+          <ImportCsvBeneficiaires entrepriseId={entrepriseId} onFinish={onClose} />
+        ) : (
+        <div className="max-w-md mx-auto space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Prénom <span className="text-red-400">*</span></label>
@@ -1398,6 +1431,7 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
               : (utilisateurExistant ? 'Confirmer la ré-embauche' : 'Ajouter le salarié')}
           </button>
         </div>
+        )}
       </div>
     </div>
   );
