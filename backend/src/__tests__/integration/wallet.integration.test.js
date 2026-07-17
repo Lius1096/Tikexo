@@ -3,6 +3,7 @@ const request = require('supertest');
 const { app } = require('../../index');
 const prisma = require('../../config/database');
 const jwt = require('jsonwebtoken');
+const { traiterWebhook } = require('../../modules/fedapay/fedapay.service');
 
 let walletEntrepriseId, walletEntId, adminId, tokenAdmin;
 
@@ -30,10 +31,17 @@ beforeAll(async () => {
   walletEntId = wallet.id;
   walletEntrepriseId = ent.id;
 
+  // Lien EntrepriseAdmin requis : req.user.entrepriseId est dérivé de cette relation
+  // par le middleware d'authentification, pas du payload JWT.
+  await prisma.entrepriseAdmin.create({
+    data: { entreprise_id: ent.id, user_id: adminId, role: 'ADMIN_RH' },
+  });
+
   tokenAdmin = jwt.sign({ userId: adminId, role: 'ADMIN_RH' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 });
 
 afterAll(async () => {
+  if (adminId) await prisma.entrepriseAdmin.deleteMany({ where: { user_id: adminId } }).catch(() => {});
   if (walletEntId) await prisma.wallet.delete({ where: { id: walletEntId } }).catch(() => {});
   if (walletEntrepriseId) await prisma.entreprise.delete({ where: { id: walletEntrepriseId } }).catch(() => {});
   if (adminId) await prisma.user.delete({ where: { id: adminId } }).catch(() => {});
@@ -41,9 +49,11 @@ afterAll(async () => {
 });
 
 describe('Wallet — Tests d\'intégration TIKEXO', () => {
-  it('GET /api/v1/wallet/solde → solde correct', async () => {
+  it('GET /api/v1/entreprises/:id/wallet → solde correct', async () => {
+    // /wallet/solde est réservé au wallet personnel (user_id) d'un bénéficiaire —
+    // le wallet d'entreprise se consulte via /entreprises/:id/wallet.
     const res = await request(app)
-      .get('/api/v1/wallet/solde')
+      .get(`/api/v1/entreprises/${walletEntrepriseId}/wallet`)
       .set('Authorization', `Bearer ${tokenAdmin}`);
 
     expect(res.status).toBe(200);
@@ -67,13 +77,11 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
 
     const soldeAvant = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
 
-    // Envoyer le webhook (sans secret configuré pour le test)
+    // La route HTTP ne fait qu'empiler le job en queue (traité par un worker en prod) —
+    // on appelle directement le service pour tester le traitement, comme le fait le worker.
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    const res = await request(app)
-      .post('/api/v1/fedapay/webhook')
-      .send({ transaction: { id: fedapayTxId, status: 'approved' } });
-
-    expect(res.status).toBe(200);
+    const payload = { transaction: { id: fedapayTxId, status: 'approved' } };
+    await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
     const walletApres = await prisma.wallet.findUnique({ where: { id: walletEntId } });
     const soldeApres = parseFloat(walletApres.solde);
@@ -108,12 +116,10 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
     const soldeAvant = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
 
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    const res = await request(app)
-      .post('/api/v1/fedapay/webhook')
-      .send({ transaction: { id: fedapayTxId, status: 'approved' } });
+    const payload = { transaction: { id: fedapayTxId, status: 'approved' } };
+    const result = await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
-    expect(res.status).toBe(200);
-    expect(res.body.data.doublon).toBe(true);
+    expect(result.doublon).toBe(true);
 
     const soldeApres = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
     expect(soldeApres).toBe(soldeAvant); // Pas de crédit supplémentaire
@@ -137,9 +143,8 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
     const soldeAvant = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
 
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    await request(app)
-      .post('/api/v1/fedapay/webhook')
-      .send({ transaction: { id: fedapayTxId, status: 'declined' } });
+    const payload = { transaction: { id: fedapayTxId, status: 'declined' } };
+    await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
     const soldeApres = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
     expect(soldeApres).toBe(soldeAvant);

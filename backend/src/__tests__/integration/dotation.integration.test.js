@@ -3,6 +3,7 @@ const request = require('supertest');
 const { app } = require('../../index');
 const prisma = require('../../config/database');
 const jwt = require('jsonwebtoken');
+const { traiterDistributionDotation } = require('../../modules/dotation/dotation.service');
 
 let entrepriseId, beneficiaireId, lienId, walletEntId, walletBenefId;
 let tokenRH;
@@ -98,7 +99,7 @@ describe('Dotation — Tests d\'intégration TIKEXO', () => {
     expect(res.body.data.dotations[0].id).toBe(dotationId);
   });
 
-  it('Validation : solde_reserve wallet entreprise non modifié (on valide seulement le statut)', async () => {
+  it('Validation : statut passe à VALIDE et le montant est réservé (solde_reserve)', async () => {
     const res = await request(app)
       .post('/api/v1/dotations/valider')
       .set('Authorization', `Bearer ${tokenRH}`)
@@ -108,6 +109,9 @@ describe('Dotation — Tests d\'intégration TIKEXO', () => {
 
     const dot = await prisma.dotation.findUnique({ where: { id: dotationId } });
     expect(dot.statut).toBe('VALIDE');
+
+    const walletEnt = await prisma.wallet.findUnique({ where: { id: walletEntId } });
+    expect(parseFloat(walletEnt.solde_reserve)).toBe(5000);
   });
 
   it('Distribution : wallets bénéficiaires crédités, 0 appel FedaPay vérifié', async () => {
@@ -124,6 +128,17 @@ describe('Dotation — Tests d\'intégration TIKEXO', () => {
       .send({ dotationIds: [dotationId] });
 
     expect(res.status).toBe(200);
+    expect(res.body.data.enqueued).toBe(1);
+
+    // /distribuer met seulement le job en queue (traité par un worker en prod) —
+    // on simule le traitement du worker directement, comme pour le webhook FedaPay.
+    await traiterDistributionDotation({
+      data: {
+        dotationId, beneficiaireId: beneficiaireId,
+        walletEntrepriseId: walletEntId, walletBenefId,
+        montant: 5000, entrepriseId,
+      },
+    });
 
     const soldeBenefApres = parseFloat(
       (await prisma.wallet.findUnique({ where: { id: walletBenefId } })).solde

@@ -193,7 +193,7 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3001;
 
-if (process.env.NODE_ENV !== 'test') {
+if (require.main === module) {
   server.listen(PORT, () => {
     logger.info(`TIKEXO API démarrée sur le port ${PORT} (${process.env.NODE_ENV})`);
 
