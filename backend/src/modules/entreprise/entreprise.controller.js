@@ -64,6 +64,20 @@ async function getEquipeRH(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function inviterRh(req, res, next) {
+  try {
+    const data = await service.inviterRh(req.params.id, req.body, req.user.id);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function retirerRh(req, res, next) {
+  try {
+    const data = await service.retirerRh(req.params.id, req.params.userId, req.user.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 async function toggleStatutUser(req, res, next) {
   try {
     const data = await service.toggleStatutUser(req.params.userId, req.user.id);
@@ -85,4 +99,4 @@ async function getFacturation(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, toggleStatutUser, getStats, getFacturation };
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };

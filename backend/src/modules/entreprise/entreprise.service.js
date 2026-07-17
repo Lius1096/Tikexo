@@ -1,6 +1,11 @@
 // Service entreprise TIKEXO
 const prisma = require('../../config/database');
+const crypto = require('crypto');
 const { validerKYCViaBeneficiaire } = require('../../utils/kyc');
+const { normaliserTelephone } = require('../../utils/telephone');
+const { envoyerEmail } = require('../../utils/email');
+const { invitationRh } = require('../../utils/emailTemplates');
+const { invaliderCacheUser } = require('../../middlewares/auth');
 
 async function lister(filtres = {}) {
   const { statut } = filtres;
@@ -176,11 +181,12 @@ async function getWallet(entrepriseId) {
 async function getEquipeRH(entrepriseId) {
   return prisma.entrepriseAdmin.findMany({
     where: { entreprise_id: entrepriseId },
-    include: {
+    select: {
+      id: true, role: true, matricule: true, createdAt: true,
       user: {
         select: {
           id: true, nom: true, prenom: true, telephone: true,
-          role: true, statut: true, createdAt: true,
+          email_pro: true, statut: true, createdAt: true,
         },
       },
     },
@@ -188,11 +194,126 @@ async function getEquipeRH(entrepriseId) {
   });
 }
 
+async function inviterRh(entrepriseId, data, adminId) {
+  const telephone = normaliserTelephone(data.telephone);
+
+  const existantTel = await prisma.user.findUnique({ where: { telephone } });
+  if (existantTel) {
+    const err = new Error('Ce numéro est déjà utilisé par un autre compte TIKEXO');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const emailPro = data.email_pro?.trim();
+  if (!emailPro) {
+    const err = new Error('Email professionnel requis pour envoyer l\'invitation');
+    err.statusCode = 400;
+    throw err;
+  }
+  const existantEmail = await prisma.user.findUnique({ where: { email_pro: emailPro } });
+  if (existantEmail) {
+    const err = new Error('Cet email professionnel est déjà utilisé');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const matricule = data.matricule?.trim() || null;
+  if (matricule) {
+    const matriculeExistant = await prisma.entrepriseAdmin.findFirst({
+      where: { entreprise_id: entrepriseId, matricule },
+    });
+    if (matriculeExistant) {
+      const err = new Error('Ce matricule est déjà utilisé dans cette entreprise');
+      err.statusCode = 409;
+      throw err;
+    }
+  }
+
+  const entreprise = await prisma.entreprise.findUniqueOrThrow({
+    where: { id: entrepriseId },
+    select: { nom: true },
+  });
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const user = await prisma.user.create({
+    data: {
+      telephone,
+      nom: data.nom,
+      prenom: data.prenom,
+      email_pro: emailPro,
+      role: 'GESTIONNAIRE_RH',
+      statut: 'INACTIF',
+      invitation_token: token,
+    },
+  });
+
+  const entrepriseAdmin = await prisma.entrepriseAdmin.create({
+    data: { entreprise_id: entrepriseId, user_id: user.id, role: 'GESTIONNAIRE_RH', matricule },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      user_id: adminId,
+      action: 'INVITATION_RH',
+      entite: 'EntrepriseAdmin',
+      entite_id: entrepriseAdmin.id,
+      apres: { nom: data.nom, prenom: data.prenom, email_pro: emailPro, matricule },
+    },
+  });
+
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const lienInvitation = `${frontendUrl}/invitation?token=${token}`;
+  const { html, text } = invitationRh(data.prenom, entreprise.nom, lienInvitation);
+  envoyerEmail({
+    to: emailPro,
+    subject: `Invitation TIKEXO — ${entreprise.nom}`,
+    html, text,
+    expediteur: 'hello',
+  }).catch(err => console.error('[EMAIL INVITATION RH] Échec envoi vers', emailPro, err.message));
+
+  return {
+    id: user.id, nom: user.nom, prenom: user.prenom, telephone: user.telephone,
+    email_pro: user.email_pro, matricule, role: 'GESTIONNAIRE_RH', statut: 'INACTIF',
+  };
+}
+
+async function retirerRh(entrepriseId, userId, adminId) {
+  const cible = await prisma.entrepriseAdmin.findFirst({
+    where: { entreprise_id: entrepriseId, user_id: userId },
+  });
+  if (!cible) {
+    const err = new Error('Ce compte RH n\'appartient pas à cette entreprise');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (cible.role === 'ADMIN_RH') {
+    const err = new Error('Impossible de retirer le compte RH principal de l\'entreprise');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { statut: 'BLOQUE' } });
+  await invaliderCacheUser(userId);
+
+  await prisma.auditLog.create({
+    data: {
+      user_id: adminId,
+      action: 'RETRAIT_RH',
+      entite: 'EntrepriseAdmin',
+      entite_id: cible.id,
+      apres: { statut: 'BLOQUE' },
+    },
+  });
+
+  return { id: userId, statut: 'BLOQUE' };
+}
+
 async function toggleStatutUser(userId, adminId) {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   const nouveauStatut = user.statut === 'BLOQUE' ? 'ACTIF' : 'BLOQUE';
 
   await prisma.user.update({ where: { id: userId }, data: { statut: nouveauStatut } });
+  await invaliderCacheUser(userId);
 
   await prisma.auditLog.create({
     data: {
@@ -311,4 +432,4 @@ async function getFacturation(entrepriseId) {
   return { items, total: items.length };
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, toggleStatutUser, getStats, getFacturation };
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };

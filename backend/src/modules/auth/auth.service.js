@@ -414,14 +414,14 @@ async function reinitialiserMotDePasse(email, code, nouveauMotDePasse) {
 async function validerInvitation(token) {
   const user = await prisma.user.findUnique({
     where: { invitation_token: token },
-    select: { id: true, prenom: true, nom: true, email_pro: true, email_perso: true },
+    select: { id: true, prenom: true, nom: true, email_pro: true, email_perso: true, role: true },
   });
   if (!user) {
     const err = new Error('Lien d\'invitation invalide ou expiré');
     err.statusCode = 404;
     throw err;
   }
-  return { id: user.id, prenom: user.prenom, nom: user.nom, email_pro: user.email_pro, dejaConfigure: !!user.email_perso };
+  return { id: user.id, prenom: user.prenom, nom: user.nom, email_pro: user.email_pro, role: user.role, dejaConfigure: !!user.email_perso };
 }
 
 async function completerInvitation(token, { emailPerso, motDePasse }) {

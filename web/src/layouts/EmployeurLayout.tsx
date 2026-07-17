@@ -4,12 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Wallet, Users, CalendarCheck, CreditCard,
-  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X,
+  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X, UserCog,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 
-const NAV = [
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  exact?: boolean;
+  adminOnly?: boolean;
+}
+
+const NAV: { section: string; items: NavItem[] }[] = [
   {
     section: 'PRINCIPAL',
     items: [
@@ -36,6 +44,7 @@ const NAV = [
   {
     section: 'COMPTE',
     items: [
+      { path: '/employeur/equipe-rh', label: 'Équipe RH', icon: UserCog, adminOnly: true },
       { path: '/employeur/kyb', label: 'Vérification KYB', icon: ShieldCheck },
     ],
   },
@@ -102,7 +111,7 @@ export function EmployeurLayout() {
         {NAV.map(({ section, items }) => (
           <div key={section}>
             <div className="text-[10px] text-white/30 tracking-[1.5px] px-2 py-3 pb-1.5">{section}</div>
-            {items.map(({ path, label, icon: Icon, exact }) => {
+            {items.filter((it) => !it.adminOnly || user?.role === 'ADMIN_RH').map(({ path, label, icon: Icon, exact }) => {
               const isKybLink = path === '/employeur/kyb';
               const locked = kybBloque && !isKybLink;
               const isActive = exact

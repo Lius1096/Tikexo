@@ -7,7 +7,7 @@ import {
   RefreshCw, PauseCircle, PlayCircle, Upload, Download, Search,
   SlidersHorizontal, LayoutGrid, List, ChevronDown, Zap, MoreHorizontal,
   CheckCircle2, Clock, XCircle, Lock, Unlock, Copy, Send,
-  ArrowUpRight, ShoppingBag, Pencil, Save,
+  ArrowUpRight, ShoppingBag, Pencil, Save, History,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -44,6 +44,14 @@ interface AjoutForm {
   prenom: string; nom: string; telephone: string;
   email_pro: string; niveau: string;
   allocation_mensuelle: string;
+}
+
+interface HistoriqueEntry {
+  id: string;
+  action: string;
+  libelle: string;
+  createdAt: string;
+  effectuePar: { nom: string; prenom: string; role: string; matricule: string | null } | null;
 }
 
 
@@ -781,6 +789,14 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
 
   const transactions: any[] = txData?.items || [];
 
+  const { data: historiqueData } = useQuery({
+    queryKey: ['benef-historique', u.id, entrepriseId],
+    queryFn: () =>
+      api.get(`/beneficiaires/${u.id}/historique?entrepriseId=${entrepriseId}`).then((r) => r.data.data),
+    staleTime: 30_000,
+  });
+  const historique: HistoriqueEntry[] = historiqueData || [];
+
   // Mutations
   const rechargeMut = useMutation({
     mutationFn: () => api.post('/wallet/crediter-benef', {
@@ -1169,6 +1185,36 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                   </div>
                   <div className="font-mono text-[12px] font-semibold text-red-500">
                     −{fmt(Number(t.montant_total))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-slate-100" />
+
+        {/* Historique — qui a fait quoi */}
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-1.5 mb-2.5">
+            <History size={11} className="text-slate-400" />
+            <div className="text-[10px] text-slate-400 tracking-[0.5px]">HISTORIQUE</div>
+          </div>
+          {historique.length === 0 ? (
+            <div className="py-3 text-center text-[11px] text-slate-300">Aucun événement enregistré</div>
+          ) : (
+            <div className="space-y-2.5">
+              {historique.map((h) => (
+                <div key={h.id} className="flex items-start gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#4F46E5] mt-1.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <div className="text-[12px] text-slate-900">
+                      <span className="font-medium">{h.libelle}</span>
+                      {h.effectuePar && (
+                        <span className="text-slate-500"> — par {h.effectuePar.prenom} {h.effectuePar.nom}{h.effectuePar.matricule ? ` (Mat. ${h.effectuePar.matricule})` : ''}</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-400">{tempsDepuis(h.createdAt)}</div>
                   </div>
                 </div>
               ))}

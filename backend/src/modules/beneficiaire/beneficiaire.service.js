@@ -98,11 +98,17 @@ async function getById(id) {
   });
 }
 
-async function modifier(id, data) {
+async function modifier(id, data, adminId) {
   const { role, entrepriseId, niveau, allocationMensuelle, allocation_mensuelle, ...userFields } = data;
+
+  const avant = await prisma.user.findUnique({
+    where: { id },
+    select: { prenom: true, nom: true, telephone: true, email_perso: true },
+  });
 
   const user = await prisma.user.update({ where: { id }, data: userFields });
 
+  let lien = null;
   if (entrepriseId && (niveau || allocationMensuelle)) {
     const lienData = {};
     if (niveau) lienData.niveau = niveau;
@@ -110,6 +116,23 @@ async function modifier(id, data) {
     await prisma.lienEntrepriseBeneficiaire.updateMany({
       where: { user_id: id, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
       data: lienData,
+    });
+    lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
+      where: { user_id: id, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  if (adminId) {
+    await prisma.auditLog.create({
+      data: {
+        user_id: adminId,
+        action: 'MODIFICATION_BENEFICIAIRE',
+        entite: lien ? 'LienEntrepriseBeneficiaire' : 'User',
+        entite_id: lien ? lien.id : id,
+        avant,
+        apres: { ...userFields, niveau, allocation_mensuelle: allocationMensuelle },
+      },
     });
   }
 
@@ -199,6 +222,17 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
         statut: 'ACTIF',
       },
     });
+    if (adminId) {
+      await prisma.auditLog.create({
+        data: {
+          user_id: adminId,
+          action: 'AJOUT_BENEFICIAIRE',
+          entite: 'LienEntrepriseBeneficiaire',
+          entite_id: lien.id,
+          apres: { entreprise_id: entrepriseId, niveau, allocation_mensuelle: allocationMensuelle },
+        },
+      });
+    }
   }
 
   await validerKYCViaBeneficiaire(prisma, userId, entrepriseId);
@@ -452,4 +486,52 @@ async function importerEnMasse(entrepriseId, rows, adminId) {
   };
 }
 
-module.exports = { lister, creer, getById, modifier, rattacherEntreprise, traiterSortie, suspendre, reactiver, exclure, importerEnMasse };
+const LIBELLES_ACTION = {
+  AJOUT_BENEFICIAIRE:               'Ajouté',
+  REEMBAUCHE_EMPLOYE:               'Ré-embauché',
+  MODIFICATION_BENEFICIAIRE:        'Profil modifié',
+  SUSPENSION_BENEFICIAIRE:          'Suspendu',
+  REACTIVATION_BENEFICIAIRE:        'Réactivé',
+  EXCLUSION_DEFINITIVE_BENEFICIAIRE:'Exclu définitivement',
+  SORTIE_EMPLOYE:                   'Sortie de l\'entreprise',
+};
+
+async function historique(userId, entrepriseId) {
+  const liens = await prisma.lienEntrepriseBeneficiaire.findMany({
+    where: { user_id: userId, ...(entrepriseId ? { entreprise_id: entrepriseId } : {}) },
+    select: { id: true },
+  });
+  const lienIds = liens.map((l) => l.id);
+
+  const logs = await prisma.auditLog.findMany({
+    where: {
+      OR: [
+        { entite: 'User', entite_id: userId },
+        ...(lienIds.length ? [{ entite: 'LienEntrepriseBeneficiaire', entite_id: { in: lienIds } }] : []),
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      user: {
+        select: {
+          nom: true, prenom: true, role: true,
+          entrepriseAdmin: { select: { matricule: true } },
+        },
+      },
+    },
+  });
+
+  return logs.map((log) => ({
+    id: log.id,
+    action: log.action,
+    libelle: LIBELLES_ACTION[log.action] || log.action,
+    createdAt: log.createdAt,
+    avant: log.avant,
+    apres: log.apres,
+    effectuePar: log.user
+      ? { nom: log.user.nom, prenom: log.user.prenom, role: log.user.role, matricule: log.user.entrepriseAdmin?.matricule ?? null }
+      : null,
+  }));
+}
+
+module.exports = { lister, creer, getById, modifier, historique, rattacherEntreprise, traiterSortie, suspendre, reactiver, exclure, importerEnMasse };

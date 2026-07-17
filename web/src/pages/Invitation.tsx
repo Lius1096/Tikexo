@@ -15,7 +15,8 @@ export default function Invitation() {
 
   const [step, setStep] = useState<Step>('loading');
   const [errMsg, setErrMsg] = useState('');
-  const [userData, setUserData] = useState<{ prenom: string; nom: string; email_pro: string } | null>(null);
+  const [userData, setUserData] = useState<{ prenom: string; nom: string; email_pro: string; role: string } | null>(null);
+  const isRh = userData?.role === 'GESTIONNAIRE_RH' || userData?.role === 'ADMIN_RH';
 
   const [emailPerso, setEmailPerso] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
@@ -63,7 +64,7 @@ export default function Invitation() {
       // Invitation validée — login automatique avec les nouvelles credentials
       await login(emailNorm, motDePasse);
       setStep('success');
-      setTimeout(() => navigate('/beneficiaire'), 2000);
+      setTimeout(() => navigate(isRh ? '/employeur' : '/beneficiaire'), 2000);
     } catch (err: any) {
       setFormErr(err.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
@@ -77,7 +78,7 @@ export default function Invitation() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="text-white font-bold tracking-[4px] text-2xl mb-1">TIKEXO</div>
-          <div className="text-white/60 text-xs tracking-widest">ESPACE SALARIÉ</div>
+          <div className="text-white/60 text-xs tracking-widest">{isRh ? 'ESPACE RH' : 'ESPACE SALARIÉ'}</div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
@@ -109,7 +110,11 @@ export default function Invitation() {
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div className="text-center mb-2">
                 <h2 className="text-slate-800 font-bold text-xl">Bienvenue, {userData.prenom} !</h2>
-                <p className="text-slate-500 text-sm mt-1">Complétez votre profil pour accéder à votre wallet repas.</p>
+                <p className="text-slate-500 text-sm mt-1">
+                  {isRh
+                    ? 'Complétez votre profil pour accéder à votre espace RH.'
+                    : 'Complétez votre profil pour accéder à votre wallet repas.'}
+                </p>
               </div>
 
               {/* Email pro grisé */}

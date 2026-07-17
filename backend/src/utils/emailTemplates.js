@@ -118,6 +118,40 @@ function bienvenueBeneficiaire(prenom, entreprise, lienInvitation) {
 }
 
 /**
+ * Invitation d'un RH additionnel (GESTIONNAIRE_RH) par l'ADMIN_RH d'une entreprise
+ */
+function invitationRh(prenom, entreprise, lienInvitation) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const url = lienInvitation || `${frontendUrl}/entreprise/connexion`;
+
+  const html = layout({
+    titre: `Vous avez été invité(e) sur TIKEXO, ${prenom} !`,
+    corps: `
+      <p style="color:#555;margin:0 0 16px">
+        Vous avez été invité(e) à rejoindre l'espace RH de <strong>${entreprise}</strong> sur TIKEXO.
+      </p>
+      <div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
+        <p style="color:#1A3C5E;font-weight:600;margin:0 0 8px;font-size:14px">Une seule étape pour accéder à votre espace</p>
+        <p style="color:#555;margin:0;font-size:13px">Cliquez sur le bouton ci-dessous pour définir votre email personnel et votre mot de passe. Cela ne prend que 30 secondes.</p>
+      </div>
+      <ul style="color:#555;padding-left:20px;margin:0 0 20px">
+        <li style="margin-bottom:8px">Gérez les bénéficiaires de l'entreprise</li>
+        <li style="margin-bottom:8px">Suivez les dotations et le wallet entreprise</li>
+        <li>Toutes vos actions sont tracées et attribuées à votre compte</li>
+      </ul>
+      <p style="color:#888;font-size:12px;margin:0">
+        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+      </p>
+    `,
+    bouton: { url, label: 'Compléter mon profil' },
+  });
+
+  const text = `Vous avez été invité(e) sur TIKEXO, ${prenom} !\n\n${entreprise} vous invite à rejoindre son espace RH.\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.bj`;
+
+  return { html, text };
+}
+
+/**
  * Réinitialisation de mot de passe
  */
 function resetMotDePasse(prenom, code) {
@@ -376,6 +410,7 @@ function reactivationCompte(prenom, entreprise, motDePasse) {
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
+  invitationRh,
   resetMotDePasse,
   reactivationCompte,
   mutationTraitee,

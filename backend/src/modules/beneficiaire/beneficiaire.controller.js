@@ -11,7 +11,14 @@ async function getById(req, res, next) {
   try { res.json({ success: true, data: await service.getById(req.params.id) }); } catch (e) { next(e); }
 }
 async function modifier(req, res, next) {
-  try { res.json({ success: true, data: await service.modifier(req.params.id, req.body) }); } catch (e) { next(e); }
+  try { res.json({ success: true, data: await service.modifier(req.params.id, req.body, req.user.id) }); } catch (e) { next(e); }
+}
+
+async function historique(req, res, next) {
+  try {
+    const data = await service.historique(req.params.id, req.query.entrepriseId);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
 }
 async function rechercherParTelephone(req, res, next) {
   try {
@@ -69,4 +76,4 @@ async function importerEnMasse(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { lister, creer, getById, modifier, rechercherParTelephone, rattacherEntreprise, traiterSortie, suspendre, reactiver, exclure, importerEnMasse };
+module.exports = { lister, creer, getById, modifier, historique, rechercherParTelephone, rattacherEntreprise, traiterSortie, suspendre, reactiver, exclure, importerEnMasse };

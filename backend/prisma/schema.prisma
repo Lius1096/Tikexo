@@ -153,12 +153,14 @@ model EntrepriseAdmin {
   entreprise_id String
   user_id       String    @unique
   role          Role      @default(ADMIN_RH)
+  matricule     String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   entreprise    Entreprise @relation(fields: [entreprise_id], references: [id])
   user          User       @relation(fields: [user_id], references: [id])
 
+  @@unique([entreprise_id, matricule])
   @@index([entreprise_id])
 }
 

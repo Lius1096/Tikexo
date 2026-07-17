@@ -8,23 +8,24 @@ router.use(authentifier);
 
 router.get('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.lister);
 router.post('/rechercher-telephone', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.rechercherParTelephone);
-router.post('/import-bulk', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), ctrl.importerEnMasse);
-router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), ctrl.creer);
-router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.getById);
-router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), ctrl.modifier);
-router.post('/:id/rattacher', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), ctrl.rattacherEntreprise);
 const checkEntrepriseRH = (req, res, next) => {
   if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role)) {
-    const { entrepriseId } = req.body;
+    const entrepriseId = req.body?.entrepriseId || req.query?.entrepriseId;
     if (!req.user.entrepriseId || req.user.entrepriseId !== entrepriseId)
       return res.status(403).json({ success: false, error: 'TIKEXO — Accès refusé à cette entreprise' });
   }
   next();
 };
+router.post('/import-bulk', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.importerEnMasse);
+router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.creer);
+router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.getById);
+router.get('/:id/historique', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.historique);
+router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.modifier);
+router.post('/:id/rattacher', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.rattacherEntreprise);
 
 router.post('/:id/suspendre',  autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.suspendre);
 router.post('/:id/reactiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.reactiver);
-router.post('/:id/exclure',   autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseRH, ctrl.exclure);
+router.post('/:id/exclure',   autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseRH, ctrl.exclure);
 
 router.post(
   '/:id/sortie',
