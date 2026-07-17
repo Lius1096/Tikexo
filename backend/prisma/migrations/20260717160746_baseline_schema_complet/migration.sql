@@ -11,7 +11,7 @@ CREATE TYPE "NiveauKYC" AS ENUM ('ZERO', 'KYB');
 CREATE TYPE "StatutEntreprise" AS ENUM ('EN_ATTENTE', 'ACTIF', 'SUSPENDU', 'ARCHIVE');
 
 -- CreateEnum
-CREATE TYPE "StatutLien" AS ENUM ('ACTIF', 'TERMINE', 'EN_COURS_PREAVIS');
+CREATE TYPE "StatutLien" AS ENUM ('ACTIF', 'TERMINE', 'EN_COURS_PREAVIS', 'EXCLU');
 
 -- CreateEnum
 CREATE TYPE "NiveauSalarie" AS ENUM ('DIRECTEUR', 'MANAGER', 'CADRE', 'AGENT_MAITRISE', 'EMPLOYE', 'STAGIAIRE');
@@ -50,10 +50,10 @@ CREATE TYPE "TypeFedapay" AS ENUM ('COLLECTE', 'PAYOUT');
 CREATE TYPE "StatutFedapay" AS ENUM ('EN_ATTENTE', 'APPROUVE', 'ECHOUE');
 
 -- CreateEnum
-CREATE TYPE "StatutDotation" AS ENUM ('CALCULE', 'VALIDE', 'DISTRIBUE');
+CREATE TYPE "StatutDotation" AS ENUM ('CALCULE', 'VALIDE', 'DISTRIBUE', 'IGNORE');
 
 -- CreateEnum
-CREATE TYPE "StatutMutation" AS ENUM ('EN_ATTENTE_A', 'VALIDE_A', 'EN_ATTENTE_B', 'COMPLETE', 'ANNULE');
+CREATE TYPE "StatutMutation" AS ENUM ('EN_ATTENTE', 'DETECTE', 'REEMBAUCHE', 'TRAITE', 'EXPIRE');
 
 -- CreateEnum
 CREATE TYPE "OptionSolde" AS ENUM ('CONSERVATION', 'REMBOURSEMENT');
@@ -62,10 +62,19 @@ CREATE TYPE "OptionSolde" AS ENUM ('CONSERVATION', 'REMBOURSEMENT');
 CREATE TYPE "TypeCarte" AS ENUM ('VIRTUELLE', 'PHYSIQUE');
 
 -- CreateEnum
-CREATE TYPE "StatutCarte" AS ENUM ('ACTIVE', 'BLOQUEE', 'EXPIREE', 'PERDUE');
+CREATE TYPE "StatutCarte" AS ENUM ('COMMANDE', 'EXPEDIE', 'ACTIVE', 'BLOQUEE', 'EXPIREE', 'PERDUE');
 
 -- CreateEnum
 CREATE TYPE "TypeNotification" AS ENUM ('RECHARGEMENT', 'TRANSACTION', 'SOLDE_FAIBLE', 'SECURITE', 'SYSTEME', 'MARKETING');
+
+-- CreateEnum
+CREATE TYPE "StatutKyb" AS ENUM ('NON_SOUMIS', 'EN_COURS', 'EN_REVUE', 'VALIDE', 'REJETE');
+
+-- CreateEnum
+CREATE TYPE "TypeKybDocument" AS ENUM ('CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT', 'STATUTS_SOCIETE');
+
+-- CreateEnum
+CREATE TYPE "StatutKybDocument" AS ENUM ('EN_ATTENTE', 'VALIDE', 'REJETE');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -75,7 +84,9 @@ CREATE TABLE "User" (
     "prenom" TEXT NOT NULL,
     "email_perso" TEXT,
     "email_pro" TEXT,
+    "invitation_token" TEXT,
     "pin_hash" TEXT,
+    "mot_de_passe_hash" TEXT,
     "biometrie_activee" BOOLEAN NOT NULL DEFAULT false,
     "role" "Role" NOT NULL,
     "statut" "StatutUser" NOT NULL DEFAULT 'INACTIF',
@@ -101,12 +112,59 @@ CREATE TABLE "Entreprise" (
     "telephone_rh" TEXT,
     "email_rh" TEXT,
     "statut" "StatutEntreprise" NOT NULL DEFAULT 'EN_ATTENTE',
+    "plan" TEXT NOT NULL DEFAULT 'PME_S',
+    "nb_employes" TEXT,
+    "frais_mensuel" DECIMAL(10,2),
+    "dotation_max" DECIMAL(10,2),
+    "montant_max_wallet" DECIMAL(12,2),
     "kyb_valide" BOOLEAN NOT NULL DEFAULT false,
-    "taux_commission_defaut" DECIMAL(5,2) NOT NULL DEFAULT 2.00,
+    "taux_commission_defaut" DECIMAL(5,2) NOT NULL DEFAULT 5.00,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Entreprise_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KybDossier" (
+    "id" TEXT NOT NULL,
+    "entreprise_id" TEXT NOT NULL,
+    "statut" "StatutKyb" NOT NULL DEFAULT 'NON_SOUMIS',
+    "soumis_at" TIMESTAMP(3),
+    "valide_at" TIMESTAMP(3),
+    "valide_par" TEXT,
+    "rejete_at" TIMESTAMP(3),
+    "rejete_par" TEXT,
+    "kyb_deadline" TIMESTAMP(3) NOT NULL,
+    "kyb_deadline_extended_at" TIMESTAMP(3),
+    "note_admin" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "KybDossier_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "KybDocument" (
+    "id" TEXT NOT NULL,
+    "dossier_id" TEXT NOT NULL,
+    "type" "TypeKybDocument" NOT NULL,
+    "statut" "StatutKybDocument" NOT NULL DEFAULT 'EN_ATTENTE',
+    "fichier_url" TEXT NOT NULL,
+    "fichier_nom" TEXT NOT NULL,
+    "fichier_taille" INTEGER NOT NULL,
+    "fichier_format" TEXT NOT NULL,
+    "cloudinary_id" TEXT,
+    "motif_rejet" TEXT,
+    "rejete_par" TEXT,
+    "rejete_at" TIMESTAMP(3),
+    "valide_par" TEXT,
+    "valide_at" TIMESTAMP(3),
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "remplace_id" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "KybDocument_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -115,8 +173,7 @@ CREATE TABLE "LienEntrepriseBeneficiaire" (
     "entreprise_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "niveau" "NiveauSalarie" NOT NULL,
-    "valeur_titre" DECIMAL(10,2) NOT NULL,
-    "taux_participation" DECIMAL(5,2) NOT NULL,
+    "allocation_mensuelle" DECIMAL(10,2) NOT NULL DEFAULT 5000,
     "date_debut" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "date_fin" TIMESTAMP(3),
     "statut" "StatutLien" NOT NULL DEFAULT 'ACTIF',
@@ -124,6 +181,19 @@ CREATE TABLE "LienEntrepriseBeneficiaire" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "LienEntrepriseBeneficiaire_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "EntrepriseAdmin" (
+    "id" TEXT NOT NULL,
+    "entreprise_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "role" "Role" NOT NULL DEFAULT 'ADMIN_RH',
+    "matricule" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "EntrepriseAdmin_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -194,7 +264,7 @@ CREATE TABLE "Commercant" (
     "statut" "StatutCommercant" NOT NULL DEFAULT 'SOUMIS',
     "photo_url" TEXT,
     "qr_code_url" TEXT,
-    "taux_commission" DECIMAL(5,2) NOT NULL DEFAULT 2.00,
+    "taux_commission" DECIMAL(5,2) NOT NULL DEFAULT 5.00,
     "mode_reversement" "ModeReversement" NOT NULL DEFAULT 'AUTO_72H',
     "plafond_mensuel" DECIMAL(12,2) NOT NULL DEFAULT 500000,
     "volume_mensuel_cumule" DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -231,10 +301,7 @@ CREATE TABLE "Dotation" (
     "entreprise_id" TEXT NOT NULL,
     "beneficiaire_id" TEXT NOT NULL,
     "lien_id" TEXT NOT NULL,
-    "nb_titres" INTEGER NOT NULL,
     "montant_total" DECIMAL(10,2) NOT NULL,
-    "part_employeur" DECIMAL(10,2) NOT NULL,
-    "part_salarie" DECIMAL(10,2) NOT NULL,
     "mois_concerne" TIMESTAMP(3) NOT NULL,
     "statut" "StatutDotation" NOT NULL DEFAULT 'CALCULE',
     "valide_par" TEXT,
@@ -248,19 +315,21 @@ CREATE TABLE "Dotation" (
 -- CreateTable
 CREATE TABLE "Mutation" (
     "id" TEXT NOT NULL,
-    "initiateur_id" TEXT NOT NULL,
-    "beneficiaire_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
     "entreprise_a_id" TEXT NOT NULL,
-    "entreprise_b_id" TEXT NOT NULL,
-    "statut" "StatutMutation" NOT NULL DEFAULT 'EN_ATTENTE_A',
+    "entreprise_b_id" TEXT,
+    "lien_a_id" TEXT NOT NULL,
+    "lien_b_id" TEXT,
     "option_solde" "OptionSolde",
     "montant_rembourse" DECIMAL(10,2),
-    "date_depart_a" TIMESTAMP(3),
-    "date_entree_b" TIMESTAMP(3),
     "fedapay_remboursement_id" TEXT,
-    "motif" TEXT,
-    "valide_a_at" TIMESTAMP(3),
-    "valide_b_at" TIMESTAMP(3),
+    "email_pro_avant" TEXT,
+    "email_pro_apres" TEXT,
+    "date_depart_a" TIMESTAMP(3),
+    "archive_planifie_at" TIMESTAMP(3) NOT NULL,
+    "traite_par" TEXT,
+    "traite_at" TIMESTAMP(3),
+    "statut" "StatutMutation" NOT NULL DEFAULT 'EN_ATTENTE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -272,13 +341,54 @@ CREATE TABLE "CarteDigi" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "type" "TypeCarte" NOT NULL,
+    "numero_hash" TEXT NOT NULL,
     "numero_masque" TEXT NOT NULL,
-    "statut" "StatutCarte" NOT NULL DEFAULT 'ACTIVE',
+    "prefixe" TEXT NOT NULL DEFAULT '4782',
+    "suffixe" TEXT NOT NULL,
+    "luhn_valide" BOOLEAN NOT NULL DEFAULT true,
     "date_expiration" TIMESTAMP(3) NOT NULL,
+    "statut" "StatutCarte" NOT NULL DEFAULT 'ACTIVE',
+    "nfc_active" BOOLEAN NOT NULL DEFAULT false,
+    "nfc_derniere_utilisation" TIMESTAMP(3),
+    "qr_code_url" TEXT,
+    "qr_expires_at" TIMESTAMP(3),
+    "qr_refresh_count" INTEGER NOT NULL DEFAULT 0,
     "adresse_livraison" TEXT,
+    "code_activation_hash" TEXT,
+    "activee_at" TIMESTAMP(3),
+    "expedie_at" TIMESTAMP(3),
+    "livree_at" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "CarteDigi_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "QRCodeTransaction" (
+    "id" TEXT NOT NULL,
+    "wallet_id" TEXT NOT NULL,
+    "nonce" TEXT NOT NULL,
+    "montant" DECIMAL(10,2),
+    "utilise" BOOLEAN NOT NULL DEFAULT false,
+    "utilise_at" TIMESTAMP(3),
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "QRCodeTransaction_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "NFCToken" (
+    "id" TEXT NOT NULL,
+    "wallet_id" TEXT NOT NULL,
+    "token_unique" TEXT NOT NULL,
+    "utilise" BOOLEAN NOT NULL DEFAULT false,
+    "expires_at" TIMESTAMP(3) NOT NULL,
+    "transaction_id" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NFCToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -324,11 +434,27 @@ CREATE TABLE "Notification" (
     CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "landing_config" (
+    "id" TEXT NOT NULL,
+    "section" TEXT NOT NULL,
+    "data" JSONB NOT NULL,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "landing_config_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_telephone_key" ON "User"("telephone");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_perso_key" ON "User"("email_perso");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_email_pro_key" ON "User"("email_pro");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "User_invitation_token_key" ON "User"("invitation_token");
 
 -- CreateIndex
 CREATE INDEX "User_telephone_idx" ON "User"("telephone");
@@ -349,6 +475,21 @@ CREATE INDEX "Entreprise_statut_idx" ON "Entreprise"("statut");
 CREATE INDEX "Entreprise_kyb_valide_idx" ON "Entreprise"("kyb_valide");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "KybDossier_entreprise_id_key" ON "KybDossier"("entreprise_id");
+
+-- CreateIndex
+CREATE INDEX "KybDossier_statut_idx" ON "KybDossier"("statut");
+
+-- CreateIndex
+CREATE INDEX "KybDossier_kyb_deadline_idx" ON "KybDossier"("kyb_deadline");
+
+-- CreateIndex
+CREATE INDEX "KybDocument_dossier_id_type_idx" ON "KybDocument"("dossier_id", "type");
+
+-- CreateIndex
+CREATE INDEX "KybDocument_statut_idx" ON "KybDocument"("statut");
+
+-- CreateIndex
 CREATE INDEX "LienEntrepriseBeneficiaire_entreprise_id_statut_idx" ON "LienEntrepriseBeneficiaire"("entreprise_id", "statut");
 
 -- CreateIndex
@@ -356,6 +497,15 @@ CREATE INDEX "LienEntrepriseBeneficiaire_user_id_statut_idx" ON "LienEntrepriseB
 
 -- CreateIndex
 CREATE UNIQUE INDEX "LienEntrepriseBeneficiaire_entreprise_id_user_id_statut_key" ON "LienEntrepriseBeneficiaire"("entreprise_id", "user_id", "statut");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EntrepriseAdmin_user_id_key" ON "EntrepriseAdmin"("user_id");
+
+-- CreateIndex
+CREATE INDEX "EntrepriseAdmin_entreprise_id_idx" ON "EntrepriseAdmin"("entreprise_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "EntrepriseAdmin_entreprise_id_matricule_key" ON "EntrepriseAdmin"("entreprise_id", "matricule");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Wallet_user_id_key" ON "Wallet"("user_id");
@@ -418,13 +568,37 @@ CREATE INDEX "Dotation_statut_idx" ON "Dotation"("statut");
 CREATE UNIQUE INDEX "Dotation_lien_id_mois_concerne_key" ON "Dotation"("lien_id", "mois_concerne");
 
 -- CreateIndex
-CREATE INDEX "Mutation_beneficiaire_id_idx" ON "Mutation"("beneficiaire_id");
+CREATE INDEX "Mutation_user_id_idx" ON "Mutation"("user_id");
 
 -- CreateIndex
 CREATE INDEX "Mutation_statut_idx" ON "Mutation"("statut");
 
 -- CreateIndex
+CREATE INDEX "Mutation_archive_planifie_at_idx" ON "Mutation"("archive_planifie_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "CarteDigi_numero_hash_key" ON "CarteDigi"("numero_hash");
+
+-- CreateIndex
 CREATE INDEX "CarteDigi_user_id_statut_idx" ON "CarteDigi"("user_id", "statut");
+
+-- CreateIndex
+CREATE INDEX "CarteDigi_numero_hash_idx" ON "CarteDigi"("numero_hash");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "QRCodeTransaction_nonce_key" ON "QRCodeTransaction"("nonce");
+
+-- CreateIndex
+CREATE INDEX "QRCodeTransaction_nonce_idx" ON "QRCodeTransaction"("nonce");
+
+-- CreateIndex
+CREATE INDEX "QRCodeTransaction_wallet_id_utilise_idx" ON "QRCodeTransaction"("wallet_id", "utilise");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "NFCToken_token_unique_key" ON "NFCToken"("token_unique");
+
+-- CreateIndex
+CREATE INDEX "NFCToken_token_unique_idx" ON "NFCToken"("token_unique");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_user_id_createdAt_idx" ON "AuditLog"("user_id", "createdAt");
@@ -441,11 +615,26 @@ CREATE INDEX "OtpCode_telephone_utilise_expiration_idx" ON "OtpCode"("telephone"
 -- CreateIndex
 CREATE INDEX "Notification_user_id_lu_idx" ON "Notification"("user_id", "lu");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "landing_config_section_key" ON "landing_config"("section");
+
+-- AddForeignKey
+ALTER TABLE "KybDossier" ADD CONSTRAINT "KybDossier_entreprise_id_fkey" FOREIGN KEY ("entreprise_id") REFERENCES "Entreprise"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "KybDocument" ADD CONSTRAINT "KybDocument_dossier_id_fkey" FOREIGN KEY ("dossier_id") REFERENCES "KybDossier"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
 -- AddForeignKey
 ALTER TABLE "LienEntrepriseBeneficiaire" ADD CONSTRAINT "LienEntrepriseBeneficiaire_entreprise_id_fkey" FOREIGN KEY ("entreprise_id") REFERENCES "Entreprise"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "LienEntrepriseBeneficiaire" ADD CONSTRAINT "LienEntrepriseBeneficiaire_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EntrepriseAdmin" ADD CONSTRAINT "EntrepriseAdmin_entreprise_id_fkey" FOREIGN KEY ("entreprise_id") REFERENCES "Entreprise"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EntrepriseAdmin" ADD CONSTRAINT "EntrepriseAdmin_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Wallet" ADD CONSTRAINT "Wallet_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -484,16 +673,13 @@ ALTER TABLE "Dotation" ADD CONSTRAINT "Dotation_entreprise_id_fkey" FOREIGN KEY 
 ALTER TABLE "Dotation" ADD CONSTRAINT "Dotation_lien_id_fkey" FOREIGN KEY ("lien_id") REFERENCES "LienEntrepriseBeneficiaire"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_initiateur_id_fkey" FOREIGN KEY ("initiateur_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_beneficiaire_id_fkey" FOREIGN KEY ("beneficiaire_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_entreprise_a_id_fkey" FOREIGN KEY ("entreprise_a_id") REFERENCES "Entreprise"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_entreprise_b_id_fkey" FOREIGN KEY ("entreprise_b_id") REFERENCES "Entreprise"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Mutation" ADD CONSTRAINT "Mutation_entreprise_b_id_fkey" FOREIGN KEY ("entreprise_b_id") REFERENCES "Entreprise"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CarteDigi" ADD CONSTRAINT "CarteDigi_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
