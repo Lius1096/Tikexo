@@ -1,25 +1,23 @@
 // Tests d'intégration — mutations (changement d'employeur) TIKEXO
+//
+// Flux réel : l'entreprise A traite la sortie d'un salarié (crée une mutation
+// EN_ATTENTE, invisible pour B) → l'entreprise B rattache le même salarié
+// (détection automatique, statut DETECTE) → un admin TIKEXO backoffice
+// (SUPER_ADMIN/ADMIN_OPS) traite la mutation via /mutations/:id/traiter
+// (statut TRAITE, email_pro mis à jour). email_perso ne bouge jamais.
 const request = require('supertest');
 const { app } = require('../../index');
 const prisma = require('../../config/database');
 const jwt = require('jsonwebtoken');
 
-let userBenefId, entAId, entBId, mutationId, lienAId;
-let tokenAdmin, tokenAdminB;
+let userBenefId, entAId, entBId, adminAId, adminBId, superAdminId, lienAId, mutationId;
+let tokenAdminA, tokenAdminB, tokenSuperAdmin;
 
 const emailPersoOriginal = `benef.mutation.${Date.now()}@gmail.com`;
+const emailProAvant = `marie.dupont.${Date.now()}@entreprise-a.bj`;
+const emailProApres = `marie.dupont.${Date.now()}@entreprise-b.bj`;
 
 beforeAll(async () => {
-  const admin = await prisma.user.create({
-    data: {
-      telephone: '+22996' + Date.now().toString().slice(-6),
-      nom: 'Admin', prenom: 'Mutation',
-      role: 'ADMIN_RH', statut: 'ACTIF',
-    },
-  });
-  tokenAdmin = jwt.sign({ userId: admin.id, role: 'ADMIN_RH' }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  tokenAdminB = tokenAdmin;
-
   const entA = await prisma.entreprise.create({
     data: { nom: 'Entreprise A', nif: 'NIF-MUT-A-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
   });
@@ -32,12 +30,41 @@ beforeAll(async () => {
   entBId = entB.id;
   await prisma.wallet.create({ data: { entreprise_id: entBId, type: 'ENTREPRISE', solde: 100000, currency: 'XOF' } });
 
+  const adminA = await prisma.user.create({
+    data: {
+      telephone: '+2290196' + Date.now().toString().slice(-6),
+      nom: 'Admin', prenom: 'A', role: 'ADMIN_RH', statut: 'ACTIF',
+    },
+  });
+  adminAId = adminA.id;
+  await prisma.entrepriseAdmin.create({ data: { entreprise_id: entAId, user_id: adminAId, role: 'ADMIN_RH' } });
+  tokenAdminA = jwt.sign({ userId: adminAId, role: 'ADMIN_RH' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+  const adminB = await prisma.user.create({
+    data: {
+      telephone: '+2290195' + Date.now().toString().slice(-6),
+      nom: 'Admin', prenom: 'B', role: 'ADMIN_RH', statut: 'ACTIF',
+    },
+  });
+  adminBId = adminB.id;
+  await prisma.entrepriseAdmin.create({ data: { entreprise_id: entBId, user_id: adminBId, role: 'ADMIN_RH' } });
+  tokenAdminB = jwt.sign({ userId: adminBId, role: 'ADMIN_RH' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+  const superAdmin = await prisma.user.create({
+    data: {
+      telephone: '+2290194' + Date.now().toString().slice(-6),
+      nom: 'Super', prenom: 'Admin', role: 'SUPER_ADMIN', statut: 'ACTIF',
+    },
+  });
+  superAdminId = superAdmin.id;
+  tokenSuperAdmin = jwt.sign({ userId: superAdminId, role: 'SUPER_ADMIN' }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
   const benef = await prisma.user.create({
     data: {
-      telephone: '+22997' + Date.now().toString().slice(-6),
+      telephone: '+2290197' + Date.now().toString().slice(-6),
       nom: 'Dupont', prenom: 'Marie',
       email_perso: emailPersoOriginal,
-      email_pro: 'marie.dupont@entreprise-a.bj',
+      email_pro: emailProAvant,
       role: 'BENEFICIAIRE', statut: 'ACTIF',
       kyc_niveau: 'ZERO', kyc_via_entreprise: true,
     },
@@ -63,85 +90,89 @@ afterAll(async () => {
 });
 
 describe('Mutation — Tests d\'intégration TIKEXO', () => {
-  it('email_perso reste identique avant et après mutation (pivot stable)', async () => {
-    const userAvant = await prisma.user.findUnique({ where: { id: userBenefId } });
-    expect(userAvant.email_perso).toBe(emailPersoOriginal);
-
-    // Initier une mutation
+  it('Sortie A : crée la mutation EN_ATTENTE, ferme le lien A, vide email_pro (email_perso intact)', async () => {
     const res = await request(app)
-      .post('/api/v1/mutations')
-      .set('Authorization', `Bearer ${tokenAdmin}`)
-      .send({
-        beneficiaireId: userBenefId,
-        entrepriseAId: entAId,
-        entrepriseBId: entBId,
-        motif: 'Test mutation',
-      });
-
-    expect(res.status).toBe(201);
-    mutationId = res.body.data.id;
-
-    const userApres = await prisma.user.findUnique({ where: { id: userBenefId } });
-    expect(userApres.email_perso).toBe(emailPersoOriginal); // Immuable
-  });
-
-  it('Validation A : email_pro mis à null, lien A fermé', async () => {
-    const res = await request(app)
-      .post(`/api/v1/mutations/${mutationId}/valider-a`)
-      .set('Authorization', `Bearer ${tokenAdmin}`)
-      .send({ dateDepart: '2026-06-30', optionSolde: 'CONSERVATION' });
+      .post(`/api/v1/beneficiaires/${userBenefId}/sortie`)
+      .set('Authorization', `Bearer ${tokenAdminA}`)
+      .send({ entrepriseId: entAId, optionSolde: 'CONSERVATION' });
 
     expect(res.status).toBe(200);
 
-    const user = await prisma.user.findUnique({ where: { id: userBenefId } });
-    expect(user.email_pro).toBeNull(); // email_pro supprimé
+    const lienA = await prisma.lienEntrepriseBeneficiaire.findUnique({ where: { id: lienAId } });
+    expect(lienA.statut).toBe('TERMINE');
 
-    const lien = await prisma.lienEntrepriseBeneficiaire.findUnique({ where: { id: lienAId } });
-    expect(lien.statut).toBe('TERMINE'); // Lien A fermé
+    const user = await prisma.user.findUnique({ where: { id: userBenefId } });
+    expect(user.email_pro).toBeNull();
+    expect(user.email_perso).toBe(emailPersoOriginal); // Immuable
+
+    const mutation = await prisma.mutation.findFirst({
+      where: { user_id: userBenefId, entreprise_a_id: entAId },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(mutation).toBeTruthy();
+    expect(mutation.statut).toBe('EN_ATTENTE');
+    mutationId = mutation.id;
   });
 
-  it('Validation B : lien B créé, kyc_via_entreprise conservé (KYB B valide)', async () => {
+  it('Rattachement B : détection automatique de la mutation → statut DETECTE, lien B créé', async () => {
     const res = await request(app)
-      .post(`/api/v1/mutations/${mutationId}/valider-b`)
+      .post(`/api/v1/beneficiaires/${userBenefId}/rattacher`)
       .set('Authorization', `Bearer ${tokenAdminB}`)
-      .send({
-        dateEntree: '2026-07-01',
-        niveau: 'EMPLOYE',
-        valeurTitre: 3000,
-        tauxParticipation: 60,
-        emailPro: 'marie.dupont@entreprise-b.bj',
-      });
+      .send({ entrepriseId: entBId, niveau: 'EMPLOYE', allocationMensuelle: 3000 });
 
     expect(res.status).toBe(200);
 
-    // Vérifier que email_perso est toujours intact
-    const user = await prisma.user.findUnique({ where: { id: userBenefId } });
-    expect(user.email_perso).toBe(emailPersoOriginal);
-    expect(user.email_pro).toBe('marie.dupont@entreprise-b.bj');
-    expect(user.kyc_via_entreprise).toBe(true); // Conservé via entreprise B KYB validée
-  });
-
-  it('B ne peut pas accéder à l\'historique des transactions chez A → isolement des données', async () => {
-    // Vérifier que les LedgerEntry de l'entreprise A ne sont pas accessibles à B
     const lienB = await prisma.lienEntrepriseBeneficiaire.findFirst({
       where: { user_id: userBenefId, entreprise_id: entBId, statut: 'ACTIF' },
     });
     expect(lienB).toBeTruthy();
 
-    // Les dotations de A (avec source_entreprise_id = entAId) ne doivent pas être
-    // visibles par un admin de B (vérifiable via le ledger segmenté)
+    const mutation = await prisma.mutation.findUnique({ where: { id: mutationId } });
+    expect(mutation.statut).toBe('DETECTE');
+    expect(mutation.entreprise_b_id).toBe(entBId);
+
+    const user = await prisma.user.findUnique({ where: { id: userBenefId } });
+    expect(user.email_perso).toBe(emailPersoOriginal); // Toujours immuable
   });
 
-  it('Scénario complet : lien A fermé, lien B créé, solde résiduel A conservé', async () => {
-    const mutation = await prisma.mutation.findUnique({
-      where: { id: mutationId },
-      include: { beneficiaire: true },
-    });
+  it('Traitement TIKEXO : email_pro mis à jour, statut TRAITE (email_perso intact)', async () => {
+    const res = await request(app)
+      .post(`/api/v1/mutations/${mutationId}/traiter`)
+      .set('Authorization', `Bearer ${tokenSuperAdmin}`)
+      .send({ emailProApres });
 
-    expect(mutation.statut).toBe('COMPLETE');
-    expect(mutation.beneficiaire.email_perso).toBe(emailPersoOriginal);
+    expect(res.status).toBe(200);
+
+    const user = await prisma.user.findUnique({ where: { id: userBenefId } });
+    expect(user.email_perso).toBe(emailPersoOriginal); // Pivot stable de bout en bout
+    expect(user.email_pro).toBe(emailProApres);
+    expect(user.kyc_via_entreprise).toBe(true); // Conservé via entreprise B KYB validée
+
+    const mutation = await prisma.mutation.findUnique({ where: { id: mutationId } });
+    expect(mutation.statut).toBe('TRAITE');
+    expect(mutation.traite_par).toBe(superAdminId);
+  });
+
+  it('B ne peut pas agir sur un bénéficiaire au nom de A → isolement (403)', async () => {
+    // adminB n'a pas de lien EntrepriseAdmin vers A — toute action ciblant A doit être refusée
+    const res = await request(app)
+      .post(`/api/v1/beneficiaires/${userBenefId}/suspendre`)
+      .set('Authorization', `Bearer ${tokenAdminB}`)
+      .send({ entrepriseId: entAId });
+
+    expect(res.status).toBe(403);
+  });
+
+  it('Scénario complet : lien A fermé, lien B actif, solde résiduel conservé', async () => {
+    const lienA = await prisma.lienEntrepriseBeneficiaire.findUnique({ where: { id: lienAId } });
+    expect(lienA.statut).toBe('TERMINE');
+
+    const lienB = await prisma.lienEntrepriseBeneficiaire.findFirst({
+      where: { user_id: userBenefId, entreprise_id: entBId, statut: 'ACTIF' },
+    });
+    expect(lienB).toBeTruthy();
 
     const wallet = await prisma.wallet.findUnique({ where: { user_id: userBenefId } });
-    expect(parseFloat(wallet.solde)).toBeGreaterThanOrEqual(0); // Solde conservé
+    expect(parseFloat(wallet.solde)).toBeGreaterThanOrEqual(0); // Solde conservé (option CONSERVATION)
   });
 });
