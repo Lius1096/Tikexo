@@ -20,22 +20,23 @@ const horairesStandard = {
 
 describe('geo.js — Haversine et utilitaires TIKEXO', () => {
   describe('calculerDistance', () => {
-    it('Distance Cotonou centre → légèrement nord-est : entre 600 et 650 mètres', () => {
+    it('Distance Cotonou centre → légèrement nord-est : entre 600 et 700 mètres', () => {
       // Coordonnées réelles Cotonou (6.3654, 2.4183) → (6.3700, 2.4220)
       const dist = calculerDistance(6.3654, 2.4183, 6.3700, 2.4220);
       expect(dist).toBeGreaterThan(600);
-      expect(dist).toBeLessThan(650);
+      expect(dist).toBeLessThan(700);
     });
 
     it('Distance entre deux points identiques = 0', () => {
       expect(calculerDistance(6.3654, 2.4183, 6.3654, 2.4183)).toBe(0);
     });
 
-    it('Distance entre Cotonou et Paris ≈ 5 500 km', () => {
-      // Paris (48.8566, 2.3522) vs Cotonou (6.3654, 2.4183)
+    it('Distance entre Cotonou et Paris ≈ 4 700 km', () => {
+      // Paris (48.8566, 2.3522) vs Cotonou (6.3654, 2.4183) — quasi meme longitude,
+      // la distance est essentiellement nord-sud (~42.5° de latitude)
       const dist = calculerDistance(6.3654, 2.4183, 48.8566, 2.3522);
-      expect(dist).toBeGreaterThan(5_400_000);
-      expect(dist).toBeLessThan(5_600_000);
+      expect(dist).toBeGreaterThan(4_600_000);
+      expect(dist).toBeLessThan(4_800_000);
     });
 
     it('La distance est symétrique (A→B = B→A)', () => {

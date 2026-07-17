@@ -1,4 +1,8 @@
 // Tests unitaires — fedapay.service.js (mock FedaPay SDK)
+// Force le mode production (pas DEV_MOCK) pour exercer les appels FedaPay mockés ci-dessous —
+// DEV_MOCK est calcule une seule fois au chargement du module, donc avant le require().
+process.env.FEDAPAY_SECRET_KEY = 'sk_test_fake_key_for_unit_tests';
+
 jest.mock('../../config/fedapay', () => ({
   FedaPay: {
     Transaction: { create: jest.fn() },
@@ -26,6 +30,10 @@ const prismaMock = {
   wallet: {
     findUniqueOrThrow: jest.fn(),
   },
+  entreprise: {
+    findUniqueOrThrow: jest.fn(),
+    findUnique: jest.fn(),
+  },
   commercant: {
     findUniqueOrThrow: jest.fn(),
     findMany: jest.fn(),
@@ -40,6 +48,8 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
       const { FedaPay } = require('../../config/fedapay');
 
       prismaMock.fedapayOperation.create.mockResolvedValue({ id: 'op-1', tentatives: 0 });
+      prismaMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: 'w-ent', solde: '0' });
+      prismaMock.entreprise.findUniqueOrThrow.mockResolvedValue({ montant_max_wallet: null, kyb_valide: true });
       FedaPay.Transaction.create.mockResolvedValue({
         id: 12345,
         generateToken: jest.fn().mockResolvedValue({ url: 'https://fedapay.test/pay' }),
@@ -56,9 +66,11 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
 
   describe('traiterWebhook', () => {
     it('rejette si signature HMAC invalide', async () => {
+      const payload = { transaction: { id: '123', status: 'approved' } };
       await expect(
         traiterWebhook(prismaMock, {
-          payload: { transaction: { id: '123', status: 'approved' } },
+          payload,
+          rawBody: JSON.stringify(payload),
           signature: 'mauvaise-signature',
         })
       ).rejects.toThrow('Signature webhook FedaPay invalide');
@@ -74,9 +86,11 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
         montant: 50000,
       });
       prismaMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: 'w-ent' });
+      prismaMock.entreprise.findUnique.mockResolvedValue({ nom: 'Entreprise Test', email_rh: null });
 
       await traiterWebhook(prismaMock, {
         payload: { transaction: { id: '12345', status: 'approved' } },
+        rawBody: '',
         signature: '',
       });
 

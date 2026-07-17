@@ -25,7 +25,7 @@ describe('kyc.js — logique KYC TIKEXO', () => {
       prismaMock.entreprise.findUniqueOrThrow.mockResolvedValue({ id: 'ent-1', kyb_valide: false });
 
       await expect(validerKYCViaBeneficiaire(prismaMock, 'user-1', 'ent-1'))
-        .rejects.toThrow('KYB non validé');
+        .rejects.toThrow('n\'a pas de KYB validé');
     });
 
     it('accepte et met kyc_via_entreprise = true si KYB valide', async () => {

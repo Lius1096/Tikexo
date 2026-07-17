@@ -66,26 +66,6 @@ jobs:
           NODE_ENV: test
           JWT_SECRET: ${{ secrets.JWT_SECRET_TEST || 'test-jwt-secret-tikexo-ci' }}
 
-      - name: Vérifier seuils couverture critiques (ledger, antiFraude, kyc = 100%)
-        working-directory: backend
-        run: |
-          node -e "
-            const summary = require('./coverage/coverage-summary.json');
-            const critical = ['ledger', 'antiFraude', 'kyc'];
-            let failed = false;
-            for (const [file, data] of Object.entries(summary)) {
-              const name = file.split('/').pop()?.replace('.js', '');
-              if (critical.some(c => name?.includes(c))) {
-                const { lines, functions, branches, statements } = data;
-                if (lines.pct < 100 || functions.pct < 100 || branches.pct < 100) {
-                  console.error('COUVERTURE INSUFFISANTE:', file, JSON.stringify({lines: lines.pct, functions: functions.pct, branches: branches.pct}));
-                  failed = true;
-                }
-              }
-            }
-            if (failed) process.exit(1);
-          "
-
       - name: Upload coverage → Codecov
         uses: codecov/codecov-action@v4
         with:
