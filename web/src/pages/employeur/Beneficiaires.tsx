@@ -262,14 +262,14 @@ export default function EmployeurBeneficiaires() {
       </div>
 
       {/* Header */}
-      <div className="px-6 pt-4 pb-4 bg-white border-b border-slate-100">
+      <div className="px-4 sm:px-6 pt-4 pb-4 bg-white border-b border-slate-100">
         <div className="text-[11px] text-slate-400 mb-1">{user?.entrepriseNom ?? 'Employeur'} / Bénéficiaires</div>
-        <div className="flex items-end justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 tracking-tight">Bénéficiaires</h1>
             <p className="text-[13px] text-slate-500 mt-0.5">Gérez les comptes salariés, leurs cartes et leurs dotations.</p>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => navigate('/employeur/beneficiaires/import')}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-[12px] text-slate-600 hover:bg-slate-50 transition-colors"
@@ -294,7 +294,7 @@ export default function EmployeurBeneficiaires() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 py-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-4 sm:px-6 py-4">
         <StatCard icon={<Users size={18} className="text-[#6366F1]" />} bg="bg-[#EEF2FF]"
           label="TOTAL" value={String(total)} sub="bénéficiaires enregistrés" />
         <StatCard icon={<CheckCircle2 size={18} className="text-[#10B981]" />} bg="bg-[#ECFDF5]"
@@ -306,12 +306,12 @@ export default function EmployeurBeneficiaires() {
       </div>
 
       {/* Body — table + panel */}
-      <div className="flex flex-1 gap-4 px-6 pb-6 min-h-0">
+      <div className="flex flex-col lg:flex-row flex-1 gap-4 px-4 sm:px-6 pb-6 min-h-0">
         {/* Table container */}
-        <div className={clsx('flex flex-col bg-white rounded-xl border border-slate-100 overflow-hidden transition-all', selected ? 'flex-[3]' : 'flex-1')}>
+        <div className={clsx('flex flex-col bg-white rounded-xl border border-slate-100 overflow-hidden transition-all min-w-0', selected ? 'lg:flex-[3]' : 'flex-1')}>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100">
+          <div className="flex items-center gap-1 px-4 pt-3 border-b border-slate-100 overflow-x-auto">
             {([
               ['tous',     `Tous ${total}`],
               ['actifs',   `Actifs ${nbActifs}`],
@@ -322,7 +322,7 @@ export default function EmployeurBeneficiaires() {
                 key={key}
                 onClick={() => setTab(key)}
                 className={clsx(
-                  'px-3 py-2 text-[12px] font-medium rounded-t border-b-2 -mb-px transition-colors',
+                  'px-3 py-2 text-[12px] font-medium rounded-t border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0',
                   tab === key
                     ? 'border-[#4F46E5] text-[#4F46E5]'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -456,7 +456,7 @@ export default function EmployeurBeneficiaires() {
             {vueMode === 'grid' ? (
               /* ── Vue grille ── */
               isLoading ? (
-                <div className="p-4 grid grid-cols-2 gap-3">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className="bg-slate-50 rounded-xl border border-slate-100 p-4 animate-pulse">
                       <div className="w-10 h-10 rounded-full bg-slate-200 mb-3" />
@@ -471,7 +471,7 @@ export default function EmployeurBeneficiaires() {
                   <div className="text-sm text-slate-400">Aucun bénéficiaire{search && ' trouvé'}</div>
                 </div>
               ) : (
-                <div className="p-4 grid grid-cols-2 gap-3">
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {filtered.map((b, idx) => (
                     <BenefCard
                       key={b.id}
@@ -860,7 +860,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
   } : null;
 
   return (
-    <div className="w-[320px] flex-shrink-0 bg-white rounded-xl border border-slate-100 flex flex-col overflow-hidden">
+    <div className="w-full lg:w-[320px] flex-shrink-0 bg-white rounded-xl border border-slate-100 flex flex-col overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
         <div className="text-[11px] text-slate-400 tracking-[0.5px] font-medium">DÉTAIL BÉNÉFICIAIRE</div>
