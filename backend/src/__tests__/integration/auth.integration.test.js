@@ -4,7 +4,10 @@ const { app } = require('../../index');
 const prisma = require('../../config/database');
 
 describe('Auth — Tests d\'intégration TIKEXO', () => {
-  const telephone = '+22997999001';
+  // Format E164 10 chiffres déjà normalisé (voir utils/telephone.js) — un numéro
+  // "ancien format" (8 chiffres) serait silencieusement transformé par
+  // normaliserTelephone(), ce qui désynchronisait les requêtes directes en base.
+  const telephone = '+2290197999001';
   let otpCode;
 
   afterAll(async () => {
