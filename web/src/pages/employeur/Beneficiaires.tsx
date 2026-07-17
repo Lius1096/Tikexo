@@ -41,13 +41,13 @@ interface BenefItem {
 
 interface AjoutForm {
   prenom: string; nom: string; telephone: string;
-  email_perso: string; niveau: string;
+  email_pro: string; niveau: string;
   allocation_mensuelle: string;
 }
 
 
 const FORM_VIDE: AjoutForm = {
-  prenom: '', nom: '', telephone: '', email_perso: '',
+  prenom: '', nom: '', telephone: '', email_pro: '',
   niveau: 'EMPLOYE', allocation_mensuelle: '5000',
 };
 
@@ -188,7 +188,7 @@ export default function EmployeurBeneficiaires() {
       const { data: creerRes } = await api.post('/beneficiaires', {
         prenom: f.prenom.trim(), nom: f.nom.trim(),
         telephone: f.telephone.replace(/\D/g, ''),
-        email_perso: f.email_perso.trim() || undefined,
+        email_pro: f.email_pro.trim() || undefined,
       });
       const userId = creerRes.data.id;
       await api.post(`/beneficiaires/${userId}/rattacher`, {
@@ -1276,10 +1276,10 @@ function AjoutModal({ form, patchForm, utilisateurExistant, erreur, formValide, 
           )}
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Email <span className="text-slate-400 font-normal">(optionnel)</span></label>
-            <input type="email" value={form.email_perso}
-              onChange={(e) => patchForm({ email_perso: e.target.value })}
-              placeholder="ex : kofi@gmail.com"
+            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Email professionnel <span className="text-slate-400 font-normal">(reçoit le lien d'invitation)</span></label>
+            <input type="email" value={form.email_pro}
+              onChange={(e) => patchForm({ email_pro: e.target.value })}
+              placeholder="ex : kofi@entreprise.com"
               className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
             />
           </div>

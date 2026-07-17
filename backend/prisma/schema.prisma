@@ -14,7 +14,8 @@ model User {
   nom                   String
   prenom                String
   email_perso           String?    @unique
-  email_pro             String?
+  email_pro             String?    @unique
+  invitation_token      String?    @unique
   pin_hash              String?
   mot_de_passe_hash     String?
   biometrie_activee     Boolean    @default(false)

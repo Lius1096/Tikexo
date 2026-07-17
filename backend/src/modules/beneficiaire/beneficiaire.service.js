@@ -1,6 +1,7 @@
 // Service bénéficiaire TIKEXO
 const prisma = require('../../config/database');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const ALLOCATION_PAR_NIVEAU = { EMPLOYE: 5000, CADRE: 8000, MANAGER: 10000, DIRECTEUR: 15000 };
 const BCRYPT_ROUNDS = 12;
@@ -54,9 +55,9 @@ async function creer(data) {
   const existantTel = await prisma.user.findUnique({ where: { telephone } });
   if (existantTel) return existantTel;
 
-  // Puis par email_perso si fourni
-  if (data.email_perso) {
-    const existantEmail = await prisma.user.findUnique({ where: { email_perso: data.email_perso } });
+  // Puis par email_pro si fourni
+  if (data.email_pro) {
+    const existantEmail = await prisma.user.findUnique({ where: { email_pro: data.email_pro } });
     if (existantEmail) return existantEmail;
   }
 
@@ -65,7 +66,6 @@ async function creer(data) {
       telephone,
       nom: data.nom,
       prenom: data.prenom,
-      email_perso: data.email_perso || null,
       email_pro: data.email_pro || null,
       role: 'BENEFICIAIRE',
       statut: 'INACTIF',
@@ -220,23 +220,22 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
   if (estPremierRattachement) {
     const userInfo = await prisma.user.findUnique({
       where: { id: userId },
-      select: { prenom: true, email_perso: true, mot_de_passe_hash: true },
+      select: { prenom: true, email_pro: true, email_perso: true },
     });
-    if (userInfo?.email_perso) {
-      let motDePasseTemp = null;
-      if (!userInfo.mot_de_passe_hash) {
-        motDePasseTemp = genererMotDePasseTemp();
-        const hash = await bcrypt.hash(motDePasseTemp, BCRYPT_ROUNDS);
-        await prisma.user.update({ where: { id: userId }, data: { mot_de_passe_hash: hash } });
-      }
-      const { html, text } = bienvenueBeneficiaire(userInfo.prenom, entreprise.nom, motDePasseTemp);
+    const emailDest = userInfo?.email_pro || userInfo?.email_perso;
+    if (emailDest) {
+      const token = crypto.randomBytes(32).toString('hex');
+      await prisma.user.update({ where: { id: userId }, data: { invitation_token: token } });
+      const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+      const lienInvitation = `${frontendUrl}/invitation?token=${token}`;
+      const { html, text } = bienvenueBeneficiaire(userInfo.prenom, entreprise.nom, lienInvitation);
       envoyerEmail({
-        to: userInfo.email_perso,
+        to: emailDest,
         subject: `Bienvenue sur TIKEXO — ${entreprise.nom}`,
         html,
         text,
         expediteur: 'hello',
-      }).catch(err => console.error('[EMAIL BIENVENUE] Échec envoi vers', userInfo.email_perso, err.message));
+      }).catch(err => console.error('[EMAIL BIENVENUE] Échec envoi vers', emailDest, err.message));
     }
   }
 

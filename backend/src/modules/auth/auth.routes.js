@@ -46,4 +46,8 @@ router.get('/profil', limiterProfil, authentifier, authController.getProfil);
 // Enregistrer le token Firebase Cloud Messaging pour les push notifications
 router.post('/fcm-token', authentifier, authController.enregistrerFcmToken);
 
+// Invitation bénéficiaire — routes publiques (pas d'authentification)
+router.get('/invitation/:token', authController.validerInvitation);
+router.post('/invitation/complete', authController.completerInvitation);
+
 module.exports = router;

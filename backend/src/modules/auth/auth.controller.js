@@ -183,4 +183,19 @@ async function reinitialiserMotDePasse(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse };
+async function validerInvitation(req, res, next) {
+  try {
+    const data = await authService.validerInvitation(req.params.token);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function completerInvitation(req, res, next) {
+  try {
+    const { token, email_perso, mot_de_passe } = req.body;
+    const data = await authService.completerInvitation(token, { emailPerso: email_perso, motDePasse: mot_de_passe });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, logout, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation };

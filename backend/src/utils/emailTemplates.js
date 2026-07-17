@@ -83,42 +83,36 @@ function pinReset(code) {
 }
 
 /**
- * Bienvenue — premier accès bénéficiaire (email + mot de passe)
+ * Bienvenue — invitation bénéficiaire (lien pour compléter le profil)
  */
-function bienvenueBeneficiaire(prenom, entreprise, motDePasseTemp) {
-  const accesHtml = motDePasseTemp
-    ? `<div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
-        <p style="color:#1A3C5E;font-weight:600;margin:0 0 10px;font-size:14px">Vos identifiants de connexion</p>
-        <p style="color:#555;margin:0 0 6px;font-size:13px">📧 <strong>Email :</strong> votre adresse email personnelle</p>
-        <p style="color:#555;margin:0;font-size:13px">🔑 <strong>Mot de passe temporaire :</strong> <code style="background:#e8f0fe;padding:2px 8px;border-radius:4px;font-family:monospace;font-size:14px;color:#1A3C5E">${motDePasseTemp}</code></p>
-        <p style="color:#888;font-size:11px;margin:10px 0 0">Modifiez ce mot de passe dès votre première connexion.</p>
-      </div>`
-    : `<p style="color:#555;margin:0 0 16px">Connectez-vous avec votre adresse email et le mot de passe que vous avez défini.</p>`;
+function bienvenueBeneficiaire(prenom, entreprise, lienInvitation) {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const url = lienInvitation || `${frontendUrl}/login`;
 
   const html = layout({
-    titre: `Bienvenue, ${prenom} !`,
+    titre: `Bienvenue sur TIKEXO, ${prenom} !`,
     corps: `
       <p style="color:#555;margin:0 0 16px">
         <strong>${entreprise}</strong> vous a enregistré(e) sur la plateforme TIKEXO.<br>
-        Vos titres-repas digitaux sont prêts à l'emploi.
+        Vos titres-repas digitaux vous attendent.
       </p>
-      ${accesHtml}
+      <div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
+        <p style="color:#1A3C5E;font-weight:600;margin:0 0 8px;font-size:14px">Une seule étape pour accéder à votre espace</p>
+        <p style="color:#555;margin:0;font-size:13px">Cliquez sur le bouton ci-dessous pour définir votre email personnel et votre mot de passe. Cela ne prend que 30 secondes.</p>
+      </div>
       <ul style="color:#555;padding-left:20px;margin:0 0 20px">
-        <li style="margin-bottom:8px">Connectez-vous sur <a href="https://tikexo.vercel.app/login" style="color:${COULEUR_ACCENT}">tikexo.vercel.app</a></li>
         <li style="margin-bottom:8px">Consultez votre solde et votre carte virtuelle</li>
-        <li>Payez chez les restaurants partenaires TIKEXO</li>
+        <li style="margin-bottom:8px">Payez chez les restaurants partenaires TIKEXO</li>
+        <li>Suivez vos transactions en temps réel</li>
       </ul>
-      <p style="color:#888;font-size:13px;margin:0">
-        Des questions ? Contactez <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+      <p style="color:#888;font-size:12px;margin:0">
+        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
       </p>
     `,
-    bouton: { url: 'https://tikexo.vercel.app/login', label: 'Accéder à mon espace' },
+    bouton: { url, label: 'Compléter mon profil' },
   });
 
-  const textAcces = motDePasseTemp
-    ? `Mot de passe temporaire : ${motDePasseTemp}\n(Modifiez-le dès votre première connexion)\n\n`
-    : '';
-  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\n\n${textAcces}Connectez-vous sur : https://tikexo.vercel.app/login\n\nSupport : support@tikexo.bj`;
+  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.bj`;
 
   return { html, text };
 }

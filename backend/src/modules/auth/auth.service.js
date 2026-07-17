@@ -411,4 +411,51 @@ async function reinitialiserMotDePasse(email, code, nouveauMotDePasse) {
   return { message: 'Mot de passe réinitialisé avec succès' };
 }
 
-module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse };
+async function validerInvitation(token) {
+  const user = await prisma.user.findUnique({
+    where: { invitation_token: token },
+    select: { id: true, prenom: true, nom: true, email_pro: true, email_perso: true },
+  });
+  if (!user) {
+    const err = new Error('Lien d\'invitation invalide ou expiré');
+    err.statusCode = 404;
+    throw err;
+  }
+  return { id: user.id, prenom: user.prenom, nom: user.nom, email_pro: user.email_pro, dejaConfigure: !!user.email_perso };
+}
+
+async function completerInvitation(token, { emailPerso, motDePasse }) {
+  const user = await prisma.user.findUnique({
+    where: { invitation_token: token },
+    select: { id: true, role: true, nom: true, prenom: true },
+  });
+  if (!user) {
+    const err = new Error('Lien d\'invitation invalide ou expiré');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  const emailNorm = emailPerso.trim().toLowerCase();
+  const existant = await prisma.user.findUnique({ where: { email_perso: emailNorm } });
+  if (existant && existant.id !== user.id) {
+    const err = new Error('Cet email est déjà utilisé');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const hash = await bcrypt.hash(motDePasse, BCRYPT_ROUNDS);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      email_perso: emailNorm,
+      mot_de_passe_hash: hash,
+      statut: 'ACTIF',
+      invitation_token: null,
+    },
+  });
+
+  const tokens = genererTokens(user.id, user.role);
+  return { ...tokens, user: { id: user.id, role: user.role, nom: user.nom, prenom: user.prenom, email: emailNorm } };
+}
+
+module.exports = { demanderOtp, verifierOtp, refreshToken, definirPin, verifierPin, statutPin, pinOublie, getProfil, loginEmail, changerMotDePasse, enregistrerFcmToken, motDePasseOublie, reinitialiserMotDePasse, validerInvitation, completerInvitation };

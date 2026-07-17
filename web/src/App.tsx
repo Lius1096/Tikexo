@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Inscription from './pages/Inscription';
 import InscriptionCommercant from './pages/InscriptionCommercant';
+import Invitation from './pages/Invitation';
 
 // Pages Bénéficiaire
 import BeneficiaireDashboard from './pages/beneficiaire/Dashboard';
@@ -88,6 +89,7 @@ export default function App() {
 
       <Route path="/inscription" element={<Inscription />} />
       <Route path="/restaurant/inscription" element={<InscriptionCommercant />} />
+      <Route path="/invitation" element={<Invitation />} />
       <Route path="/" element={<Landing />} />
 
       <Route
