@@ -12,6 +12,7 @@ import Inscription from './pages/Inscription';
 import InscriptionCommercant from './pages/InscriptionCommercant';
 import Invitation from './pages/Invitation';
 import CGU from './pages/CGU';
+import MentionsLegales from './pages/MentionsLegales';
 
 // Pages Bénéficiaire
 import BeneficiaireDashboard from './pages/beneficiaire/Dashboard';
@@ -92,6 +93,7 @@ export default function App() {
       <Route path="/restaurant/inscription" element={<InscriptionCommercant />} />
       <Route path="/invitation" element={<Invitation />} />
       <Route path="/cgu" element={<CGU />} />
+      <Route path="/mentions-legales" element={<MentionsLegales />} />
       <Route path="/" element={<Landing />} />
 
       <Route

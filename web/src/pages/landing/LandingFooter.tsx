@@ -4,6 +4,7 @@ import { RGPD } from '../../utils/rgpd';
 
 const LINKS = [
   { label: 'CGU',              href: '/cgu',                      external: false },
+  { label: 'Mentions légales', href: '/mentions-legales',         external: false },
   { label: 'Confidentialité',  href: '/cgu#donnees-personnelles', external: false },
   { label: 'APD Bénin',        href: 'https://apdp.bj',           external: true  },
   { label: 'Contact',          href: `mailto:${RGPD.contact_support}`, external: true },

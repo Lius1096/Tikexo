@@ -2,12 +2,13 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { RGPD, texteRetentionPersonnelles, texteRetentionFinancieres } from '../utils/rgpd';
+import { EDITEUR, PROPRIETAIRE } from '../utils/legal';
 
 function getSections() {
   return [
     {
       titre: "1. Objet et champ d'application",
-      contenu: `Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation de la plateforme TIKEXO, service de tickets restaurant numériques édité et exploité par TIKEXO SAS, opérant en République du Bénin.
+      contenu: `Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation de la plateforme TIKEXO, service de tickets restaurant numériques édité par ${EDITEUR.nom} (${EDITEUR.forme_juridique}, ${EDITEUR.pays}) et dont la solution est la propriété de ${PROPRIETAIRE.nom}, en partenariat avec ${PROPRIETAIRE.partenaire}. Voir les Mentions légales pour le détail des entités impliquées.
 
 En créant ou en utilisant un compte TIKEXO, vous acceptez sans réserve les présentes CGU ainsi que notre Politique de confidentialité. Si vous n'acceptez pas ces conditions, vous ne devez pas utiliser le service.`,
     },
@@ -135,6 +136,9 @@ export default function CGU() {
           <div className="text-[11px] text-slate-400">
             Questions ? Contactez-nous à{' '}
             <a href={`mailto:${RGPD.contact_dpo}`} className="text-[#4F46E5] underline">{RGPD.contact_dpo}</a>
+          </div>
+          <div className="text-[11px] text-slate-400 mt-1">
+            <a href="/mentions-legales" className="text-[#4F46E5] underline">Voir les Mentions légales</a>
           </div>
         </div>
       </div>
