@@ -1,6 +1,12 @@
 // Contrôleur dotation TIKEXO — zéro logique métier
 const service = require('./dotation.service');
 
+// Un ADMIN_RH/GESTIONNAIRE_RH n'agit / ne voit que les dotations de sa propre
+// entreprise. SUPER_ADMIN/ADMIN_OPS (backoffice TIKEXO) ne sont pas restreints.
+function scopeEntreprise(req) {
+  return ['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role) ? req.user.entrepriseId : null;
+}
+
 async function calculer(req, res, next) {
   try {
     const { entrepriseId, moisConcerne } = req.body;
@@ -10,33 +16,49 @@ async function calculer(req, res, next) {
 async function valider(req, res, next) {
   try {
     const { dotationIds } = req.body;
-    res.json({ success: true, data: await service.valider(dotationIds, req.user.id) });
+    res.json({ success: true, data: await service.valider(dotationIds, req.user.id, scopeEntreprise(req)) });
   } catch (e) { next(e); }
 }
 async function distribuer(req, res, next) {
   try {
     const { dotationIds } = req.body;
-    res.json({ success: true, data: await service.distribuer(dotationIds, req.user.id) });
+    res.json({ success: true, data: await service.distribuer(dotationIds, req.user.id, scopeEntreprise(req)) });
   } catch (e) { next(e); }
 }
 async function ignorer(req, res, next) {
   try {
     const { dotationIds } = req.body;
-    res.json({ success: true, data: await service.ignorer(dotationIds, req.user.id) });
+    res.json({ success: true, data: await service.ignorer(dotationIds, req.user.id, scopeEntreprise(req)) });
   } catch (e) { next(e); }
 }
 async function lister(req, res, next) {
-  try { res.json({ success: true, data: await service.lister(req.query) }); } catch (e) { next(e); }
+  try {
+    const scope = scopeEntreprise(req);
+    const filtres = { ...req.query, ...(scope ? { entrepriseId: scope } : {}) };
+    res.json({ success: true, data: await service.lister(filtres) });
+  } catch (e) { next(e); }
 }
 async function getById(req, res, next) {
-  try { res.json({ success: true, data: await service.getById(req.params.id) }); } catch (e) { next(e); }
+  try {
+    const data = await service.getById(req.params.id);
+    const scope = scopeEntreprise(req);
+    if (scope && data.entreprise_id !== scope) {
+      return res.status(403).json({ success: false, error: 'TIKEXO — Accès refusé à cette dotation' });
+    }
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
 }
 
 async function exportCsv(req, res, next) {
   try {
     const prisma = require('../../config/database');
+    const scope = scopeEntreprise(req);
     const where = {};
-    if (req.query.entreprise_id) where.entreprise_id = req.query.entreprise_id;
+    if (scope) {
+      where.entreprise_id = scope;
+    } else if (req.query.entreprise_id) {
+      where.entreprise_id = req.query.entreprise_id;
+    }
     if (req.query.statut) where.statut = req.query.statut;
 
     const items = await prisma.dotation.findMany({

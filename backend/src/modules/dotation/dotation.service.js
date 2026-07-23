@@ -55,9 +55,13 @@ async function calculer(entrepriseId, moisConcerne) {
   return { dotations, mois: moisConcerne };
 }
 
-async function valider(dotationIds, adminId) {
+async function valider(dotationIds, adminId, entrepriseScope) {
   const dotations = await prisma.dotation.findMany({
-    where: { id: { in: dotationIds }, statut: 'CALCULE' },
+    where: {
+      id: { in: dotationIds },
+      statut: 'CALCULE',
+      ...(entrepriseScope ? { entreprise_id: entrepriseScope } : {}),
+    },
   });
 
   if (dotations.length === 0) {
@@ -97,9 +101,13 @@ async function valider(dotationIds, adminId) {
 }
 
 // Distribue en queue — 1 job par dotation, max 10 simultanés (concurrency du worker)
-async function distribuer(dotationIds, adminId) {
+async function distribuer(dotationIds, adminId, entrepriseScope) {
   const dotations = await prisma.dotation.findMany({
-    where: { id: { in: dotationIds }, statut: 'VALIDE' },
+    where: {
+      id: { in: dotationIds },
+      statut: 'VALIDE',
+      ...(entrepriseScope ? { entreprise_id: entrepriseScope } : {}),
+    },
   });
 
   if (dotations.length === 0) {
@@ -195,9 +203,13 @@ async function getById(id) {
   });
 }
 
-async function ignorer(dotationIds, adminId) {
+async function ignorer(dotationIds, adminId, entrepriseScope) {
   const dotations = await prisma.dotation.findMany({
-    where: { id: { in: dotationIds }, statut: 'CALCULE' },
+    where: {
+      id: { in: dotationIds },
+      statut: 'CALCULE',
+      ...(entrepriseScope ? { entreprise_id: entrepriseScope } : {}),
+    },
   });
 
   if (dotations.length === 0) {

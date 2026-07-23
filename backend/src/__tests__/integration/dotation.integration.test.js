@@ -57,6 +57,7 @@ beforeAll(async () => {
   });
   lienId = lien.id;
 
+  await prisma.entrepriseAdmin.create({ data: { entreprise_id: entrepriseId, user_id: admin.id, role: 'ADMIN_RH' } });
   tokenRH = jwt.sign({ userId: admin.id, role: 'ADMIN_RH' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 });
 
