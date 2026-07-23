@@ -25,7 +25,7 @@ let _resend = null;
 function getResend() {
   if (_resend) return _resend;
   if (!process.env.RESEND_API_KEY) return null;
-  _resend = new Resend(process.env.RESEND_API_KEY);
+  _resend = new Resend(process.env.RESEND_API_KEY.trim());
   return _resend;
 }
 
