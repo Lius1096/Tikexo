@@ -60,7 +60,7 @@ function getFromAddress(expediteur) {
     // RESEND_FROM permet de surcharger quand le domaine tikexo.bj est vérifié
     return process.env.RESEND_FROM || 'onboarding@resend.dev';
   }
-  const gmailUser = process.env.EMAIL;
+  const gmailUser = process.env.SMTP_USER || process.env.EMAIL;
   if (gmailUser && gmailUser.includes('@gmail.com')) return `"TIKEXO" <${gmailUser}>`;
   return EXPEDITEURS[expediteur] ?? EXPEDITEURS.noreply;
 }
