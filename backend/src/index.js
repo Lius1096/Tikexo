@@ -1,5 +1,9 @@
 // Point d'entrée TIKEXO Backend
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), override: true });
+// override: false (défaut) — ne jamais écraser une DATABASE_URL déjà fournie par le shell,
+// Docker ou la CI. En environnement de test, __tests__/setup.js fixe déjà DATABASE_URL
+// avant que index.js ne soit importé ; un override:true ici l'écrasait silencieusement
+// et faisait échouer tous les tests d'intégration en local.
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env'), override: process.env.NODE_ENV !== 'test' });
 const { initSentry, sentryErrorHandler } = require('./config/sentry');
 
 // Filet de sécurité global
