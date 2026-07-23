@@ -23,6 +23,7 @@ router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAI
 router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.modifier);
 router.post('/:id/valider-kyb', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerKYB);
 router.post('/:id/suspendre', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.suspendre);
+router.post('/:id/archiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.archiver);
 router.get('/:id/beneficiaires', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getBeneficiaires);
 router.get('/:id/wallet', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getWallet);
 router.get('/:id/stats', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getStats);

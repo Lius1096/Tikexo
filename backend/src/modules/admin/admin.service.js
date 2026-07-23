@@ -90,12 +90,13 @@ async function getDashboard() {
   };
 }
 
-async function getAuditLogs({ page = 1, limit = 50, action, entite } = {}) {
+async function getAuditLogs({ page = 1, limit = 50, action, entite, entite_id } = {}) {
   const p = parseInt(page, 10) || 1;
   const l = parseInt(limit, 10) || 50;
   const where = {};
   if (action) where.action = action;
   if (entite) where.entite = entite;
+  if (entite_id) where.entite_id = entite_id;
 
   const [total, items] = await Promise.all([
     prisma.auditLog.count({ where }),

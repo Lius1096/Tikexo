@@ -8,10 +8,16 @@ const { invitationRh } = require('../../utils/emailTemplates');
 const { invaliderCacheUser } = require('../../middlewares/auth');
 
 async function lister(filtres = {}) {
-  const { statut } = filtres;
+  const { statut, q } = filtres;
   const p = parseInt(filtres.page, 10) || 1;
   const l = parseInt(filtres.limit, 10) || 20;
-  const where = statut ? { statut } : {};
+  const where = {
+    ...(statut ? { statut } : {}),
+    ...(q?.trim() ? { OR: [
+      { nom: { contains: q.trim(), mode: 'insensitive' } },
+      { nif: { contains: q.trim(), mode: 'insensitive' } },
+    ] } : {}),
+  };
 
   const [total, items] = await Promise.all([
     prisma.entreprise.count({ where }),
@@ -27,7 +33,30 @@ async function lister(filtres = {}) {
     }),
   ]);
 
-  return { items, total, page: p, totalPages: Math.ceil(total / l) };
+  // Volume de transactions du mois en cours, par entreprise source — une seule requête groupée
+  const debutMois = new Date();
+  debutMois.setDate(1);
+  debutMois.setHours(0, 0, 0, 0);
+
+  const volumes = await prisma.transaction.groupBy({
+    by: ['source_entreprise_id'],
+    where: {
+      source_entreprise_id: { in: items.map((e) => e.id) },
+      statut: { not: 'ANNULEE' },
+      createdAt: { gte: debutMois },
+    },
+    _sum: { montant_total: true },
+  });
+  const volumeParEntreprise = new Map(
+    volumes.map((v) => [v.source_entreprise_id, parseFloat(v._sum.montant_total || 0)])
+  );
+
+  return {
+    items: items.map((e) => ({ ...e, volumeMois: volumeParEntreprise.get(e.id) ?? 0 })),
+    total,
+    page: p,
+    totalPages: Math.ceil(total / l),
+  };
 }
 
 async function creer(data) {
@@ -113,6 +142,27 @@ async function suspendre(entrepriseId, adminId) {
     data: {
       user_id: adminId,
       action: 'ENTREPRISE_SUSPENDUE',
+      entite: 'Entreprise',
+      entite_id: entrepriseId,
+    },
+  });
+
+  return entreprise;
+}
+
+// "Supprimer" = archivage (soft-delete) — une entreprise a des wallets, dotations,
+// transactions liées ; une suppression physique casserait l'intégrité référentielle
+// et l'historique financier. ARCHIVE existe déjà dans StatutEntreprise pour ça.
+async function archiver(entrepriseId, adminId) {
+  const entreprise = await prisma.entreprise.update({
+    where: { id: entrepriseId },
+    data: { statut: 'ARCHIVE' },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      user_id: adminId,
+      action: 'ENTREPRISE_ARCHIVEE',
       entite: 'Entreprise',
       entite_id: entrepriseId,
     },
@@ -432,4 +482,4 @@ async function getFacturation(entrepriseId) {
   return { items, total: items.length };
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };

@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   X, ShieldCheck, ShieldOff, Building2, Wallet, Users, MapPin,
   Phone, Mail, Calendar, ChevronRight, AlertCircle, CheckCircle2,
-  FileText, Eye, Ban,
+  FileText, Eye, Ban, Trash2,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { fmt, fmtDate } from '../../utils/format';
@@ -23,10 +23,19 @@ interface EntrepriseRow {
   email_rh?: string;
   statut: string;
   kyb_valide: boolean;
+  plan: string;
   taux_commission_defaut: string;
   createdAt: string;
   wallet?: { solde: string; solde_reserve: string };
   _count?: { liensBeneficiaires: number };
+  volumeMois?: number;
+}
+
+interface AuditLogEntry {
+  id: string;
+  action: string;
+  createdAt: string;
+  user?: { nom: string; prenom: string; role: string } | null;
 }
 
 interface MembreRH {
@@ -72,6 +81,19 @@ const DOC_LABELS: Record<string, string> = {
   STATUTS_SOCIETE: 'Statuts de la société',
 };
 
+const PLAN_LABELS: Record<string, string> = {
+  PME_S: 'PME · S',
+  PME_M: 'PME · M',
+  ETI: 'ETI',
+  GE: 'Grandes Entreprises',
+};
+
+const ACTION_LABELS: Record<string, string> = {
+  KYB_VALIDE: 'Dossier KYB validé',
+  ENTREPRISE_SUSPENDUE: 'Entreprise suspendue',
+  ENTREPRISE_ARCHIVEE: 'Entreprise archivée',
+};
+
 const STATUT_ENT = {
   ACTIF:      { label: 'Actif',      cls: 'bg-[#EAF3DE] text-[#3B6D11]' },
   EN_ATTENTE: { label: 'En attente', cls: 'bg-[#FAEEDA] text-[#854F0B]' },
@@ -94,40 +116,58 @@ const DOC_STATUT = {
 };
 
 // ── Page principale ────────────────────────────────────────────────────────
+const LIMIT = 20;
+
 export default function AdminEntreprises() {
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => { setDebouncedSearch(search); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-entreprises'],
-    queryFn: () => api.get('/entreprises?limit=100').then((r) => r.data.data),
+    queryKey: ['admin-entreprises', page, debouncedSearch],
+    queryFn: () => api.get('/entreprises', { params: { page, limit: LIMIT, q: debouncedSearch || undefined } }).then((r) => r.data.data),
   });
 
   const items: EntrepriseRow[] = data?.items || [];
+  const total: number = data?.total ?? 0;
+  const totalPages: number = data?.totalPages ?? 1;
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
           <div className="text-[15px] font-medium text-slate-900">Entreprises</div>
-          <div className="text-xs text-slate-500">{items.length} entreprise{items.length > 1 ? 's' : ''}</div>
+          <div className="text-xs text-slate-500">{total} entreprise{total > 1 ? 's' : ''}</div>
         </div>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher par nom ou NIF…"
+          className="w-64 text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A3C5E]/20 focus:border-[#1A3C5E]"
+        />
       </div>
 
       <div className="bg-white border border-slate-100 rounded-lg overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-slate-100">
-              {['NOM', 'NIF', 'VILLE', 'SALARIÉS', 'WALLET', 'STATUT', 'KYB', ''].map((h) => (
-                <th key={h} className="text-[10px] text-slate-500 text-left px-4 py-2.5 font-normal tracking-[0.5px]">{h}</th>
+              {['NOM', 'PLAN', 'VILLE', 'SALARIÉS', 'TRAFIC/MOIS', 'WALLET', 'STATUT', 'KYB', 'INSCRIPTION', ''].map((h) => (
+                <th key={h} className="text-[10px] text-slate-500 text-left px-4 py-2.5 font-normal tracking-[0.5px] whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Chargement…</td></tr>
+              <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-400">Chargement…</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-400">Aucune entreprise</td></tr>
+              <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-400">Aucune entreprise</td></tr>
             ) : items.map((e) => {
               const st = STATUT_ENT[e.statut as keyof typeof STATUT_ENT] || STATUT_ENT.EN_ATTENTE;
               const kybSt = e.kyb_valide ? STATUT_KYB.VALIDE : STATUT_KYB.EN_COURS;
@@ -148,9 +188,10 @@ export default function AdminEntreprises() {
                       <div className="text-xs font-medium text-slate-900 truncate max-w-[140px]">{e.nom}</div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs text-slate-600">{e.nif}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{PLAN_LABELS[e.plan] ?? e.plan}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{e.ville}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{e._count?.liensBeneficiaires ?? '—'}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-600">{fmt(e.volumeMois || 0)}</td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-900">
                     {fmt(e.wallet?.solde || 0)}
                   </td>
@@ -160,6 +201,7 @@ export default function AdminEntreprises() {
                   <td className="px-4 py-3">
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-medium', kybSt.cls)}>{kybSt.label}</span>
                   </td>
+                  <td className="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">{fmtDate(e.createdAt)}</td>
                   <td className="px-4 py-3 text-right">
                     <ChevronRight size={14} className={clsx('text-slate-300 transition-transform', selectedId === e.id && 'rotate-90')} />
                   </td>
@@ -168,6 +210,28 @@ export default function AdminEntreprises() {
             })}
           </tbody>
         </table>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+            <span className="text-[11px] text-slate-400">Page {page} sur {totalPages}</span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Précédent
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Suivant
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {selectedId && (
@@ -212,10 +276,22 @@ function EntrepriseDrawer({
     queryFn: () => api.get(`/entreprises/${entrepriseId}/equipe-rh`).then((r) => r.data.data),
   });
 
+  const { data: stats } = useQuery<{ parMois: { mois: number; total: number }[] }>({
+    queryKey: ['admin-entreprise-stats', entrepriseId],
+    queryFn: () => api.get(`/entreprises/${entrepriseId}/stats`).then((r) => r.data.data),
+  });
+  const dotationsMoisEnCours = stats?.parMois?.[new Date().getMonth()]?.total ?? 0;
+
+  const { data: activite } = useQuery<{ items: AuditLogEntry[] }>({
+    queryKey: ['admin-entreprise-activite', entrepriseId],
+    queryFn: () => api.get('/admin/audit-logs', { params: { entite: 'Entreprise', entite_id: entrepriseId, limit: 20 } }).then((r) => r.data.data),
+  });
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ['admin-entreprise-detail', entrepriseId] });
     qc.invalidateQueries({ queryKey: ['admin-kyb-dossier', entrepriseId] });
     qc.invalidateQueries({ queryKey: ['admin-equipe-rh', entrepriseId] });
+    qc.invalidateQueries({ queryKey: ['admin-entreprise-activite', entrepriseId] });
     onUpdated();
   };
 
@@ -244,6 +320,11 @@ function EntrepriseDrawer({
   const suspendMut = useMutation({
     mutationFn: () => api.post(`/entreprises/${entrepriseId}/suspendre`),
     onSuccess: invalidateAll,
+  });
+
+  const archiverMut = useMutation({
+    mutationFn: () => api.post(`/entreprises/${entrepriseId}/archiver`),
+    onSuccess: () => { invalidateAll(); onClose(); },
   });
 
   function soumettrRejet() {
@@ -315,6 +396,12 @@ function EntrepriseDrawer({
                       </div>
                       <Wallet size={20} className="text-white/20" />
                     </div>
+                  </div>
+
+                  {/* Dotations du mois en cours */}
+                  <div className="flex items-center justify-between bg-slate-50 rounded-xl px-4 py-3 mt-2">
+                    <div className="text-[11px] text-slate-500">Dotations distribuées ce mois-ci</div>
+                    <div className="font-mono text-sm font-medium text-slate-900">{fmt(dotationsMoisEnCours)}</div>
                   </div>
 
                   {/* Statuts */}
@@ -482,6 +569,29 @@ function EntrepriseDrawer({
                   )}
                 </div>
 
+                {/* ── Historique d'activité ─────────────────────────────── */}
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <div className="text-[10px] text-slate-400 tracking-[1.5px] mb-3">HISTORIQUE D'ACTIVITÉ</div>
+                  {!activite?.items || activite.items.length === 0 ? (
+                    <div className="text-[11px] text-slate-400">Aucune activité enregistrée</div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {activite.items.map((log) => (
+                        <div key={log.id} className="flex items-start gap-2.5">
+                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[11px] text-slate-700">{ACTION_LABELS[log.action] ?? log.action}</div>
+                            <div className="text-[10px] text-slate-400">
+                              {fmtDate(log.createdAt)}
+                              {log.user && ` · ${log.user.prenom} ${log.user.nom}`}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {/* ── Actions ─────────────────────────────────────────── */}
                 <div className="px-5 py-4 space-y-2">
                   <div className="text-[10px] text-slate-400 tracking-[1.5px] mb-3">ACTIONS</div>
@@ -527,6 +637,21 @@ function EntrepriseDrawer({
                     >
                       <Ban size={14} />
                       Suspendre l'entreprise
+                    </button>
+                  )}
+
+                  {ent.statut !== 'ARCHIVE' && (
+                    <button
+                      onClick={() => setConfirmModal({
+                        titre: 'Supprimer l\'entreprise',
+                        message: `Voulez-vous vraiment supprimer ${ent.nom} ? L'entreprise sera archivée — ses données (wallet, historique, bénéficiaires) sont conservées mais elle disparaît des listes actives et ses employés perdent l'accès.`,
+                        onConfirmer: () => archiverMut.mutate(),
+                      })}
+                      disabled={archiverMut.isPending}
+                      className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 text-sm font-medium py-2.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                      Supprimer
                     </button>
                   )}
                 </div>

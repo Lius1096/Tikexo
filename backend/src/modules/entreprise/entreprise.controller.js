@@ -43,6 +43,13 @@ async function suspendre(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function archiver(req, res, next) {
+  try {
+    const data = await service.archiver(req.params.id, req.user.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 async function getBeneficiaires(req, res, next) {
   try {
     const data = await service.getBeneficiaires(req.params.id);
@@ -99,4 +106,4 @@ async function getFacturation(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, getBeneficiaires, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };
