@@ -252,7 +252,7 @@ async function validerDossierComplet(adminId, dossier) {
     const contact = ent.admins[0]?.user;
     const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
     const telephone = contact?.telephone || ent.telephone_rh;
-    envoyerEmail({ to: ent.email_rh, ...kybApprouve(ent.nom, nomContact, telephone) })
+    envoyerEmail({ to: ent.email_rh, subject: 'Votre KYB est approuvé — Activez votre accès RH', ...kybApprouve(ent.nom, nomContact, telephone) })
       .catch((err) => logger.warn('TIKEXO — Mail KYB approuvé échoué', { err: err.message }));
   }
 
@@ -307,7 +307,7 @@ async function rejeterDocument(adminId, documentId, motif) {
   if (ent?.email_rh) {
     const contact = ent.admins[0]?.user;
     const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
-    envoyerEmail({ to: ent.email_rh, ...kybRejete(ent.nom, nomContact, motif) })
+    envoyerEmail({ to: ent.email_rh, subject: 'TIKEXO — Documents KYB à compléter', ...kybRejete(ent.nom, nomContact, motif) })
       .catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
   }
 

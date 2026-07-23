@@ -178,6 +178,7 @@ async function inscrire({ entreprise: e, admin: a }) {
   // Email de confirmation
   envoyerEmail({
     to: email,
+    subject: 'Votre espace entreprise TIKEXO est prêt',
     ...inscriptionEntrepriseConfirmee(ent.nom, `${a.prenom} ${a.nom}`),
   }).catch((err) => logger.warn('TIKEXO — Mail inscription échoué', { err: err.message, email }));
 
