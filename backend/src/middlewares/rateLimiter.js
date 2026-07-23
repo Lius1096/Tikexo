@@ -16,10 +16,12 @@ function realIp(req) {
 }
 
 // Limite générale : 300 req/min par IP réelle
+// Relâchée uniquement en développement local (confort) — appliquée en test pour
+// que la suite de sécurité puisse vérifier que la limite fonctionne réellement.
 // /auth/profil est exempté — appelé à chaque chargement de page (vérif session)
 const limiterGeneral = rateLimit({
   windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 300 : 5000,
+  max: process.env.NODE_ENV === 'development' ? 5000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
   handler: repondreRateLimit,
@@ -37,10 +39,10 @@ const limiterProfil = rateLimit({
   keyGenerator: realIp,
 });
 
-// Limite OTP : 10/heure en prod, illimité en dev
+// Limite OTP : 10/heure — relâchée uniquement en développement local
 const limiterOtp = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 10 : 1000,
+  max: process.env.NODE_ENV === 'development' ? 1000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   handler: repondreRateLimit,

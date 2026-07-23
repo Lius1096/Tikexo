@@ -25,8 +25,8 @@ beforeAll(async () => {
 
   // Créer une LedgerEntry via raw SQL (contournement pour le test)
   await prisma.$executeRaw`
-    INSERT INTO "LedgerEntry" (id, type, montant, solde_avant, solde_apres, wallet_destination_id, "createdAt")
-    VALUES (gen_random_uuid(), 'RECHARGEMENT', 5000, 0, 5000, ${walletId}, NOW())
+    INSERT INTO "LedgerEntry" (id, type, montant, wallet_destination_id, "createdAt")
+    VALUES (gen_random_uuid(), 'RECHARGEMENT', 5000, ${walletId}, NOW())
   `;
 
   const entry = await prisma.ledgerEntry.findFirst({ where: { wallet_destination_id: walletId } });
@@ -79,7 +79,7 @@ describe('Immuabilité Ledger — Sécurité TIKEXO — CRITIQUE', () => {
         prisma.ledgerEntry.upsert({
           where: { id: ledgerEntryId },
           update: { montant: 0 },
-          create: { type: 'RECHARGEMENT', montant: 0, solde_avant: 0, solde_apres: 0, wallet_destination_id: walletId },
+          create: { type: 'RECHARGEMENT', montant: 0, wallet_destination_id: walletId },
         })
       ).rejects.toThrow('immuable');
     });

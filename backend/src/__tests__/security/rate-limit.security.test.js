@@ -48,8 +48,8 @@ describe('Rate Limiting — Sécurité TIKEXO', () => {
     }, 30000);
   });
 
-  describe('limiterGeneral — max 100 requêtes/min par token', () => {
-    it('> 100 requêtes/min avec le même token → 429 éventuellement', async () => {
+  describe('limiterGeneral — max 300 requêtes/min par IP', () => {
+    it('> 300 requêtes/min avec le même token → 429 éventuellement', async () => {
       const user = await prisma.user.create({
         data: {
           telephone: '+22997' + Date.now().toString().slice(-6),
@@ -60,7 +60,7 @@ describe('Rate Limiting — Sécurité TIKEXO', () => {
       const token = jwt.sign({ userId: user.id, role: 'BENEFICIAIRE' }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
       let got429 = false;
-      for (let i = 0; i < 110; i++) {
+      for (let i = 0; i < 310; i++) {
         const res = await request(app)
           .get('/api/v1/wallet/solde')
           .set('Authorization', `Bearer ${token}`);
@@ -70,9 +70,9 @@ describe('Rate Limiting — Sécurité TIKEXO', () => {
         }
       }
 
-      // Après 100+ requêtes, on doit déclencher le rate limit
+      // Après 300+ requêtes, on doit déclencher le rate limit
       expect(got429).toBe(true);
-    }, 60000);
+    }, 90000);
   });
 
   describe('limiterTransaction — max 20 transactions/min par bénéficiaire', () => {

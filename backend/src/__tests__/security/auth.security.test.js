@@ -22,9 +22,9 @@ beforeAll(async () => {
       telephone: '+22901' + Date.now().toString().slice(-6),
       nom: 'Admin', prenom: 'A',
       role: 'ADMIN_RH', statut: 'ACTIF',
-      entreprise_id: entAId,
     },
   });
+  await prisma.entrepriseAdmin.create({ data: { entreprise_id: entAId, user_id: adminA.id, role: 'ADMIN_RH' } });
   tokenAdminRHA = jwt.sign({ userId: adminA.id, role: 'ADMIN_RH', entrepriseId: entAId }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
   const adminB = await prisma.user.create({
@@ -32,9 +32,9 @@ beforeAll(async () => {
       telephone: '+22902' + Date.now().toString().slice(-6),
       nom: 'Admin', prenom: 'B',
       role: 'ADMIN_RH', statut: 'ACTIF',
-      entreprise_id: entBId,
     },
   });
+  await prisma.entrepriseAdmin.create({ data: { entreprise_id: entBId, user_id: adminB.id, role: 'ADMIN_RH' } });
   tokenAdminRHB = jwt.sign({ userId: adminB.id, role: 'ADMIN_RH', entrepriseId: entBId }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
   const benef = await prisma.user.create({
