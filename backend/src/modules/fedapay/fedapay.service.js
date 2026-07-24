@@ -89,7 +89,7 @@ async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur })
       description: `TIKEXO — Rechargement wallet entreprise`,
       amount: montant,
       currency: { iso: 'XOF' },
-      customer: { phone_number: { number: telephonePayeur, country: 'BJ' } },
+      customer: { phone_number: { number: telephonePayeur, country: 'bj' } },
       callback_url: `${process.env.FRONTEND_URL}/paiement/callback`,
     });
 
@@ -271,7 +271,7 @@ async function declencherPayout(prisma, commercantId) {
       customer: {
         phone_number: {
           number: commercant.mobile_money_numero,
-          country: 'BJ',
+          country: 'bj',
         },
       },
     });
@@ -439,7 +439,7 @@ async function declencherPayoutUser(prisma, { userId, montant: montantBrut, moti
       description: motif || `TIKEXO — Remboursement utilisateur`,
       amount: montant,
       currency: { iso: 'XOF' },
-      customer: { phone_number: { number: user.telephone, country: 'BJ' } },
+      customer: { phone_number: { number: user.telephone, country: 'bj' } },
     });
 
     await payout.sendNow();
