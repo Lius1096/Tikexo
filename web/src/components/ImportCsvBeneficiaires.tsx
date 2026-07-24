@@ -79,7 +79,10 @@ function validateRow(row: CsvRow, ligne: number): RowError | null {
   if (!tel || (tel.length !== 8 && tel.length !== 10)) {
     return { ligne, titre: 'Téléphone invalide', detail: `"${row.telephone || '—'}" — doit contenir 8 ou 10 chiffres` };
   }
-  if (row.email && row.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email.trim())) {
+  if (!row.email?.trim()) {
+    return { ligne, titre: 'Email manquant', detail: `Email requis à la ligne ${ligne} — c'est ce qui permet d'envoyer l'invitation au bénéficiaire` };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email.trim())) {
     return { ligne, titre: 'Email invalide', detail: `"${row.email}" — format incorrect` };
   }
   const niv = (row.niveau || '').toUpperCase();
@@ -99,8 +102,8 @@ function telechargerModele() {
   const content = [
     'prenom,nom,telephone,email,niveau,valeur_repas',
     'Kofi,Mensah,0197000001,kofi@gmail.com,EMPLOYE,5000',
-    'Aïcha,Bello,0196000002,,CADRE,8000',
-    'Jean-Baptiste,Houngbo,0195000003,,MANAGER,10000',
+    'Aïcha,Bello,0196000002,aicha.bello@gmail.com,CADRE,8000',
+    'Jean-Baptiste,Houngbo,0195000003,jb.houngbo@gmail.com,MANAGER,10000',
     'Fatoumata,Dossou,0194000004,fatoumata@gmail.com,DIRECTEUR,15000',
   ].join('\n');
   const blob = new Blob(['﻿' + content], { type: 'text/csv;charset=utf-8;' });
@@ -319,7 +322,7 @@ export default function ImportCsvBeneficiaires({ entrepriseId, onFinish }: {
                         {knownHeaders.map((h) => {
                           const field = CSV_HEADERS_MAP[h]!;
                           const label = FIELD_LABELS[field] ?? field;
-                          const isRequired = ['prenom', 'nom', 'telephone'].includes(field);
+                          const isRequired = ['prenom', 'nom', 'telephone', 'email'].includes(field);
                           return (
                             <tr key={h} className="border-b border-slate-50 last:border-0">
                               <td className="py-3 pr-4 whitespace-nowrap">
@@ -507,7 +510,7 @@ export default function ImportCsvBeneficiaires({ entrepriseId, onFinish }: {
                   ['prenom', 'Obligatoire'],
                   ['nom', 'Obligatoire'],
                   ['telephone', 'Obligatoire · 8 ou 10 chiffres'],
-                  ['email', 'Optionnel'],
+                  ['email', "Obligatoire · reçoit le lien d'invitation"],
                   ['niveau', 'Optionnel · EMPLOYE par défaut'],
                   ['valeur_repas', 'Optionnel · défaut par niveau : 5k / 8k / 10k / 15k XOF'],
                 ].map(([col, hint]) => (

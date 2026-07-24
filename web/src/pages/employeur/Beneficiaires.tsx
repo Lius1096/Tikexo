@@ -225,7 +225,9 @@ export default function EmployeurBeneficiaires() {
   });
 
   const telValide = /^\d{10}$/.test(form.telephone.replace(/\D/g, ''));
-  const formValide = telValide && !!(utilisateurExistant || (form.prenom.trim() && form.nom.trim()));
+  // Email obligatoire pour un nouveau bénéficiaire — c'est le canal d'invitation.
+  // Pas requis en ré-embauche (le compte existe déjà).
+  const formValide = telValide && !!(utilisateurExistant || (form.prenom.trim() && form.nom.trim() && form.email_pro.trim()));
 
   function patchForm(p: Partial<AjoutForm>) {
     setForm((f) => ({ ...f, ...p }));
@@ -1423,11 +1425,16 @@ function AjoutModal({ entrepriseId, form, patchForm, utilisateurExistant, erreur
           )}
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Email professionnel <span className="text-slate-400 font-normal">(reçoit le lien d'invitation)</span></label>
+            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
+              Email professionnel
+              {!utilisateurExistant && <span className="text-red-400"> *</span>}
+              <span className="text-slate-400 font-normal"> (reçoit le lien d'invitation)</span>
+            </label>
             <input type="email" value={form.email_pro}
               onChange={(e) => patchForm({ email_pro: e.target.value })}
               placeholder="ex : kofi@entreprise.com"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
+              disabled={!!utilisateurExistant}
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] disabled:bg-slate-50 disabled:text-slate-400"
             />
           </div>
 

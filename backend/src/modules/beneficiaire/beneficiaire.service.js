@@ -61,6 +61,15 @@ async function creer(data) {
     if (existantEmail) return existantEmail;
   }
 
+  // Email obligatoire pour tout nouveau bénéficiaire — c'est le seul canal
+  // d'invitation (lien d'activation de son espace de consommation).
+  if (!data.email_pro?.trim()) {
+    const err = new Error('Email professionnel requis pour envoyer l\'invitation au bénéficiaire');
+    err.statusCode = 400;
+    err.code = 'EMAIL_REQUIS';
+    throw err;
+  }
+
   const user = await prisma.user.create({
     data: {
       telephone,
@@ -452,12 +461,16 @@ async function importerEnMasse(entrepriseId, rows, adminId) {
       resultats.push({ prenom, nom, telephone, statut: 'ERREUR', message: 'Numéro de téléphone invalide (8 ou 10 chiffres)' });
       continue;
     }
+    const email = row.email?.trim();
+    if (!email) {
+      resultats.push({ prenom, nom, telephone, statut: 'ERREUR', message: 'Email requis pour envoyer l\'invitation' });
+      continue;
+    }
 
     try {
-      const user = await creer({
-        prenom, nom, telephone,
-        email_perso: row.email?.trim() || undefined,
-      });
+      // email_pro (pas email_perso) — c'est le champ que creer() persiste réellement
+      // et que rattacherEntreprise() lit pour envoyer l'invitation.
+      const user = await creer({ prenom, nom, telephone, email_pro: email });
 
       const niveauBrut = (row.niveau || '').toUpperCase().trim();
       const niveau = ['EMPLOYE', 'CADRE', 'MANAGER', 'DIRECTEUR'].includes(niveauBrut) ? niveauBrut : 'EMPLOYE';
