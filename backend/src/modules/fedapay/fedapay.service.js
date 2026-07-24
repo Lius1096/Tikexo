@@ -237,7 +237,12 @@ async function declencherPayout(prisma, commercantId) {
   });
 
   const wallet = commercant.user.wallet;
-  const solde = parseFloat(wallet.solde.toString());
+  // FedaPay/mobile money ne transfèrent que des francs entiers — arrondir vers le
+  // bas et ne débiter que ce montant entier. Un éventuel reliquat fractionnaire
+  // (résidu d'anciens calculs, ou impossible à transférer) reste dans le wallet
+  // au lieu d'être silencieusement perdu ou sur-payé à la prochaine tentative.
+  const soldeBrut = parseFloat(wallet.solde.toString());
+  const solde = Math.floor(soldeBrut);
 
   if (solde < SEUIL_MINIMUM) {
     const err = new Error(`Solde commerçant insuffisant pour payout — minimum ${SEUIL_MINIMUM} XOF`);
@@ -273,7 +278,8 @@ async function declencherPayout(prisma, commercantId) {
 
     await payout.sendNow();
 
-    // Débiter le wallet commerçant
+    // Débiter le wallet commerçant — exactement le montant réellement envoyé
+    // à FedaPay (solde arrondi), jamais le solde brut fractionnaire.
     await debiterWallet(
       prisma,
       wallet.id,
@@ -387,12 +393,14 @@ async function jobBatchingPayouts(prismaInstance) {
  * Payout vers le mobile money d'un utilisateur (remboursement mutation).
  * Différent du payout commerçant : le numéro est le téléphone du user.
  */
-async function declencherPayoutUser(prisma, { userId, montant, motif }) {
+async function declencherPayoutUser(prisma, { userId, montant: montantBrut, motif }) {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     include: { wallet: true },
   });
 
+  // Le XOF n'a pas de centime — FedaPay/mobile money n'acceptent que des francs entiers
+  const montant = Math.round(montantBrut);
   const solde = parseFloat(user.wallet.solde.toString());
   if (solde < montant) {
     const err = new Error(`Solde insuffisant pour remboursement — ${solde} XOF disponible, ${montant} XOF requis`);

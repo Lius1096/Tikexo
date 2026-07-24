@@ -13,6 +13,15 @@ const TAUX_FRAIS_COMMERCANT  = 0.05;
 const PLAFOND_JOURNALIER = parseFloat(process.env.TIKEXO_PLAFOND_JOURNALIER_DEFAULT || '10000');
 
 async function creer(beneficiaireId, { commercantId, montantTotal, localisation }) {
+  // Le XOF n'a pas de centime — un montant non entier ferait dériver tous les
+  // calculs de frais/commission en aval (cf. arrondi plus bas).
+  if (!Number.isInteger(montantTotal) || montantTotal <= 0) {
+    const err = new Error('Montant invalide — doit être un nombre entier de XOF supérieur à 0');
+    err.statusCode = 400;
+    err.code = 'MONTANT_INVALIDE';
+    throw err;
+  }
+
   // 1. Vérifier accès transaction
   const acces = await verifierAccesTransaction(prisma, beneficiaireId);
   if (!acces.autorise) {
@@ -70,8 +79,13 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   // - Bénéficiaire débité    : montantTotal + fraisBenef  (× 1.05)
   // - Commerçant crédité     : montantTotal − fraisCommercant (× 0.95)
   // - Plateforme créditée    : fraisBenef + fraisCommercant  (× 0.10)
-  const fraisBenef       = Math.round(montantTotal * TAUX_FRAIS_BENEF       * 100) / 100;
-  const fraisCommercant  = Math.round(montantTotal * TAUX_FRAIS_COMMERCANT  * 100) / 100;
+  // Le XOF n'a pas de sous-unité (pas de centime) — arrondir au franc entier,
+  // pas au centime. Sinon le wallet accumule des soldes fractionnaires
+  // (ex: 894.37 XOF) que FedaPay/mobile money ne peuvent pas transférer tels
+  // quels, créant un écart silencieux entre ce que le ledger croit avoir versé
+  // et ce qui atterrit réellement chez le commerçant.
+  const fraisBenef       = Math.round(montantTotal * TAUX_FRAIS_BENEF);
+  const fraisCommercant  = Math.round(montantTotal * TAUX_FRAIS_COMMERCANT);
   const commissionTikexo = fraisBenef + fraisCommercant;
   const montantCommercant = montantTotal - fraisCommercant;
 

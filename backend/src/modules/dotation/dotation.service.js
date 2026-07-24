@@ -22,7 +22,8 @@ async function calculer(entrepriseId, moisConcerne) {
       where: { lien_id_mois_concerne: { lien_id: lien.id, mois_concerne: mois } },
     });
 
-    const montant = Math.round(parseFloat(lien.allocation_mensuelle.toString()) * 100) / 100;
+    // Le XOF n'a pas de centime — arrondir au franc entier (cf. transaction.service.js)
+    const montant = Math.round(parseFloat(lien.allocation_mensuelle.toString()));
 
     if (existing) {
       if (existing.statut !== 'IGNORE') {
