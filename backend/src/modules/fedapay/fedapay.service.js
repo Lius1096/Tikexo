@@ -316,6 +316,9 @@ async function declencherPayout(prisma, commercantId) {
 
     logger.error('TIKEXO — Payout FedaPay échoué', {
       commercantId, erreur: err.message, erreurDetail, errors: err.errors, tentatives,
+      httpStatus: err.httpStatus,
+      rawBody: err.httpResponse?.data ? JSON.stringify(err.httpResponse.data) : null,
+      errorType: err.constructor?.name,
     });
 
     if (tentatives >= MAX_TENTATIVES) {
