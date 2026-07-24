@@ -258,10 +258,37 @@ model Commercant {
   user                    User             @relation(fields: [user_id], references: [id])
   transactions            Transaction[]
   fedapayPayouts          FedapayOperation[]
+  documents               CommercantDocument[]
 
   @@index([statut])
   @@index([ville, statut])
   @@index([latitude, longitude])
+}
+
+// KYC commerçant volontairement léger (pas de "dossier"/deadline comme le KYB
+// entreprise) : au Bénin, la plupart des commerçants (restaurants, etc.) n'ont
+// pas d'entreprise formelle — la pièce d'identité du gérant suffit pour le
+// niveau SIMPLIFIE. Le justificatif IFU n'est pertinent que pour VERIFIE.
+// Les documents n'empêchent jamais la validation/activation par l'admin.
+model CommercantDocument {
+  id             String                 @id @default(cuid())
+  commercant_id  String
+  type           TypeCommercantDocument
+  statut         StatutKybDocument      @default(EN_ATTENTE)
+  fichier_url    String
+  fichier_nom    String
+  fichier_taille Int
+  motif_rejet    String?
+  rejete_par     String?
+  rejete_at      DateTime?
+  valide_par     String?
+  valide_at      DateTime?
+  createdAt      DateTime               @default(now())
+
+  commercant     Commercant             @relation(fields: [commercant_id], references: [id])
+
+  @@index([commercant_id])
+  @@index([statut])
 }
 
 model FedapayOperation {
@@ -540,6 +567,11 @@ enum TypeCommercant {
 enum NiveauCommercant {
   VERIFIE
   SIMPLIFIE
+}
+
+enum TypeCommercantDocument {
+  PIECE_IDENTITE_GERANT
+  JUSTIFICATIF_IFU
 }
 
 enum StatutCommercant {

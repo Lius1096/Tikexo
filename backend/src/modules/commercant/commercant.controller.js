@@ -38,7 +38,7 @@ async function getById(req, res, next) {
   try { res.json({ success: true, data: await service.getById(req.params.id) }); } catch (e) { next(e); }
 }
 async function modifier(req, res, next) {
-  try { res.json({ success: true, data: await service.modifier(req.params.id, req.body) }); } catch (e) { next(e); }
+  try { res.json({ success: true, data: await service.modifier(req.params.id, req.body, req.user.role) }); } catch (e) { next(e); }
 }
 async function valider(req, res, next) {
   try { res.json({ success: true, data: await service.valider(req.params.id, req.user.id) }); } catch (e) { next(e); }
@@ -74,4 +74,38 @@ async function demanderPayout(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { lister, creer, getById, modifier, valider, activer, suspendre, parProximite, nearby, fiche, regenererQRCode, getMoi, demanderPayout };
+async function uploaderDocument(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Aucun fichier reçu' });
+    const prisma = require('../../config/database');
+    const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
+    const data = await service.ajouterDocument(commercant.id, req.body.type, req.file);
+    res.status(201).json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function getDocuments(req, res, next) {
+  try { res.json({ success: true, data: await service.getDocuments(req.params.id) }); } catch (e) { next(e); }
+}
+
+async function validerDocument(req, res, next) {
+  try { res.json({ success: true, data: await service.validerDocument(req.user.id, req.params.docId) }); } catch (e) { next(e); }
+}
+
+async function rejeterDocument(req, res, next) {
+  try { res.json({ success: true, data: await service.rejeterDocument(req.user.id, req.params.docId, req.body.motif) }); } catch (e) { next(e); }
+}
+
+async function getTransactions(req, res, next) {
+  try { res.json({ success: true, data: await service.getTransactions(req.params.id, req.query) }); } catch (e) { next(e); }
+}
+
+async function getPayouts(req, res, next) {
+  try { res.json({ success: true, data: await service.getPayouts(req.params.id) }); } catch (e) { next(e); }
+}
+
+module.exports = {
+  lister, creer, getById, modifier, valider, activer, suspendre, parProximite, nearby, fiche,
+  regenererQRCode, getMoi, demanderPayout, uploaderDocument, getDocuments, validerDocument,
+  rejeterDocument, getTransactions, getPayouts,
+};

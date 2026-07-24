@@ -12,7 +12,7 @@ const {
 const MAX_RESULTATS_NEARBY = 20;
 
 async function lister(filtres = {}) {
-  const { ville, type } = filtres;
+  const { ville, type, q } = filtres;
   // statut vide/absent = tous les statuts (vue admin) ; sinon filtrer
   const statut = filtres.statut !== undefined && filtres.statut !== '' ? filtres.statut : null;
   const p = parseInt(filtres.page, 10) || 1;
@@ -21,6 +21,12 @@ async function lister(filtres = {}) {
   if (statut) where.statut = statut;
   if (ville) where.ville = ville;
   if (type) where.type = type;
+  if (q?.trim()) {
+    where.OR = [
+      { nom: { contains: q.trim(), mode: 'insensitive' } },
+      { ifu: { contains: q.trim(), mode: 'insensitive' } },
+    ];
+  }
 
   const [total, items] = await Promise.all([
     prisma.commercant.count({ where }),
@@ -84,8 +90,18 @@ async function getById(id) {
   });
 }
 
-async function modifier(id, data) {
-  return prisma.commercant.update({ where: { id }, data });
+// Champs qu'un commerçant peut modifier lui-même — statut, commission, plafond,
+// niveau, ifu restent réservés à l'admin (validation/activation/anti-fraude).
+const CHAMPS_AUTO_MODIFIABLES = [
+  'nom', 'type', 'mobile_money_numero', 'mobile_money_operateur',
+  'adresse', 'ville', 'horaires', 'photo_url', 'latitude', 'longitude',
+];
+
+async function modifier(id, data, role) {
+  const payload = role === 'COMMERCANT'
+    ? Object.fromEntries(Object.entries(data).filter(([k]) => CHAMPS_AUTO_MODIFIABLES.includes(k)))
+    : data;
+  return prisma.commercant.update({ where: { id }, data: payload });
 }
 
 async function valider(id, adminId) {
@@ -236,6 +252,87 @@ async function regenererQRCode(id) {
   });
 }
 
+// ── KYC commerçant — volontairement léger, jamais bloquant ────────────────
+// (cf. commentaire schema.prisma sur CommercantDocument)
+const TYPES_DOCUMENT_COMMERCANT = ['PIECE_IDENTITE_GERANT', 'JUSTIFICATIF_IFU'];
+
+async function ajouterDocument(commercantId, type, fichier) {
+  if (!TYPES_DOCUMENT_COMMERCANT.includes(type)) {
+    const err = new Error('Type de document invalide'); err.statusCode = 400; throw err;
+  }
+  return prisma.commercantDocument.create({
+    data: {
+      commercant_id: commercantId,
+      type,
+      fichier_url: fichier.url,
+      fichier_nom: fichier.originalname,
+      fichier_taille: fichier.size,
+    },
+  });
+}
+
+async function getDocuments(commercantId) {
+  return prisma.commercantDocument.findMany({
+    where: { commercant_id: commercantId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+async function validerDocument(adminId, docId) {
+  const doc = await prisma.commercantDocument.update({
+    where: { id: docId },
+    data: { statut: 'VALIDE', valide_par: adminId, valide_at: new Date() },
+  });
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'COMMERCANT_DOCUMENT_VALIDE', entite: 'CommercantDocument', entite_id: docId },
+  });
+  return doc;
+}
+
+async function rejeterDocument(adminId, docId, motif) {
+  if (!motif || motif.trim().length < 10) {
+    const err = new Error('Le motif de rejet doit contenir au moins 10 caractères');
+    err.statusCode = 400; err.code = 'MOTIF_TROP_COURT';
+    throw err;
+  }
+  const doc = await prisma.commercantDocument.update({
+    where: { id: docId },
+    data: { statut: 'REJETE', motif_rejet: motif.trim(), rejete_par: adminId, rejete_at: new Date() },
+  });
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'COMMERCANT_DOCUMENT_REJETE', entite: 'CommercantDocument', entite_id: docId },
+  });
+  return doc;
+}
+
+// ── Historiques (admin + auto-consultation commerçant) ─────────────────────
+async function getTransactions(commercantId, { page = 1, limit = 20 } = {}) {
+  const p = parseInt(page, 10) || 1;
+  const l = parseInt(limit, 10) || 20;
+  const where = { commercant_id: commercantId };
+
+  const [total, items] = await Promise.all([
+    prisma.transaction.count({ where }),
+    prisma.transaction.findMany({
+      where,
+      include: { beneficiaire: { select: { nom: true, prenom: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip: (p - 1) * l,
+      take: l,
+    }),
+  ]);
+
+  return { items, total, page: p, totalPages: Math.ceil(total / l) };
+}
+
+async function getPayouts(commercantId) {
+  return prisma.fedapayOperation.findMany({
+    where: { commercant_id: commercantId, type: 'PAYOUT' },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  });
+}
+
 async function getByUserId(userId) {
   const result = await prisma.commercant.findUnique({
     where: { user_id: userId },
@@ -253,5 +350,6 @@ async function getByUserId(userId) {
 module.exports = {
   lister, creer, getById, getByUserId, modifier, valider, activer, suspendre,
   rechercherCommercantsProches, getFicheCommercant, parProximite,
-  regenererQRCode,
+  regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
+  getTransactions, getPayouts,
 };
