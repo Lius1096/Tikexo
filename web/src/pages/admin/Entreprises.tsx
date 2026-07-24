@@ -89,6 +89,7 @@ const PLAN_LABELS: Record<string, string> = {
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  INSCRIPTION: 'Entreprise inscrite',
   KYB_VALIDE: 'Dossier KYB validé',
   ENTREPRISE_SUSPENDUE: 'Entreprise suspendue',
   ENTREPRISE_ARCHIVEE: 'Entreprise archivée',
