@@ -19,8 +19,9 @@ export default function AdminFedaPay() {
 
   const items: Array<{
     id: string; type: string; statut: string; montant: string;
-    reference_fedapay: string; createdAt: string;
-    entreprise?: { nom: string };
+    fedapay_transaction_id: string; createdAt: string;
+    entreprise?: { nom: string } | null;
+    commercant?: { nom: string } | null;
   }> = data?.items || data || [];
 
   return (
@@ -36,7 +37,7 @@ export default function AdminFedaPay() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-slate-100">
-              {['TYPE', 'ENTREPRISE', 'MONTANT', 'RÉFÉRENCE', 'STATUT', 'DATE'].map((h) => (
+              {['TYPE', 'ENTREPRISE / COMMERÇANT', 'MONTANT', 'RÉFÉRENCE', 'STATUT', 'DATE'].map((h) => (
                 <th key={h} className="text-[10px] text-slate-500 text-left px-4 py-2.5 font-normal tracking-[0.5px]">{h}</th>
               ))}
             </tr>
@@ -55,9 +56,9 @@ export default function AdminFedaPay() {
               items.map((op) => (
                 <tr key={op.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                   <td className="px-4 py-3 text-xs text-slate-700">{op.type}</td>
-                  <td className="px-4 py-3 text-xs text-slate-900">{op.entreprise?.nom ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs text-slate-900">{op.entreprise?.nom ?? op.commercant?.nom ?? '—'}</td>
                   <td className="px-4 py-3 font-mono text-xs">{Number(op.montant).toLocaleString('fr-FR')} XOF</td>
-                  <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{op.reference_fedapay ?? '—'}</td>
+                  <td className="px-4 py-3 font-mono text-[10px] text-slate-500">{op.fedapay_transaction_id ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-[10px] font-medium', statutBadge[op.statut] ?? 'bg-slate-100 text-slate-700')}>
                       {op.statut}

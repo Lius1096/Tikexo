@@ -48,6 +48,10 @@ async function listerOperations(req, res, next) {
       prisma.fedapayOperation.count({ where }),
       prisma.fedapayOperation.findMany({
         where,
+        include: {
+          entreprise: { select: { nom: true } },
+          commercant: { select: { nom: true } },
+        },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: parseInt(limit),
