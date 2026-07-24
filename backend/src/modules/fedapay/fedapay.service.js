@@ -300,17 +300,23 @@ async function declencherPayout(prisma, commercantId) {
     const prochaineTentative = tentatives < MAX_TENTATIVES
       ? new Date(Date.now() + INTERVALLE_RETRY_HEURES * 60 * 60 * 1000)
       : null;
+    // Le SDK FedaPay expose le vrai message d'erreur de l'API sur err.errorMessage/
+    // err.errors (extraits du corps de la réponse HTTP) — err.message n'est que le
+    // code HTTP générique ("Request failed with status code 500").
+    const erreurDetail = err.errorMessage || (err.errors ? JSON.stringify(err.errors) : null) || err.message;
 
     await prisma.$executeRaw`
       UPDATE "FedapayOperation"
       SET tentatives = ${tentatives},
           prochaine_tentative = ${prochaineTentative},
-          erreur_message = ${err.message},
+          erreur_message = ${erreurDetail},
           "updatedAt" = NOW()
       WHERE id = ${operation.id}
     `;
 
-    logger.error('TIKEXO — Payout FedaPay échoué', { commercantId, erreur: err.message, tentatives });
+    logger.error('TIKEXO — Payout FedaPay échoué', {
+      commercantId, erreur: err.message, erreurDetail, errors: err.errors, tentatives,
+    });
 
     if (tentatives >= MAX_TENTATIVES) {
       await prisma.$executeRaw`
