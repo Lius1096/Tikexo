@@ -77,7 +77,7 @@ function ImageUpload({ value, onChange, label }: { value: string; onChange: (url
       <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</label>
       <div className="flex items-center gap-3">
         {value ? (
-          <img src={value} alt="" className="w-20 h-14 rounded-lg object-cover border border-slate-200" />
+          <img src={value} alt="" loading="lazy" className="w-20 h-14 rounded-lg object-cover border border-slate-200" />
         ) : (
           <div className="w-20 h-14 rounded-lg border-2 border-dashed border-slate-200 flex items-center justify-center bg-slate-50">
             <Image size={16} className="text-slate-300" />

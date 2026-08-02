@@ -77,4 +77,37 @@ async function supprimerFichier(key) {
   await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
 }
 
-module.exports = { uploadFichier, urlPresignee, supprimerFichier };
+const CONTENT_TYPES_PAR_EXTENSION = {
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.avif': 'image/avif',
+};
+
+function contentTypeDepuisExtension(key) {
+  return CONTENT_TYPES_PAR_EXTENSION[path.extname(key).toLowerCase()] || 'application/octet-stream';
+}
+
+/**
+ * Récupère un objet du bucket en un seul appel S3 (pas de HEAD séparé) —
+ * utilisé par le proxy /media. Le content-type est déduit de l'extension.
+ * @returns {{ body: import('stream').Readable, contentType: string, contentLength?: number }}
+ */
+async function obtenirObjetMedia(key) {
+  const client = getS3Client();
+  if (!client) throw new Error('Stockage S3 non configuré');
+
+  const objet = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+
+  return {
+    body: objet.Body,
+    contentType: contentTypeDepuisExtension(key),
+    contentLength: objet.ContentLength,
+  };
+}
+
+module.exports = { uploadFichier, urlPresignee, supprimerFichier, obtenirObjetMedia };

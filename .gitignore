@@ -11,6 +11,7 @@ node_modules/
 **/.env.production
 **/.env.staging
 **/.env.test
+**/.env.prod
 # Sécurité explicite sur les dossiers clés
 backend/.env
 web/.env

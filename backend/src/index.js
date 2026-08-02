@@ -17,6 +17,8 @@ process.on('uncaughtException', (err) => {
 
 const express = require('express');
 const http = require('http');
+const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 const helmet = require('helmet');
 const cors = require('cors');
@@ -44,6 +46,7 @@ const carteRoutes = require('./modules/carte/carte.routes');
 const inscriptionRoutes = require('./modules/inscription/inscription.routes');
 const kybRoutes = require('./modules/kyb/kyb.routes');
 const landingRoutes = require('./modules/landing/landing.routes');
+const { obtenirObjetMedia } = require('./config/storage');
 
 const app = express();
 const server = http.createServer(app);
@@ -136,6 +139,42 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/cartes', carteRoutes);
 app.use('/api/v1/landing', landingRoutes);
 app.use('/uploads/landing', express.static(require('path').join(__dirname, '../uploads/landing')));
+
+// Proxy MinIO pour les images landing publiques — restreint au préfixe
+// `landing/` : le bucket contient aussi des documents KYB privés (préfixe
+// `kyb/...`) qui ne doivent JAMAIS être accessibles sans URL pré-signée.
+app.get('/media/landing/*', async (req, res) => {
+  const key = `landing/${req.params[0]}`;
+  try {
+    const { body, contentType, contentLength } = await obtenirObjetMedia(key);
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    if (contentLength) res.set('Content-Length', String(contentLength));
+    body.pipe(res);
+  } catch (err) {
+    if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+      return res.status(404).end();
+    }
+    console.error('[TIKEXO MEDIA] erreur proxy /media:', err.message);
+    res.status(502).end();
+  }
+});
+
+// Sert le build front (web/dist) en statique quand il est présent — c'est le
+// cas du container VPS unifié (voir Dockerfile racine). Sur Render, le
+// backend tourne seul (backend/Dockerfile, sans build front) : ce dossier
+// n'existe pas et ce bloc ne fait rien, sans régression.
+const WEB_DIST_DIR = path.join(__dirname, '../web-dist');
+if (fs.existsSync(WEB_DIST_DIR)) {
+  app.use(express.static(WEB_DIST_DIR, { index: false }));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/media') || req.path.startsWith('/uploads') || req.path === '/health') {
+      return next();
+    }
+    res.set('Cache-Control', 'no-cache');
+    res.sendFile(path.join(WEB_DIST_DIR, 'index.html'));
+  });
+}
 
 // 404
 app.use(notFoundHandler);

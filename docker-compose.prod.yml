@@ -1,0 +1,109 @@
+# TIKEXO — Déploiement VPS Ionos (Traefik partagé, tikexo.kete.fr)
+# Aucun port hôte n'est exposé : postgres/redis/minio restent internes au
+# réseau docker, seul `app` est routé par le Traefik déjà en place sur le VPS
+# via le réseau externe `traefik-public`.
+#
+# IMPORTANT — toujours lancer avec --env-file .env.prod, ex :
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+# `.env.prod` n'est PAS nommé `.env` donc compose ne le charge pas tout seul
+# pour interpoler les ${VAR} de CE fichier (utilisés ici pour POSTGRES_*/
+# MINIO_*). C'est un mécanisme différent de `env_file:` sur `app` plus bas,
+# qui lui injecte les variables telles quelles dans le container (sans
+# interpoler les ${VAR} qui seraient à l'intérieur de leurs valeurs).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tikexo_postgres_prod
+    environment:
+      POSTGRES_DB: tikexo_prod
+      POSTGRES_USER: ${POSTGRES_USER:-tikexo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD requis}
+    volumes:
+      - tikexo_pgdata_prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tikexo} -d tikexo_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: tikexo_redis_prod
+    volumes:
+      - tikexo_redis_data_prod:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: tikexo_minio_prod
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER requis}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD requis}
+    volumes:
+      - tikexo_minio_data_prod:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - internal
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ""
+        VITE_ASSETS_URL: /media
+    container_name: tikexo_app_prod
+    env_file:
+      - .env.prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - internal
+      - traefik-public
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tikexo.rule=Host(`tikexo.kete.fr`)"
+      - "traefik.http.routers.tikexo.entrypoints=websecure"
+      - "traefik.http.routers.tikexo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tikexo.loadbalancer.server.port=3001"
+      - "traefik.docker.network=traefik-public"
+
+networks:
+  internal:
+    driver: bridge
+  traefik-public:
+    external: true
+
+volumes:
+  tikexo_pgdata_prod:
+    driver: local
+  tikexo_redis_data_prod:
+    driver: local
+  tikexo_minio_data_prod:
+    driver: local

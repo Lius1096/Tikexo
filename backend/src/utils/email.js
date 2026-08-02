@@ -3,21 +3,25 @@ const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
 const { emailQueue } = require('../queues/index');
 
-// Adresses expéditrices officielles TIKEXO
+// Adresses expéditrices — phase de présentation tikexo.kete.fr.
+// Une seule boîte Ionos réellement envoyée (noreply@tikexo.kete.fr) : le nom
+// affiché varie par catégorie mais l'adresse doit rester identique au compte
+// SMTP authentifié (SMTP_USER), sinon Ionos rejette le mail comme usurpation.
 const EXPEDITEURS = {
-  noreply:     '"TIKEXO" <noreply@tikexo.bj>',
-  hello:       '"TIKEXO" <hello@tikexo.bj>',
-  facturation: '"TIKEXO Facturation" <facturation@tikexo.bj>',
-  support:     '"TIKEXO Support" <support@tikexo.bj>',
-  ops:         '"TIKEXO Ops" <ops@tikexo.bj>',
+  noreply:     '"TIKEXO" <noreply@tikexo.kete.fr>',
+  hello:       '"TIKEXO" <noreply@tikexo.kete.fr>',
+  facturation: '"TIKEXO Facturation" <noreply@tikexo.kete.fr>',
+  support:     '"TIKEXO Support" <noreply@tikexo.kete.fr>',
+  ops:         '"TIKEXO Ops" <noreply@tikexo.kete.fr>',
 };
 
+// Boîte surveillée pour les réponses — deuxième boîte Ionos dédiée.
 const REPLY_TO = {
-  noreply:     'support@tikexo.bj',
-  hello:       'support@tikexo.bj',
-  facturation: 'facturation@tikexo.bj',
-  support:     'support@tikexo.bj',
-  ops:         'ops@tikexo.bj',
+  noreply:     'support@tikexo.kete.fr',
+  hello:       'support@tikexo.kete.fr',
+  facturation: 'support@tikexo.kete.fr',
+  support:     'support@tikexo.kete.fr',
+  ops:         'support@tikexo.kete.fr',
 };
 
 // ─── Resend ───────────────────────────────────────────────────────────────────
@@ -68,7 +72,7 @@ function getFromAddress(expediteur) {
 // ─── Envoi ────────────────────────────────────────────────────────────────────
 async function envoyerEmail({ to, subject, html, text, expediteur = 'noreply', replyTo }) {
   const from     = getFromAddress(expediteur);
-  const replyTo_ = replyTo ?? REPLY_TO[expediteur] ?? process.env.MAIL_RECEIVER ?? 'support@tikexo.bj';
+  const replyTo_ = replyTo ?? REPLY_TO[expediteur] ?? process.env.MAIL_RECEIVER ?? 'support@tikexo.kete.fr';
 
   if (process.env.NODE_ENV !== 'production') {
     console.log([
