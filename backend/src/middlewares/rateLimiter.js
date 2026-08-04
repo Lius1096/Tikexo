@@ -1,10 +1,12 @@
 // Rate limiters TIKEXO
 const rateLimit = require('express-rate-limit');
 
-const repondreRateLimit = (req, res) => {
+// Chaque limiteur a sa propre fenêtre : le message doit annoncer le bon délai,
+// sinon l'utilisateur attend le mauvais temps avant de réessayer.
+const creerHandler = (message) => (req, res) => {
   res.status(429).json({
     success: false,
-    error: 'TIKEXO — Trop de requêtes, veuillez patienter',
+    error: message,
     retryAfter: res.getHeader('Retry-After'),
   });
 };
@@ -24,7 +26,7 @@ const limiterGeneral = rateLimit({
   max: process.env.NODE_ENV === 'development' ? 5000 : 300,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de requêtes. Veuillez patienter quelques instants avant de réessayer.'),
   keyGenerator: realIp,
   skip: (req) => req.path === '/v1/auth/profil',
 });
@@ -35,7 +37,7 @@ const limiterProfil = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 600 : 10000,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de vérifications de session. Veuillez réessayer dans une minute.'),
   keyGenerator: realIp,
 });
 
@@ -45,7 +47,7 @@ const limiterOtp = rateLimit({
   max: process.env.NODE_ENV === 'development' ? 1000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de demandes de code. Veuillez réessayer dans 1 heure.'),
   keyGenerator: (req) => req.body?.telephone || req.ip,
 });
 
@@ -55,7 +57,7 @@ const limiterLogin = rateLimit({
   max: process.env.NODE_ENV === 'production' ? 5 : 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.'),
 });
 
 // Limite transactions : 20 req/min par bénéficiaire
@@ -64,7 +66,7 @@ const limiterTransaction = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de transactions. Veuillez réessayer dans une minute.'),
   keyGenerator: (req) => req.user?.id || req.ip,
 });
 
@@ -74,7 +76,7 @@ const limiterWebhook = rateLimit({
   max: 200,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: repondreRateLimit,
+  handler: creerHandler('TIKEXO — Trop de requêtes webhook. Veuillez réessayer dans une minute.'),
 });
 
 module.exports = {
