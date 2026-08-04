@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const prisma = require('../../config/database');
-const { creerOtp, verifierOtp: verifierOtpUtil } = require('../../utils/otp');
+const { creerOtp, verifierOtp: verifierOtpUtil, OTP_TTL_MINUTES_EMAIL } = require('../../utils/otp');
 const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
 const { envoyerEmail, masquerEmail } = require('../../utils/email');
 const templates = require('../../utils/emailTemplates');
@@ -267,8 +267,8 @@ async function pinOublie(telephoneRaw) {
     throw err;
   }
 
-  // Réutiliser le mécanisme OTP existant — le code est valable 5 min
-  const code = await creerOtp(prisma, telephone);
+  // Réutiliser le mécanisme OTP existant — TTL allongé car envoyé par email
+  const code = await creerOtp(prisma, telephone, OTP_TTL_MINUTES_EMAIL);
 
   const { html, text } = templates.pinReset(code);
   await envoyerEmail({
@@ -376,7 +376,7 @@ async function motDePasseOublie(email) {
   const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
   if (!user) return { message: MSG_OUBLIE };
 
-  const code = await creerOtp(prisma, user.telephone);
+  const code = await creerOtp(prisma, user.telephone, OTP_TTL_MINUTES_EMAIL);
   const { html, text } = templates.resetMotDePasse(user.prenom, code);
   await envoyerEmail({
     to: emailNorm,

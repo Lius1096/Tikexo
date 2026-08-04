@@ -3,6 +3,9 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
 const OTP_TTL_MINUTES = 5;
+// TTL plus long pour les codes envoyés par email (délai de remise SMTP plus
+// variable que le SMS, qui arrive quasi instantanément).
+const OTP_TTL_MINUTES_EMAIL = 15;
 const OTP_MAX_TENTATIVES = 3;
 const BCRYPT_ROUNDS = 12;
 
@@ -25,10 +28,10 @@ async function hasherOtp(code) {
 /**
  * Crée un OTP en base et retourne le code en clair (pour l'envoi SMS).
  */
-async function creerOtp(prisma, telephone) {
+async function creerOtp(prisma, telephone, ttlMinutes = OTP_TTL_MINUTES) {
   const code = genererOtp();
   const codeHash = await hasherOtp(code);
-  const expiration = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+  const expiration = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
   // Invalider les anciens OTP non utilisés pour ce numéro
   await prisma.$executeRaw`
@@ -100,5 +103,6 @@ module.exports = {
   creerOtp,
   verifierOtp,
   OTP_TTL_MINUTES,
+  OTP_TTL_MINUTES_EMAIL,
   OTP_MAX_TENTATIVES,
 };

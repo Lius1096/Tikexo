@@ -72,12 +72,12 @@ function pinReset(code) {
         <p style="margin:0 0 8px;color:#888;font-size:13px">Votre code de réinitialisation</p>
         <span style="font-size:40px;font-weight:700;letter-spacing:10px;color:${COULEUR_PRIMAIRE};font-family:monospace">${code}</span>
       </div>
-      <p style="color:#888;font-size:13px;margin:0">Ce code expire dans <strong>5 minutes</strong>.<br>
+      <p style="color:#888;font-size:13px;margin:0">Ce code expire dans <strong>15 minutes</strong>.<br>
       Si vous n'avez pas fait cette demande, ignorez cet email — votre compte reste sécurisé.</p>
     `,
   });
 
-  const text = `TIKEXO — Réinitialisation PIN\n\nCode : ${code}\n\nCe code expire dans 5 minutes.\nSi vous n'avez pas fait cette demande, ignorez cet email.`;
+  const text = `TIKEXO — Réinitialisation PIN\n\nCode : ${code}\n\nCe code expire dans 15 minutes.\nSi vous n'avez pas fait cette demande, ignorez cet email.`;
 
   return { html, text };
 }
@@ -163,12 +163,12 @@ function resetMotDePasse(prenom, code) {
       <div style="text-align:center;margin:0 0 20px">
         <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#1A3C5E;font-family:monospace">${code}</span>
       </div>
-      <p style="color:#888;font-size:13px;margin:0 0 8px">Ce code expire dans <strong>10 minutes</strong>.</p>
+      <p style="color:#888;font-size:13px;margin:0 0 8px">Ce code expire dans <strong>15 minutes</strong>.</p>
       <p style="color:#888;font-size:13px;margin:0">Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.</p>
     `,
   });
 
-  const text = `Réinitialisation de mot de passe TIKEXO\n\nBonjour ${prenom},\n\nVotre code de réinitialisation : ${code}\n\nCe code expire dans 10 minutes.`;
+  const text = `Réinitialisation de mot de passe TIKEXO\n\nBonjour ${prenom},\n\nVotre code de réinitialisation : ${code}\n\nCe code expire dans 15 minutes.`;
 
   return { html, text };
 }

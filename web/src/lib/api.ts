@@ -31,15 +31,20 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
 
-    // Ne pas retry : la route refresh elle-même, la sonde de session /auth/profil,
-    // et /auth/pin/statut (appelée avant login — utilisateur non authentifié par définition)
+    // Ne pas retry : la route refresh elle-même, et toutes les routes publiques
+    // appelées avant authentification (login, OTP, PIN, mot de passe) — un 401
+    // dessus signifie des identifiants/code invalides, pas une session expirée.
     if (
       error.response?.status !== 401 ||
       original._retry ||
       original.url?.includes('/auth/refresh') ||
       original.url?.includes('/auth/profil') ||
       original.url?.includes('/auth/pin/statut') ||
-      original.url?.includes('/auth/login')
+      original.url?.includes('/auth/pin/verifier') ||
+      original.url?.includes('/auth/pin/oublie') ||
+      original.url?.includes('/auth/login') ||
+      original.url?.includes('/auth/otp/') ||
+      original.url?.includes('/auth/mot-de-passe/')
     ) {
       return Promise.reject(error);
     }
