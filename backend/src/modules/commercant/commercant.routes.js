@@ -49,12 +49,13 @@ const upload = multer({
 router.get('/', ctrl.lister);
 router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creer);
 router.get('/moi', autoriser('COMMERCANT'), ctrl.getMoi);
+router.get('/moi/stats', autoriser('COMMERCANT'), ctrl.getMesStats);
 router.post('/moi/payout', autoriser('COMMERCANT'), ctrl.demanderPayout);
 router.post('/moi/documents', autoriser('COMMERCANT'), upload.single('fichier'), s3UploadMiddleware('commercant'), ctrl.uploaderDocument);
 router.get('/proximite', ctrl.parProximite);
 router.get('/nearby', ctrl.nearby);             // GET /api/v1/commercants/nearby
 router.get('/:id/fiche', ctrl.fiche);           // GET /api/v1/commercants/:id/fiche
-router.get('/:id', ctrl.getById);
+router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getById);
 router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.modifier);
 router.get('/:id/documents', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getDocuments);
 router.get('/:id/transactions', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getTransactions);
@@ -62,6 +63,7 @@ router.get('/:id/payouts', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), 
 router.post('/:id/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.valider);
 router.post('/:id/activer', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.activer);
 router.post('/:id/suspendre', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.suspendre);
+router.post('/:id/archiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.archiver);
 router.post('/:id/qrcode', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.regenererQRCode);
 router.patch('/documents/:docId/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerDocument);
 router.patch('/documents/:docId/rejeter', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.rejeterDocument);

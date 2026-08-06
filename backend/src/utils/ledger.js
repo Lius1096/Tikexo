@@ -22,6 +22,24 @@ class WalletInactifError extends Error {
 }
 
 /**
+ * Verrouille une ligne Wallet pour la durée de la transaction Prisma en cours
+ * (SELECT ... FOR UPDATE) — empêche deux opérations concurrentes de lire le
+ * même solde avant que l'une des deux ait fini de le modifier. Doit toujours
+ * être appelé à l'intérieur d'un prisma.$transaction(...).
+ */
+async function verrouillerWallet(client, walletId) {
+  const rows = await client.$queryRaw`
+    SELECT * FROM "Wallet" WHERE id = ${walletId} FOR UPDATE
+  `;
+  if (!rows[0]) {
+    const err = new Error(`TIKEXO — Wallet introuvable : ${walletId}`);
+    err.code = 'WALLET_INTROUVABLE';
+    throw err;
+  }
+  return rows[0];
+}
+
+/**
  * Crée une écriture ledger atomique.
  * La LedgerEntry est toujours créée AVANT toute modification de solde.
  */
@@ -60,9 +78,11 @@ async function creerEcritureLedger(prisma, {
 
     // Étape 2 : débiter la source si définie
     if (walletSourceId) {
-      const walletSource = await client.wallet.findUniqueOrThrow({
-        where: { id: walletSourceId },
-      });
+      // Verrou pessimiste : bloque toute autre transaction qui tenterait de
+      // lire/modifier ce même wallet tant que celle-ci n'est pas terminée —
+      // empêche deux débits concurrents de tous les deux voir un solde
+      // suffisant et de faire passer le wallet en négatif.
+      const walletSource = await verrouillerWallet(client, walletSourceId);
 
       if (walletSource.statut !== 'ACTIF') {
         throw new WalletInactifError(walletSourceId, walletSource.statut);
@@ -260,6 +280,7 @@ async function verifierPlafondJournalier(prisma, beneficiaireId, montantNouveau,
 module.exports = {
   SoldeInsuffisantError,
   WalletInactifError,
+  verrouillerWallet,
   creerEcritureLedger,
   crediterWallet,
   debiterWallet,

@@ -130,6 +130,12 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/entreprises', entrepriseRoutes);
 app.use('/api/v1/beneficiaires', beneficiaireRoutes);
 app.use('/api/v1/commercants', commercantRoutes);
+// Fallback local (dev / VPS sans S3_ENDPOINT configuré) — sans cette route,
+// les URLs de documents commerçant (`/uploads/commercant/...`, générées par
+// s3UploadMiddleware quand S3 n'est pas configuré) renvoient 404 partout,
+// pas seulement en dev local, même si S3_ENDPOINT finit par être configuré
+// pour les nouveaux uploads (les anciens restent sur disque).
+app.use('/uploads/commercant', express.static(require('path').join(__dirname, '../uploads/commercant')));
 app.use('/api/v1/wallet', walletRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
 app.use('/api/v1/dotations', dotationRoutes);

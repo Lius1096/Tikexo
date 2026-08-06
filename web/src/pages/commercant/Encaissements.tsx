@@ -11,16 +11,29 @@ const STATUT_CONFIG: Record<string, { label: string; color: string; icon: any }>
   REMBOURSEE: { label: 'Remboursée', color: 'text-slate-500',      icon: XCircle },
 };
 
+const LIMIT = 30;
+
 export default function CommercantEncaissements() {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['commercant-transactions'],
-    queryFn: () => api.get('/transactions?limit=100').then((r) => r.data.data),
+    queryKey: ['commercant-transactions', page],
+    queryFn: () => api.get('/transactions', { params: { page, limit: LIMIT } }).then((r) => r.data.data),
   });
 
   const items: any[] = data?.items ?? [];
+  const totalPages: number = data?.totalPages ?? 1;
 
+  const { data: stats } = useQuery({
+    queryKey: ['commercant-stats'],
+    queryFn: () => api.get('/commercants/moi/stats').then((r) => r.data.data),
+  });
+
+  // Recherche côté client sur la page courante uniquement — la recherche sur
+  // l'historique complet nécessiterait un paramètre de recherche côté API,
+  // hors scope ici (le total affiché, lui, vient de /moi/stats donc reste
+  // exact quel que soit le nombre de pages).
   const filtered = items.filter((t) => {
     if (!search) return true;
     const q = search.toLowerCase();
@@ -31,9 +44,7 @@ export default function CommercantEncaissements() {
     );
   });
 
-  const totalValide = items
-    .filter((t) => t.statut === 'VALIDEE')
-    .reduce((s, t) => s + parseFloat(t.montant_net ?? t.montant_total ?? 0), 0);
+  const totalValide = stats?.volume_total ?? 0;
 
   return (
     <div className="p-6 space-y-4">
@@ -99,9 +110,29 @@ export default function CommercantEncaissements() {
         )}
       </div>
 
-      {!isLoading && (
+      {!isLoading && totalPages <= 1 && (
         <div className="text-[11px] text-slate-400 text-center">
           {filtered.length} encaissement{filtered.length > 1 ? 's' : ''}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Précédent
+          </button>
+          <span className="text-[11px] text-slate-400">Page {page} sur {totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Suivant
+          </button>
         </div>
       )}
     </div>

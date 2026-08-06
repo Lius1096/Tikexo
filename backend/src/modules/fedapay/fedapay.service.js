@@ -3,7 +3,7 @@
 // Collecte wallet entreprise, payout commerçant, remboursement salarié
 const crypto = require('crypto');
 const prisma = require('../../config/database');
-const { crediterWallet, debiterWallet } = require('../../utils/ledger');
+const { crediterWallet, debiterWallet, verrouillerWallet } = require('../../utils/ledger');
 const { logger } = require('../../middlewares/errorHandler');
 const { envoyerEmailAsync } = require('../../utils/email');
 const { rechargeConfirmee } = require('../../utils/emailTemplates');
@@ -231,36 +231,69 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
 async function declencherPayout(prisma, commercantId) {
   const { FedaPay } = require('../../config/fedapay');
 
-  const commercant = await prisma.commercant.findUniqueOrThrow({
-    where: { id: commercantId },
-    include: { user: { select: { wallet: true } } },
-  });
+  // Étape verrouillée : lit le solde, vérifie qu'aucun payout n'est déjà en
+  // cours et que le compte est actif, puis crée la FedapayOperation EN_ATTENTE
+  // — tout ça avant d'appeler FedaPay (argent réel). Le verrou pessimiste sur
+  // le wallet + la vérification "déjà en attente" empêchent un double-clic ou
+  // un recoupement avec le cron de batching de déclencher deux virements
+  // réels pour le même solde.
+  const { commercant, wallet, operation, solde } = await prisma.$transaction(async (tx) => {
+    const commercant = await tx.commercant.findUniqueOrThrow({
+      where: { id: commercantId },
+      include: { user: { select: { wallet: true } } },
+    });
 
-  const wallet = commercant.user.wallet;
-  // FedaPay/mobile money ne transfèrent que des francs entiers — arrondir vers le
-  // bas et ne débiter que ce montant entier. Un éventuel reliquat fractionnaire
-  // (résidu d'anciens calculs, ou impossible à transférer) reste dans le wallet
-  // au lieu d'être silencieusement perdu ou sur-payé à la prochaine tentative.
-  const soldeBrut = parseFloat(wallet.solde.toString());
-  const solde = Math.floor(soldeBrut);
+    if (commercant.statut !== 'ACTIF') {
+      const err = new Error('Compte marchand suspendu — reversement indisponible');
+      err.statusCode = 422;
+      err.code = 'COMMERCANT_NON_ACTIF';
+      throw err;
+    }
 
-  if (solde < SEUIL_MINIMUM) {
-    const err = new Error(`Solde commerçant insuffisant pour payout — minimum ${SEUIL_MINIMUM} XOF`);
-    err.statusCode = 422;
-    err.code = 'SOLDE_INSUFFISANT_PAYOUT';
-    throw err;
-  }
+    const wallet = commercant.user.wallet;
+    // Le verrou bloque jusqu'à ce qu'une éventuelle autre opération en cours sur
+    // ce wallet libère la ligne — on relit donc le solde depuis la ligne
+    // verrouillée (walletVerrouille), pas depuis `wallet` capturé juste avant,
+    // qui peut être périmé si on vient d'attendre la fin d'une autre opération.
+    const walletVerrouille = await verrouillerWallet(tx, wallet.id);
 
-  const idempotenceKey = `payout_${commercantId}_${Date.now()}`;
+    const payoutEnAttente = await tx.fedapayOperation.findFirst({
+      where: { commercant_id: commercantId, type: 'PAYOUT', statut: 'EN_ATTENTE' },
+    });
+    if (payoutEnAttente) {
+      const err = new Error('Un reversement est déjà en cours de traitement pour ce compte');
+      err.statusCode = 409;
+      err.code = 'PAYOUT_DEJA_EN_COURS';
+      throw err;
+    }
 
-  const operation = await prisma.fedapayOperation.create({
-    data: {
-      type: 'PAYOUT',
-      fedapay_transaction_id: idempotenceKey,
-      montant: solde,
-      statut: 'EN_ATTENTE',
-      commercant_id: commercantId,
-    },
+    // FedaPay/mobile money ne transfèrent que des francs entiers — arrondir vers le
+    // bas et ne débiter que ce montant entier. Un éventuel reliquat fractionnaire
+    // (résidu d'anciens calculs, ou impossible à transférer) reste dans le wallet
+    // au lieu d'être silencieusement perdu ou sur-payé à la prochaine tentative.
+    const soldeBrut = parseFloat(walletVerrouille.solde.toString());
+    const solde = Math.floor(soldeBrut);
+
+    if (solde < SEUIL_MINIMUM) {
+      const err = new Error(`Solde commerçant insuffisant pour payout — minimum ${SEUIL_MINIMUM} XOF`);
+      err.statusCode = 422;
+      err.code = 'SOLDE_INSUFFISANT_PAYOUT';
+      throw err;
+    }
+
+    const idempotenceKey = `payout_${commercantId}_${Date.now()}`;
+
+    const operation = await tx.fedapayOperation.create({
+      data: {
+        type: 'PAYOUT',
+        fedapay_transaction_id: idempotenceKey,
+        montant: solde,
+        statut: 'EN_ATTENTE',
+        commercant_id: commercantId,
+      },
+    });
+
+    return { commercant, wallet, operation, solde };
   });
 
   try {

@@ -296,40 +296,48 @@ async function inscrireCommercant({ nom, type, email: emailRaw, telephone: telRa
 
   const motDePasseHash = await bcrypt.hash(mot_de_passe, 12);
 
-  const user = await prisma.user.create({
-    data: {
-      telephone,
-      nom,
-      prenom: 'Gérant',
-      email_perso: email,
-      mot_de_passe_hash: motDePasseHash,
-      role: 'COMMERCANT',
-      statut: 'INACTIF',
-      kyc_niveau: 'KYB',
-    },
-  });
+  // Transaction : user + commercant + wallet + audit — même pattern que le
+  // flux entreprise ci-dessus. Sans ça, un échec sur l'une des créations après
+  // que les précédentes ont réussi (ex: contrainte IFU concurrente, coupure DB)
+  // laisse un compte orphelin (User sans Commercant, ou sans Wallet).
+  const { commercant, user } = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        telephone,
+        nom,
+        prenom: 'Gérant',
+        email_perso: email,
+        mot_de_passe_hash: motDePasseHash,
+        role: 'COMMERCANT',
+        statut: 'INACTIF',
+        kyc_niveau: 'KYB',
+      },
+    });
 
-  const commercant = await prisma.commercant.create({
-    data: {
-      user_id: user.id,
-      nom,
-      type,
-      ifu: ifu || null,
-      niveau: ifu ? 'VERIFIE' : 'SIMPLIFIE',
-      mobile_money_numero: telephone,
-      mobile_money_operateur: mobile_money_operateur || 'MTN',
-      adresse: adresse || null,
-      ville: ville || 'Cotonou',
-      statut: 'SOUMIS',
-    },
-  });
+    const commercant = await tx.commercant.create({
+      data: {
+        user_id: user.id,
+        nom,
+        type,
+        ifu: ifu || null,
+        niveau: ifu ? 'VERIFIE' : 'SIMPLIFIE',
+        mobile_money_numero: telephone,
+        mobile_money_operateur: mobile_money_operateur || 'MTN',
+        adresse: adresse || null,
+        ville: ville || 'Cotonou',
+        statut: 'SOUMIS',
+      },
+    });
 
-  await prisma.wallet.create({
-    data: { user_id: user.id, type: 'COMMERCANT', currency: 'XOF' },
-  });
+    await tx.wallet.create({
+      data: { user_id: user.id, type: 'COMMERCANT', currency: 'XOF' },
+    });
 
-  await prisma.auditLog.create({
-    data: { user_id: user.id, action: 'INSCRIPTION_COMMERCANT', entite: 'Commercant', entite_id: commercant.id },
+    await tx.auditLog.create({
+      data: { user_id: user.id, action: 'INSCRIPTION_COMMERCANT', entite: 'Commercant', entite_id: commercant.id },
+    });
+
+    return { commercant, user };
   });
 
   if (email) {

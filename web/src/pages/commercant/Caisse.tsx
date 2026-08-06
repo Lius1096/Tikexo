@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import QRCodeSVG from 'react-qr-code';
-import { CheckCircle, RefreshCw, Maximize2, X, TrendingUp, ShoppingBag, Clock, Delete } from 'lucide-react';
+import { CheckCircle, RefreshCw, Maximize2, X, TrendingUp, ShoppingBag, Clock, Delete, ShieldOff } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt, fmtHeure } from '../../utils/format';
@@ -86,6 +86,18 @@ export default function CommercantCaisse() {
   }
 
   const KEYS = [['1','2','3'],['4','5','6'],['7','8','9'],['CLR','0','DEL']];
+
+  if (fiche && fiche.statut !== 'ACTIF') {
+    return (
+      <div className="p-6 h-full flex flex-col items-center justify-center gap-3 text-center">
+        <ShieldOff size={32} className="text-slate-300" />
+        <div className="text-sm font-medium text-slate-600">Caisse indisponible</div>
+        <div className="text-xs text-slate-400 max-w-xs">
+          L'encaissement est désactivé tant que votre compte n'est pas actif. Voir le bandeau en haut de page pour plus de détails.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-5 h-full flex flex-col gap-4">

@@ -7,9 +7,9 @@ const { verifierAccesTransaction } = require('../../utils/kyc');
 const { estEligible } = require('../../utils/jours-feries-benin');
 const { envoyerNotificationPush } = require('../../config/firebase');
 
-// 5 % prélevés côté bénéficiaire + 5 % côté commerçant = 10 % plateforme
-const TAUX_FRAIS_BENEF       = 0.05;
-const TAUX_FRAIS_COMMERCANT  = 0.05;
+// Taux de secours si commercant.taux_commission est absent (ne devrait pas
+// arriver — le champ a un défaut en base — mais évite un crash si jamais).
+const TAUX_COMMISSION_DEFAUT = parseFloat(process.env.TIKEXO_COMMISSION_DEFAULT || '5.00');
 const PLAFOND_JOURNALIER = parseFloat(process.env.TIKEXO_PLAFOND_JOURNALIER_DEFAULT || '10000');
 
 async function creer(beneficiaireId, { commercantId, montantTotal, localisation }) {
@@ -58,6 +58,19 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
     throw err;
   }
 
+  // 4bis. Vérifier le plafond mensuel du commerçant (volume cumulé, remis à
+  // zéro le 1er de chaque mois par le cron reset-volume-mensuel-commercants)
+  const volumeCumule = parseFloat(commercant.volume_mensuel_cumule.toString());
+  const plafondMensuel = parseFloat(commercant.plafond_mensuel.toString());
+  if (volumeCumule + montantTotal > plafondMensuel) {
+    const err = new Error(
+      `Plafond mensuel de ce commerçant atteint — reste : ${Math.max(0, plafondMensuel - volumeCumule)} XOF`
+    );
+    err.statusCode = 400;
+    err.code = 'PLAFOND_MENSUEL_ATTEINT';
+    throw err;
+  }
+
   // 5. Évaluer le risque anti-fraude
   const risque = await evaluerTransaction(prisma, { beneficiaireId, commercantId, montant: montantTotal, localisation });
   if (risque.niveau >= 3) {
@@ -72,20 +85,25 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   const walletCommercant = await prisma.wallet.findUniqueOrThrow({ where: { user_id: commercant.user_id } });
   const walletPlateforme = await prisma.wallet.findUnique({ where: { id: 'wallet-plateforme-tikexo' } });
 
-  // 7. Calculer les frais
-  // - fraisBenef    : 5 % du montant, prélevé en plus sur le wallet bénéficiaire
-  // - fraisCommercant : 5 % du montant, déduit de ce que reçoit le commerçant
-  // - commissionTikexo (total) = fraisBenef + fraisCommercant = 10 %
-  // - Bénéficiaire débité    : montantTotal + fraisBenef  (× 1.05)
-  // - Commerçant crédité     : montantTotal − fraisCommercant (× 0.95)
-  // - Plateforme créditée    : fraisBenef + fraisCommercant  (× 0.10)
+  // 7. Calculer les frais — taux propre au marchand (négociable par l'admin,
+  // commercant.taux_commission), appliqué symétriquement des deux côtés comme
+  // avant (fallback TAUX_COMMISSION_DEFAUT si jamais le champ était absent).
+  // - fraisBenef    : taux % du montant, prélevé en plus sur le wallet bénéficiaire
+  // - fraisCommercant : taux % du montant, déduit de ce que reçoit le commerçant
+  // - commissionTikexo (total) = fraisBenef + fraisCommercant
+  // - Bénéficiaire débité    : montantTotal + fraisBenef
+  // - Commerçant crédité     : montantTotal − fraisCommercant
+  // - Plateforme créditée    : fraisBenef + fraisCommercant
   // Le XOF n'a pas de sous-unité (pas de centime) — arrondir au franc entier,
   // pas au centime. Sinon le wallet accumule des soldes fractionnaires
   // (ex: 894.37 XOF) que FedaPay/mobile money ne peuvent pas transférer tels
   // quels, créant un écart silencieux entre ce que le ledger croit avoir versé
   // et ce qui atterrit réellement chez le commerçant.
-  const fraisBenef       = Math.round(montantTotal * TAUX_FRAIS_BENEF);
-  const fraisCommercant  = Math.round(montantTotal * TAUX_FRAIS_COMMERCANT);
+  const tauxCommission = (commercant.taux_commission != null
+    ? parseFloat(commercant.taux_commission.toString())
+    : TAUX_COMMISSION_DEFAUT) / 100;
+  const fraisBenef       = Math.round(montantTotal * tauxCommission);
+  const fraisCommercant  = Math.round(montantTotal * tauxCommission);
   const commissionTikexo = fraisBenef + fraisCommercant;
   const montantCommercant = montantTotal - fraisCommercant;
 

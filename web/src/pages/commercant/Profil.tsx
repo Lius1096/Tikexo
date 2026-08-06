@@ -7,24 +7,8 @@ import {
 } from 'lucide-react';
 import api from '../../lib/api';
 import { fmt, fmtDate } from '../../utils/format';
-
-const DOC_LABELS: Record<string, string> = {
-  PIECE_IDENTITE_GERANT: "Pièce d'identité du gérant",
-  JUSTIFICATIF_IFU: 'Justificatif IFU',
-};
-
-const DOC_STATUT: Record<string, { label: string; cls: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700' },
-  VALIDE:     { label: 'Validé',     cls: 'bg-emerald-50 text-emerald-700' },
-  REJETE:     { label: 'Rejeté',     cls: 'bg-red-50 text-red-700' },
-};
-
-const PAYOUT_STATUT: Record<string, { label: string; cls: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-700' },
-  VALIDE:     { label: 'Traité',     cls: 'bg-emerald-50 text-emerald-700' },
-  ECHOUE:     { label: 'Échoué',     cls: 'bg-red-50 text-red-700' },
-  REMBOURSE:  { label: 'Remboursé',  cls: 'bg-blue-50 text-blue-700' },
-};
+import { useToast } from '../../components/Toaster';
+import { TYPE_COMMERCANT_LABELS, DOC_TYPE_LABELS, DOC_STATUT, PAYOUT_STATUT } from '../../lib/commercantConstants';
 
 interface Fiche {
   id: string;
@@ -60,6 +44,7 @@ interface Payout {
 
 export default function CommercantProfil() {
   const qc = useQueryClient();
+  const { error: toastError } = useToast();
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Partial<Fiche>>({});
 
@@ -83,6 +68,7 @@ export default function CommercantProfil() {
   const modifierMut = useMutation({
     mutationFn: () => api.put(`/commercants/${fiche!.id}`, form),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['commercant-moi'] }); setEditMode(false); },
+    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de l\'enregistrement'),
   });
 
   const uploadMut = useMutation({
@@ -93,6 +79,7 @@ export default function CommercantProfil() {
       return api.post('/commercants/moi/documents', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['commercant-documents', fiche?.id] }),
+    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de l\'envoi du document'),
   });
 
   function startEdit() {
@@ -107,8 +94,14 @@ export default function CommercantProfil() {
 
   function onFileSelected(type: string, e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
-    if (f) uploadMut.mutate({ type, fichier: f });
     e.target.value = '';
+    if (!f) return;
+    if (f.size > 10 * 1024 * 1024) { toastError('Fichier trop volumineux — 10 Mo maximum'); return; }
+    if (!['image/jpeg', 'image/png', 'application/pdf'].includes(f.type)) {
+      toastError('Format non accepté — JPG, PNG ou PDF uniquement');
+      return;
+    }
+    uploadMut.mutate({ type, fichier: f });
   }
 
   const docParType = (type: string) => documents?.find((d) => d.type === type);
@@ -182,7 +175,7 @@ export default function CommercantProfil() {
           <div className="divide-y divide-slate-50">
             {[
               { icon: Store, label: 'Nom',            value: fiche.nom },
-              { icon: Store, label: 'Type',           value: fiche.type },
+              { icon: Store, label: 'Type',           value: TYPE_COMMERCANT_LABELS[fiche.type] || fiche.type },
               { icon: Phone, label: 'Mobile Money',   value: `${fiche.mobile_money_numero} (${fiche.mobile_money_operateur})` },
               { icon: MapPin, label: 'Adresse',       value: fiche.adresse ?? '—' },
               { icon: MapPin, label: 'Ville',         value: fiche.ville },
@@ -210,7 +203,7 @@ export default function CommercantProfil() {
             <span className="text-[10px] text-slate-400 ml-auto">Optionnel</span>
           </div>
           <div className="divide-y divide-slate-50">
-            {Object.entries(DOC_LABELS).map(([type, label]) => {
+            {Object.entries(DOC_TYPE_LABELS).map(([type, label]) => {
               const doc = docParType(type);
               const st = doc ? DOC_STATUT[doc.statut] : null;
               return (

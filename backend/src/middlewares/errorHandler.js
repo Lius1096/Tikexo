@@ -77,6 +77,28 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  // Erreurs Multer (taille de fichier, etc.) et rejets de fileFilter (format
+  // non accepté) — sans ça, ces deux cas tombent dans le générique 500 et
+  // perdent le message clair destiné à l'utilisateur.
+  if (err.name === 'MulterError') {
+    const messages = {
+      LIMIT_FILE_SIZE: 'Fichier trop volumineux',
+      LIMIT_UNEXPECTED_FILE: 'Fichier inattendu',
+    };
+    return res.status(400).json({
+      success: false,
+      error: messages[err.code] || err.message,
+      code: err.code,
+    });
+  }
+  if (/Format non accepté/.test(err.message)) {
+    return res.status(400).json({
+      success: false,
+      error: err.message,
+      code: 'FORMAT_FICHIER_INVALIDE',
+    });
+  }
+
   // Erreurs de validation express-validator
   if (err.type === 'VALIDATION') {
     return res.status(400).json({

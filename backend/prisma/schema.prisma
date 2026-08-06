@@ -576,7 +576,6 @@ enum TypeCommercantDocument {
 
 enum StatutCommercant {
   SOUMIS
-  EN_VERIFICATION
   VALIDE
   ACTIF
   SUSPENDU

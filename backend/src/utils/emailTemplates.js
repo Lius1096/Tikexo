@@ -407,6 +407,80 @@ function reactivationCompte(prenom, entreprise, motDePasse) {
   return { html, text };
 }
 
+/**
+ * Compte commerçant activé — le marchand peut se connecter et encaisser.
+ */
+function commercantActive(nomCommercant, nomContact) {
+  const html = layout({
+    titre: 'Votre compte commerçant TIKEXO est actif',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
+      <div style="background:#f0fdf4;border-left:4px solid ${COULEUR_SUCCES};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0;color:${COULEUR_SUCCES};font-weight:600">
+          ✓ ${nomCommercant} est maintenant actif sur TIKEXO.
+        </p>
+      </div>
+      <p style="color:#555;margin:0 0 16px">
+        Vous pouvez dès maintenant vous connecter avec l'email et le mot de passe utilisés lors de votre inscription, encaisser vos clients et suivre vos reversements.
+      </p>
+      <p style="color:#888;font-size:13px;margin:0">
+        Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+      </p>
+    `,
+    bouton: { label: 'Accéder à mon espace commerçant', url: 'https://tikexo.bj/restaurant/connexion' },
+  });
+
+  const text = `Bonjour ${nomContact},\n\n${nomCommercant} est maintenant actif sur TIKEXO.\n\nConnectez-vous sur tikexo.bj/restaurant/connexion avec vos identifiants d'inscription.\n\nSupport : support@tikexo.bj`;
+
+  return { html, text };
+}
+
+/**
+ * Document KYC commerçant validé.
+ */
+function commercantDocumentValide(nomContact, typeDocument) {
+  const html = layout({
+    titre: 'Document validé',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
+      <div style="background:#f0fdf4;border-left:4px solid ${COULEUR_SUCCES};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0;color:${COULEUR_SUCCES}">✓ Votre document « ${typeDocument} » a été validé.</p>
+      </div>
+    `,
+  });
+
+  const text = `Bonjour ${nomContact},\n\nVotre document « ${typeDocument} » a été validé sur TIKEXO.`;
+
+  return { html, text };
+}
+
+/**
+ * Document KYC commerçant rejeté.
+ */
+function commercantDocumentRejete(nomContact, typeDocument, motif) {
+  const html = layout({
+    titre: 'Document à renvoyer',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
+      <p style="color:#555;margin:0 0 16px">
+        Votre document « ${typeDocument} » n'a pas pu être validé.
+      </p>
+      <div style="background:#fff5f5;border-left:4px solid ${COULEUR_ALERTE};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase">Motif</p>
+        <p style="margin:0;color:${COULEUR_ALERTE}">${motif}</p>
+      </div>
+      <p style="color:#555;margin:0">
+        Merci de renvoyer un nouveau document depuis votre espace commerçant.
+      </p>
+    `,
+    bouton: { label: 'Renvoyer un document', url: 'https://tikexo.bj/restaurant/connexion' },
+  });
+
+  const text = `Bonjour ${nomContact},\n\nVotre document « ${typeDocument} » n'a pas pu être validé.\n\nMotif : ${motif}\n\nRenvoyez un nouveau document depuis votre espace commerçant : tikexo.bj/restaurant/connexion`;
+
+  return { html, text };
+}
+
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
@@ -420,4 +494,7 @@ module.exports = {
   dotationRecue,
   rechargeConfirmee,
   alerteInterne,
+  commercantActive,
+  commercantDocumentValide,
+  commercantDocumentRejete,
 };

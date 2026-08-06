@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ArrowLeftRight, QrCode, User, LogOut, ShoppingBag, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, QrCode, User, LogOut, ShoppingBag, Menu, X, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
+
+const MESSAGES_STATUT: Record<string, string> = {
+  SOUMIS: "Votre dossier est en cours d'examen par l'équipe TIKEXO — vous serez notifié dès qu'il sera validé.",
+  VALIDE: "Votre dossier est validé — l'activation de votre compte (encaissement, QR code) est en cours par l'équipe TIKEXO.",
+  SUSPENDU: 'Compte suspendu — encaissement et reversement désactivés. Contactez le support TIKEXO pour en savoir plus.',
+  ARCHIVE: 'Ce compte a été archivé.',
+};
 
 const NAV = [
   { path: '/commercant',              label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
@@ -25,6 +34,14 @@ export function CommercantLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const { data: fiche } = useQuery({
+    queryKey: ['commercant-moi'],
+    queryFn: () => api.get('/commercants/moi').then((r) => r.data.data),
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+  const messageStatut = fiche && fiche.statut !== 'ACTIF' ? MESSAGES_STATUT[fiche.statut] : null;
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
@@ -114,6 +131,21 @@ export function CommercantLayout() {
             {initials}
           </div>
         </div>
+
+        {/* Bannière statut — visible sur tout l'espace commerçant tant que le
+            compte n'est pas ACTIF, pour ne pas laisser un marchand suspendu
+            croire que la Caisse/le QR code fonctionnent normalement. */}
+        {messageStatut && (
+          <div className={clsx(
+            'flex items-center gap-2 px-4 py-2.5 text-xs flex-shrink-0',
+            fiche.statut === 'SUSPENDU' || fiche.statut === 'ARCHIVE'
+              ? 'bg-red-50 text-red-700 border-b border-red-100'
+              : 'bg-amber-50 text-amber-700 border-b border-amber-100'
+          )}>
+            <AlertTriangle size={14} className="flex-shrink-0" />
+            <span>{messageStatut}</span>
+          </div>
+        )}
 
         {/* Content */}
         <main className="flex-1 overflow-auto bg-slate-100 pb-[64px] md:pb-0">

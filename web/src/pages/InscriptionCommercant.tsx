@@ -26,12 +26,13 @@ interface FormData {
   mobile_money_operateur: string;
   adresse: string;
   ville: string;
+  villeAutre: string;
   ifu: string;
 }
 
 const EMPTY: FormData = {
   nom: '', type: '', email: '', mot_de_passe: '', confirmer_mot_de_passe: '',
-  telephone: '', mobile_money_operateur: 'MTN', adresse: '', ville: '', ifu: '',
+  telephone: '', mobile_money_operateur: 'MTN', adresse: '', ville: '', villeAutre: '', ifu: '',
 };
 
 export default function InscriptionCommercant() {
@@ -51,11 +52,16 @@ export default function InscriptionCommercant() {
   const emailValide = form.email.includes('@') && form.email.includes('.');
   const pwdValide   = form.mot_de_passe.length >= 8;
   const pwdMatch    = form.mot_de_passe === form.confirmer_mot_de_passe && form.confirmer_mot_de_passe.length > 0;
-  const telValide   = form.telephone.replace(/\D/g, '').length >= 8;
+  // Le backend (normaliserTelephone) n'accepte que 8 chiffres (ancien format
+  // national) ou 10 (nouveau format, depuis 2024) après l'indicatif +229 —
+  // tout le reste (9, 11+ chiffres) est rejeté côté serveur.
+  const telDigits   = form.telephone.replace(/\D/g, '');
+  const telValide   = telDigits.length === 8 || telDigits.length === 10;
+  const villeValide = form.ville && (form.ville !== 'Autre' || form.villeAutre.trim());
 
   const valide =
     form.nom.trim() && form.type && emailValide && pwdValide && pwdMatch &&
-    telValide && form.adresse.trim() && form.ville;
+    telValide && form.adresse.trim() && villeValide;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +76,7 @@ export default function InscriptionCommercant() {
         telephone:              `+229${form.telephone.replace(/\D/g, '')}`,
         mobile_money_operateur: form.mobile_money_operateur,
         adresse:                form.adresse,
-        ville:                  form.ville,
+        ville:                  form.ville === 'Autre' ? form.villeAutre.trim() : form.ville,
         ifu:                    form.ifu || undefined,
       });
       setSucces(true);
@@ -92,7 +98,7 @@ export default function InscriptionCommercant() {
           <div style={{ fontSize: '13px', color: '#64748B', lineHeight: 1.7, marginBottom: '24px' }}>
             Votre dossier commerçant a bien été reçu.<br />
             Un email de confirmation a été envoyé à <strong style={{ color: '#1A3C5E' }}>{form.email}</strong>.<br /><br />
-            L'équipe TIKEXO examinera votre demande sous <strong>48h ouvrées</strong>. Une fois validé, connectez-vous sur le portail commerçant avec votre email et mot de passe.
+            L'équipe TIKEXO examine votre demande sous <strong>48h ouvrées</strong>, puis active votre compte — vous recevrez un email dès que ce sera fait. Vous pourrez alors vous connecter avec votre email et mot de passe.
           </div>
           <button
             onClick={() => navigate('/restaurant/connexion')}
@@ -241,6 +247,9 @@ export default function InscriptionCommercant() {
                     style={{ flex: 1, border: 'none', background: 'transparent', padding: '9px 12px 9px 0', fontSize: '13px', color: '#1E293B', outline: 'none' }}
                   />
                 </div>
+                {form.telephone.length > 0 && !telValide && (
+                  <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '3px' }}>Numéro invalide — 8 ou 10 chiffres après +229</div>
+                )}
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#475569', marginBottom: '6px', letterSpacing: '0.3px' }}>OPÉRATEUR</label>
@@ -277,6 +286,18 @@ export default function InscriptionCommercant() {
                 </select>
               </div>
             </div>
+
+            {form.ville === 'Autre' && (
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#475569', marginBottom: '6px', letterSpacing: '0.3px' }}>PRÉCISER LA VILLE <span style={{ color: '#EF4444' }}>*</span></label>
+                <input
+                  value={form.villeAutre}
+                  onChange={e => patch({ villeAutre: e.target.value })}
+                  placeholder="ex : Lokossa"
+                  style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 12px', fontSize: '13px', color: '#1E293B', background: '#F8FAFC', outline: 'none', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
 
             {/* IFU optionnel */}
             <div>

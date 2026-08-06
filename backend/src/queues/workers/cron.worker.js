@@ -87,6 +87,14 @@ const worker = new Worker('cron', async (job) => {
       return { factures, soldeInsuffisant };
     }
 
+    case 'reset-volume-mensuel-commercants': {
+      const result = await prisma.commercant.updateMany({
+        data: { volume_mensuel_cumule: 0 },
+      });
+      logger.info('[QUEUE:CRON] Volume mensuel commerçants remis à zéro', { lignes: result.count });
+      return { lignes: result.count };
+    }
+
     default:
       logger.warn('[QUEUE:CRON] Job inconnu', { name: job.name });
   }

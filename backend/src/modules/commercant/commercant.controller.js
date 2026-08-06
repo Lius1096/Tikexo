@@ -49,6 +49,9 @@ async function activer(req, res, next) {
 async function suspendre(req, res, next) {
   try { res.json({ success: true, data: await service.suspendre(req.params.id, req.user.id) }); } catch (e) { next(e); }
 }
+async function archiver(req, res, next) {
+  try { res.json({ success: true, data: await service.archiver(req.params.id, req.user.id) }); } catch (e) { next(e); }
+}
 async function parProximite(req, res, next) {
   try { res.json({ success: true, data: await service.parProximite(req.query) }); } catch (e) { next(e); }
 }
@@ -60,6 +63,15 @@ async function getMoi(req, res, next) {
   try {
     const data = await service.getByUserId(req.user.id);
     if (!data) return res.status(404).json({ success: false, error: 'Profil commerçant introuvable' });
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function getMesStats(req, res, next) {
+  try {
+    const prisma = require('../../config/database');
+    const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
+    const data = await service.getStats(commercant.id);
     res.json({ success: true, data });
   } catch (e) { next(e); }
 }
@@ -105,7 +117,7 @@ async function getPayouts(req, res, next) {
 }
 
 module.exports = {
-  lister, creer, getById, modifier, valider, activer, suspendre, parProximite, nearby, fiche,
-  regenererQRCode, getMoi, demanderPayout, uploaderDocument, getDocuments, validerDocument,
+  lister, creer, getById, modifier, valider, activer, suspendre, archiver, parProximite, nearby, fiche,
+  regenererQRCode, getMoi, getMesStats, demanderPayout, uploaderDocument, getDocuments, validerDocument,
   rejeterDocument, getTransactions, getPayouts,
 };

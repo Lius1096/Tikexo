@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { QrCode, RefreshCw, Download } from 'lucide-react';
+import { QrCode, RefreshCw, Download, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../components/Toaster';
 
 export default function CommercantQRCode() {
   const { user } = useAuth();
   const qc = useQueryClient();
+  const { error: toastError } = useToast();
+  const [downloading, setDownloading] = useState(false);
 
   const { data: fiche, isLoading } = useQuery({
     queryKey: ['commercant-moi'],
@@ -14,17 +17,34 @@ export default function CommercantQRCode() {
     enabled: !!user,
   });
 
+  const estActif = fiche?.statut === 'ACTIF';
+
   const regen = useMutation({
     mutationFn: () => api.post(`/commercants/${fiche?.id}/qrcode`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['commercant-moi'] }),
+    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de la régénération'),
   });
 
-  const handleDownload = () => {
+  // fetch + blob : un simple <a href=cloudinaryUrl download> ne déclenche pas
+  // le téléchargement pour une URL cross-origin (le navigateur l'ouvre à la
+  // place) — on récupère le fichier nous-mêmes pour forcer le download.
+  const handleDownload = async () => {
     if (!fiche?.qr_code_url) return;
-    const a = document.createElement('a');
-    a.href = fiche.qr_code_url;
-    a.download = `qr-tikexo-${fiche.nom?.replace(/\s+/g, '-').toLowerCase()}.png`;
-    a.click();
+    setDownloading(true);
+    try {
+      const res = await fetch(fiche.qr_code_url);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qr-tikexo-${fiche.nom?.replace(/\s+/g, '-').toLowerCase()}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toastError('Échec du téléchargement du QR code');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -63,7 +83,8 @@ export default function CommercantQRCode() {
         <div className="flex gap-3 w-full max-w-xs">
           <button
             onClick={() => regen.mutate()}
-            disabled={regen.isPending || isLoading || !fiche}
+            disabled={regen.isPending || isLoading || !fiche || !estActif}
+            title={!estActif ? 'Disponible une fois le compte actif' : undefined}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
           >
             <RefreshCw size={14} className={regen.isPending ? 'animate-spin' : ''} />
@@ -72,14 +93,21 @@ export default function CommercantQRCode() {
           {fiche?.qr_code_url && (
             <button
               onClick={handleDownload}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-tikexo-gold text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              disabled={downloading || !estActif}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-tikexo-gold text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <Download size={14} />
+              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
               Télécharger
             </button>
           )}
         </div>
       </div>
+
+      {!estActif && fiche && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700 leading-relaxed">
+          Le QR code ne sera scannable qu'une fois votre compte actif.
+        </div>
+      )}
 
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700 leading-relaxed">
         <strong>Comment ça marche ?</strong> Le client scanne ce QR code depuis l'application mobile TIKEXO et confirme le montant à payer. Le paiement est instantané et sécurisé.

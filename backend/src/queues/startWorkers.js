@@ -37,6 +37,11 @@ function startWorkers() {
     jobId: 'cron-facturation-mensuelle',
   });
 
+  cronQueue.add('reset-volume-mensuel-commercants', {}, {
+    repeat: { pattern: '0 0 1 * *' }, // 1er de chaque mois à minuit, avant la facturation de 9h
+    jobId: 'cron-reset-volume-mensuel-commercants',
+  });
+
   logger.info('[TIKEXO QUEUES] Jobs cron enregistrés');
 }
 

@@ -1,6 +1,13 @@
 // Service commerçant TIKEXO
 const prisma = require('../../config/database');
 const { genererQRCodeCommercant } = require('../../utils/qrcode');
+const { envoyerEmailAsync } = require('../../utils/email');
+const { logger } = require('../../middlewares/errorHandler');
+const {
+  commercantActive,
+  commercantDocumentValide,
+  commercantDocumentRejete,
+} = require('../../utils/emailTemplates');
 const {
   calculerDistance,
   formaterDistance,
@@ -9,7 +16,25 @@ const {
   TIMEZONE_BENIN,
 } = require('../../utils/geo');
 
+/**
+ * Vérifie qu'une transition d'état part bien d'un des statuts autorisés —
+ * sans ça, activer()/valider()/suspendre() pourraient être appelées dans
+ * n'importe quel ordre (ex: activer directement un SOUMIS en sautant la
+ * validation du dossier).
+ */
+function assertTransition(statutActuel, statutsAutorises, action) {
+  if (!statutsAutorises.includes(statutActuel)) {
+    const err = new Error(
+      `Impossible de ${action} un commerçant au statut ${statutActuel} — statuts autorisés : ${statutsAutorises.join(', ')}`
+    );
+    err.statusCode = 409;
+    err.code = 'TRANSITION_INVALIDE';
+    throw err;
+  }
+}
+
 const MAX_RESULTATS_NEARBY = 20;
+const TYPES_COMMERCANT_VALIDES = ['RESTAURANT', 'BOULANGERIE', 'EPICERIE', 'TRAITEUR', 'CAFETERIA', 'LIVRAISON', 'SUPERMARCHE'];
 
 async function lister(filtres = {}) {
   const { ville, type, q } = filtres;
@@ -46,39 +71,49 @@ async function lister(filtres = {}) {
 }
 
 async function creer(data, creePar) {
-  const user = await prisma.user.create({
-    data: {
-      telephone: data.telephone,
-      nom: data.nom,
-      prenom: data.prenom || 'Gérant',
-      email_perso: data.email,
-      role: 'COMMERCANT',
-      statut: 'INACTIF',
-      kyc_niveau: 'KYB',
-    },
-  });
+  if (!TYPES_COMMERCANT_VALIDES.includes(data.type)) {
+    const err = new Error("Type d'établissement invalide");
+    err.statusCode = 400;
+    throw err;
+  }
 
-  const commercant = await prisma.commercant.create({
-    data: {
-      user_id: user.id,
-      nom: data.nom,
-      type: data.type,
-      ifu: data.ifu || null,
-      niveau: data.ifu ? 'VERIFIE' : 'SIMPLIFIE',
-      mobile_money_numero: data.mobile_money_numero,
-      mobile_money_operateur: data.mobile_money_operateur,
-      adresse: data.adresse,
-      ville: data.ville || 'Cotonou',
-      statut: 'SOUMIS',
-    },
-  });
+  // Transaction : user + commercant + wallet — évite un compte orphelin si
+  // une des créations échoue après que les précédentes ont réussi (même
+  // pattern que inscrireCommercant côté self-service).
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        telephone: data.telephone,
+        nom: data.nom,
+        prenom: data.prenom || 'Gérant',
+        email_perso: data.email,
+        role: 'COMMERCANT',
+        statut: 'INACTIF',
+        kyc_niveau: 'KYB',
+      },
+    });
 
-  // Créer le wallet commerçant
-  await prisma.wallet.create({
-    data: { user_id: user.id, type: 'COMMERCANT', currency: 'XOF' },
-  });
+    const commercant = await tx.commercant.create({
+      data: {
+        user_id: user.id,
+        nom: data.nom,
+        type: data.type,
+        ifu: data.ifu || null,
+        niveau: data.ifu ? 'VERIFIE' : 'SIMPLIFIE',
+        mobile_money_numero: data.mobile_money_numero,
+        mobile_money_operateur: data.mobile_money_operateur,
+        adresse: data.adresse,
+        ville: data.ville || 'Cotonou',
+        statut: 'SOUMIS',
+      },
+    });
 
-  return commercant;
+    await tx.wallet.create({
+      data: { user_id: user.id, type: 'COMMERCANT', currency: 'XOF' },
+    });
+
+    return commercant;
+  });
 }
 
 async function getById(id) {
@@ -105,6 +140,9 @@ async function modifier(id, data, role) {
 }
 
 async function valider(id, adminId) {
+  const existant = await prisma.commercant.findUniqueOrThrow({ where: { id } });
+  assertTransition(existant.statut, ['SOUMIS'], 'valider');
+
   const commercant = await prisma.commercant.update({
     where: { id },
     data: { statut: 'VALIDE' },
@@ -118,7 +156,11 @@ async function valider(id, adminId) {
 }
 
 async function activer(id, adminId) {
-  const commercant = await prisma.commercant.findUniqueOrThrow({ where: { id } });
+  const commercant = await prisma.commercant.findUniqueOrThrow({
+    where: { id },
+    include: { user: { select: { email_perso: true, nom: true, prenom: true } } },
+  });
+  assertTransition(commercant.statut, ['VALIDE', 'SUSPENDU'], 'activer');
 
   const qrResult = await genererQRCodeCommercant(id, commercant.nom);
 
@@ -136,10 +178,20 @@ async function activer(id, adminId) {
     data: { user_id: adminId, action: 'COMMERCANT_ACTIVE', entite: 'Commercant', entite_id: id },
   });
 
+  if (commercant.user.email_perso) {
+    const nomContact = `${commercant.user.prenom || ''} ${commercant.user.nom || ''}`.trim() || commercant.nom;
+    const { html, text } = commercantActive(commercant.nom, nomContact);
+    envoyerEmailAsync({ to: commercant.user.email_perso, subject: 'TIKEXO — Votre compte commerçant est actif', html, text })
+      .catch((e) => logger.warn('TIKEXO — Email activation commerçant échoué', { err: e.message, id }));
+  }
+
   return updated;
 }
 
 async function suspendre(id, adminId) {
+  const existant = await prisma.commercant.findUniqueOrThrow({ where: { id } });
+  assertTransition(existant.statut, ['ACTIF'], 'suspendre');
+
   const commercant = await prisma.commercant.update({
     where: { id },
     data: { statut: 'SUSPENDU' },
@@ -147,6 +199,22 @@ async function suspendre(id, adminId) {
 
   await prisma.auditLog.create({
     data: { user_id: adminId, action: 'COMMERCANT_SUSPENDU', entite: 'Commercant', entite_id: id },
+  });
+
+  return commercant;
+}
+
+async function archiver(id, adminId) {
+  const existant = await prisma.commercant.findUniqueOrThrow({ where: { id } });
+  assertTransition(existant.statut, ['ACTIF', 'SUSPENDU'], 'archiver');
+
+  const commercant = await prisma.commercant.update({
+    where: { id },
+    data: { statut: 'ARCHIVE' },
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'COMMERCANT_ARCHIVE', entite: 'Commercant', entite_id: id },
   });
 
   return commercant;
@@ -255,6 +323,10 @@ async function regenererQRCode(id) {
 // ── KYC commerçant — volontairement léger, jamais bloquant ────────────────
 // (cf. commentaire schema.prisma sur CommercantDocument)
 const TYPES_DOCUMENT_COMMERCANT = ['PIECE_IDENTITE_GERANT', 'JUSTIFICATIF_IFU'];
+const LABEL_TYPE_DOCUMENT = {
+  PIECE_IDENTITE_GERANT: "Pièce d'identité du gérant",
+  JUSTIFICATIF_IFU: 'Justificatif IFU',
+};
 
 async function ajouterDocument(commercantId, type, fichier) {
   if (!TYPES_DOCUMENT_COMMERCANT.includes(type)) {
@@ -272,13 +344,30 @@ async function ajouterDocument(commercantId, type, fichier) {
 }
 
 async function getDocuments(commercantId) {
-  return prisma.commercantDocument.findMany({
+  const documents = await prisma.commercantDocument.findMany({
     where: { commercant_id: commercantId },
     orderBy: { createdAt: 'desc' },
+  });
+  // Un même type peut avoir plusieurs soumissions (re-upload après rejet) —
+  // seul le plus récent par type est "courant", les autres sont un historique.
+  const typesVus = new Set();
+  return documents.map((doc) => {
+    const estCourant = !typesVus.has(doc.type);
+    typesVus.add(doc.type);
+    return { ...doc, estCourant };
+  });
+}
+
+async function getDocumentAvecContact(docId) {
+  return prisma.commercantDocument.findUniqueOrThrow({
+    where: { id: docId },
+    include: { commercant: { include: { user: { select: { email_perso: true, nom: true, prenom: true } } } } },
   });
 }
 
 async function validerDocument(adminId, docId) {
+  const avant = await getDocumentAvecContact(docId);
+
   const doc = await prisma.commercantDocument.update({
     where: { id: docId },
     data: { statut: 'VALIDE', valide_par: adminId, valide_at: new Date() },
@@ -286,6 +375,15 @@ async function validerDocument(adminId, docId) {
   await prisma.auditLog.create({
     data: { user_id: adminId, action: 'COMMERCANT_DOCUMENT_VALIDE', entite: 'CommercantDocument', entite_id: docId },
   });
+
+  const contact = avant.commercant.user;
+  if (contact.email_perso) {
+    const nomContact = `${contact.prenom || ''} ${contact.nom || ''}`.trim() || avant.commercant.nom;
+    const { html, text } = commercantDocumentValide(nomContact, LABEL_TYPE_DOCUMENT[avant.type] || avant.type);
+    envoyerEmailAsync({ to: contact.email_perso, subject: 'TIKEXO — Document validé', html, text })
+      .catch((e) => logger.warn('TIKEXO — Email validation document commerçant échoué', { err: e.message, docId }));
+  }
+
   return doc;
 }
 
@@ -295,6 +393,9 @@ async function rejeterDocument(adminId, docId, motif) {
     err.statusCode = 400; err.code = 'MOTIF_TROP_COURT';
     throw err;
   }
+
+  const avant = await getDocumentAvecContact(docId);
+
   const doc = await prisma.commercantDocument.update({
     where: { id: docId },
     data: { statut: 'REJETE', motif_rejet: motif.trim(), rejete_par: adminId, rejete_at: new Date() },
@@ -302,6 +403,15 @@ async function rejeterDocument(adminId, docId, motif) {
   await prisma.auditLog.create({
     data: { user_id: adminId, action: 'COMMERCANT_DOCUMENT_REJETE', entite: 'CommercantDocument', entite_id: docId },
   });
+
+  const contact = avant.commercant.user;
+  if (contact.email_perso) {
+    const nomContact = `${contact.prenom || ''} ${contact.nom || ''}`.trim() || avant.commercant.nom;
+    const { html, text } = commercantDocumentRejete(nomContact, LABEL_TYPE_DOCUMENT[avant.type] || avant.type, motif.trim());
+    envoyerEmailAsync({ to: contact.email_perso, subject: 'TIKEXO — Document à renvoyer', html, text })
+      .catch((e) => logger.warn('TIKEXO — Email rejet document commerçant échoué', { err: e.message, docId }));
+  }
+
   return doc;
 }
 
@@ -333,6 +443,33 @@ async function getPayouts(commercantId) {
   });
 }
 
+async function getStats(commercantId) {
+  const debutJour = new Date();
+  debutJour.setHours(0, 0, 0, 0);
+  const finJour = new Date();
+  finJour.setHours(23, 59, 59, 999);
+
+  const [agregJour, agregTotal] = await Promise.all([
+    prisma.transaction.aggregate({
+      where: { commercant_id: commercantId, statut: 'VALIDEE', createdAt: { gte: debutJour, lte: finJour } },
+      _sum: { montant_total: true },
+      _count: true,
+    }),
+    prisma.transaction.aggregate({
+      where: { commercant_id: commercantId, statut: 'VALIDEE' },
+      _sum: { montant_total: true },
+      _count: true,
+    }),
+  ]);
+
+  return {
+    volume_jour: parseFloat(agregJour._sum.montant_total || 0),
+    transactions_jour: agregJour._count,
+    volume_total: parseFloat(agregTotal._sum.montant_total || 0),
+    transactions_total: agregTotal._count,
+  };
+}
+
 async function getByUserId(userId) {
   const result = await prisma.commercant.findUnique({
     where: { user_id: userId },
@@ -348,7 +485,7 @@ async function getByUserId(userId) {
 }
 
 module.exports = {
-  lister, creer, getById, getByUserId, modifier, valider, activer, suspendre,
+  lister, creer, getById, getByUserId, getStats, modifier, valider, activer, suspendre, archiver,
   rechercherCommercantsProches, getFicheCommercant, parProximite,
   regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
   getTransactions, getPayouts,

@@ -19,13 +19,19 @@ export default function CommercantDashboard() {
       queryClient.invalidateQueries({ queryKey: ['commercant-moi'] });
     },
     onError: (err: any) => {
-      setPayoutMsg(err?.response?.data?.message ?? 'Erreur lors de la demande de reversement.');
+      setPayoutMsg(err?.response?.data?.error ?? 'Erreur lors de la demande de reversement.');
     },
   });
 
   const { data: fiche, isLoading: loadFiche } = useQuery({
     queryKey: ['commercant-moi'],
     queryFn: () => api.get('/commercants/moi').then((r) => r.data.data),
+    enabled: !!user,
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ['commercant-stats'],
+    queryFn: () => api.get('/commercants/moi/stats').then((r) => r.data.data),
     enabled: !!user,
   });
 
@@ -37,14 +43,10 @@ export default function CommercantDashboard() {
 
   const solde = parseFloat(fiche?.wallet?.solde ?? 0);
   const transactions: any[] = txData?.items ?? [];
+  const estActif = fiche?.statut === 'ACTIF';
 
-  const volumeJour = transactions
-    .filter((t) => {
-      const d = new Date(t.createdAt);
-      const now = new Date();
-      return d.toDateString() === now.toDateString() && t.statut === 'VALIDEE';
-    })
-    .reduce((s, t) => s + parseFloat(t.montant_net ?? t.montant_total ?? 0), 0);
+  const volumeJour = stats?.volume_jour ?? 0;
+  const transactionsJour = stats?.transactions_jour ?? 0;
 
   return (
     <div className="p-6 space-y-5">
@@ -81,7 +83,8 @@ export default function CommercantDashboard() {
           </div>
           <button
             onClick={() => { setPayoutMsg(null); payoutMutation.mutate(); }}
-            disabled={payoutMutation.isPending || solde < SEUIL_PAYOUT}
+            disabled={payoutMutation.isPending || solde < SEUIL_PAYOUT || !estActif}
+            title={!estActif ? 'Indisponible tant que votre compte n\'est pas actif' : undefined}
             className="flex items-center gap-1.5 bg-tikexo-gold/90 hover:bg-tikexo-gold disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
           >
             {payoutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
@@ -107,7 +110,7 @@ export default function CommercantDashboard() {
             <ShoppingBag size={14} className="text-tikexo-accent" />
             <span className="text-[11px] text-slate-500">Transactions</span>
           </div>
-          <div className="text-sm font-semibold text-slate-900">{transactions.length}</div>
+          <div className="text-sm font-semibold text-slate-900">{transactionsJour}</div>
         </div>
       </div>
 

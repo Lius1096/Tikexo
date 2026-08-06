@@ -309,10 +309,13 @@ async function loginEmail(emailRaw, motDePasse) {
   }
 
   if (user.statut === 'INACTIF') {
+    const messagesParRole = {
+      ADMIN_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
+      GESTIONNAIRE_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
+      COMMERCANT: "Votre dossier commerçant est en cours d'examen par l'équipe TIKEXO. Vous serez notifié par email dès l'activation de votre compte.",
+    };
     const err = new Error(
-      ['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(user.role)
-        ? 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.'
-        : "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
+      messagesParRole[user.role] || "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
     );
     err.statusCode = 403;
     err.code = 'COMPTE_INACTIF';

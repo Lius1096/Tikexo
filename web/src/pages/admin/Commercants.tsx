@@ -9,6 +9,11 @@ import {
 import api from '../../lib/api';
 import { fmt, fmtDate } from '../../utils/format';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
+import { useToast } from '../../components/Toaster';
+import {
+  TYPE_COMMERCANT_LABELS, STATUT_COMMERCANT, NIVEAU_COMMERCANT,
+  PAYOUT_STATUT, DOC_TYPE_LABELS, DOC_STATUT,
+} from '../../lib/commercantConstants';
 
 interface CommercantDocument {
   id: string;
@@ -36,27 +41,6 @@ interface CommercantPayout {
   createdAt: string;
 }
 
-const DOC_LABELS: Record<string, string> = {
-  PIECE_IDENTITE_GERANT: "Pièce d'identité du gérant",
-  JUSTIFICATIF_IFU: 'Justificatif IFU',
-};
-
-const DOC_STATUT: Record<string, { label: string; cls: string }> = {
-  EN_ATTENTE: { label: 'En attente', cls: 'bg-[#FAEEDA] text-[#854F0B]' },
-  VALIDE:     { label: 'Validé',     cls: 'bg-[#EAF3DE] text-[#3B6D11]' },
-  REJETE:     { label: 'Rejeté',     cls: 'bg-[#FCEBEB] text-[#A32D2D]' },
-};
-
-const PAYOUT_STATUT_CLS: Record<string, string> = {
-  EN_ATTENTE: 'bg-[#FAEEDA] text-[#854F0B]',
-  VALIDE:     'bg-[#EAF3DE] text-[#3B6D11]',
-  ECHOUE:     'bg-[#FCEBEB] text-[#A32D2D]',
-  REMBOURSE:  'bg-[#DBEAFE] text-[#185FA5]',
-};
-function statutPayoutCls(statut: string): string {
-  return PAYOUT_STATUT_CLS[statut] ?? 'bg-slate-100 text-slate-700';
-}
-
 // ── Types ──────────────────────────────────────────────────────────────────
 interface CommercantRow {
   id: string;
@@ -81,27 +65,6 @@ interface CommercantRow {
     wallet?: { solde: string; solde_reserve: string };
   };
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-const STATUT = {
-  SOUMIS:        { label: 'En attente',  cls: 'bg-[#FAEEDA] text-[#854F0B]' },
-  VALIDE:        { label: 'Validé',      cls: 'bg-[#DBEAFE] text-[#185FA5]' },
-  ACTIF:         { label: 'Actif',       cls: 'bg-[#EAF3DE] text-[#3B6D11]' },
-  SUSPENDU:      { label: 'Suspendu',    cls: 'bg-[#FCEBEB] text-[#A32D2D]' },
-  EN_VERIFICATION: { label: 'En vérif.', cls: 'bg-[#DBEAFE] text-[#185FA5]' },
-};
-
-const NIVEAU = {
-  SIMPLIFIE: { label: 'Simplifié', cls: 'bg-[#F1F5F9] text-[#64748B]' },
-  VERIFIE:   { label: 'Vérifié',   cls: 'bg-[#EAF3DE] text-[#3B6D11]' },
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  RESTAURANT: 'Restaurant', SUPERMARCHE: 'Supermarché', PHARMACIE: 'Pharmacie',
-  BOULANGERIE: 'Boulangerie', STATION: 'Station-service', HOTEL: 'Hôtel',
-  SANTE: 'Santé', AUTRE: 'Autre',
-};
 
 const LIMIT = 20;
 
@@ -157,8 +120,8 @@ export default function AdminCommercants() {
             ) : items.length === 0 ? (
               <tr><td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-400">Aucun commerçant</td></tr>
             ) : items.map((c) => {
-              const st = STATUT[c.statut as keyof typeof STATUT] || STATUT.SOUMIS;
-              const nv = NIVEAU[c.niveau as keyof typeof NIVEAU] || NIVEAU.SIMPLIFIE;
+              const st = STATUT_COMMERCANT[c.statut as keyof typeof STATUT_COMMERCANT] || STATUT_COMMERCANT.SOUMIS;
+              const nv = NIVEAU_COMMERCANT[c.niveau as keyof typeof NIVEAU_COMMERCANT] || NIVEAU_COMMERCANT.SIMPLIFIE;
               return (
                 <tr
                   key={c.id}
@@ -176,7 +139,7 @@ export default function AdminCommercants() {
                       <div className="text-xs font-medium text-slate-900 truncate max-w-[140px]">{c.nom}</div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{TYPE_LABELS[c.type] || c.type}</td>
+                  <td className="px-4 py-3 text-xs text-slate-600">{TYPE_COMMERCANT_LABELS[c.type] || c.type}</td>
                   <td className="px-4 py-3 text-xs text-slate-600">{c.ville}</td>
                   <td className="px-4 py-3">
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-medium', nv.cls)}>{nv.label}</span>
@@ -242,10 +205,16 @@ function CommercantDrawer({
   onUpdated: () => void;
 }) {
   const qc = useQueryClient();
+  const { error: toastError } = useToast();
   const [confirmModal, setConfirmModal] = useState<{ titre: string; message: string; onConfirmer: () => void } | null>(null);
   const [rejetModal, setRejetModal] = useState<{ docId: string; label: string } | null>(null);
   const [motif, setMotif] = useState('');
   const [motifErr, setMotifErr] = useState('');
+  const [ifuEdit, setIfuEdit] = useState<string | null>(null);
+
+  function onMutError(e: any) {
+    toastError(e?.response?.data?.error ?? 'Erreur TIKEXO');
+  }
 
   const { data: c, isLoading } = useQuery<CommercantRow>({
     queryKey: ['admin-commercant-detail', commercantId],
@@ -272,13 +241,15 @@ function CommercantDrawer({
     onUpdated();
   };
 
-  const validerMut  = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/valider`), onSuccess: inv });
-  const activerMut  = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/activer`), onSuccess: inv });
-  const suspendreMut = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/suspendre`), onSuccess: inv });
+  const validerMut  = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/valider`), onSuccess: inv, onError: onMutError });
+  const activerMut  = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/activer`), onSuccess: inv, onError: onMutError });
+  const suspendreMut = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/suspendre`), onSuccess: inv, onError: onMutError });
+  const archiverMut = useMutation({ mutationFn: () => api.post(`/commercants/${commercantId}/archiver`), onSuccess: inv, onError: onMutError });
 
   const validerDocMut = useMutation({
     mutationFn: (docId: string) => api.patch(`/commercants/documents/${docId}/valider`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-commercant-documents', commercantId] }),
+    onError: onMutError,
   });
   const rejeterDocMut = useMutation({
     mutationFn: ({ docId, motif_rejet }: { docId: string; motif_rejet: string }) =>
@@ -287,6 +258,13 @@ function CommercantDrawer({
       qc.invalidateQueries({ queryKey: ['admin-commercant-documents', commercantId] });
       setRejetModal(null); setMotif('');
     },
+    onError: onMutError,
+  });
+
+  const ifuMut = useMutation({
+    mutationFn: (ifu: string) => api.put(`/commercants/${commercantId}`, { ifu: ifu || null }),
+    onSuccess: () => { inv(); setIfuEdit(null); },
+    onError: onMutError,
   });
 
   function soumettreRejet() {
@@ -294,8 +272,8 @@ function CommercantDrawer({
     rejeterDocMut.mutate({ docId: rejetModal!.docId, motif_rejet: motif.trim() });
   }
 
-  const st = c ? (STATUT[c.statut as keyof typeof STATUT] || STATUT.SOUMIS) : null;
-  const nv = c ? (NIVEAU[c.niveau as keyof typeof NIVEAU] || NIVEAU.SIMPLIFIE) : null;
+  const st = c ? (STATUT_COMMERCANT[c.statut as keyof typeof STATUT_COMMERCANT] || STATUT_COMMERCANT.SOUMIS) : null;
+  const nv = c ? (NIVEAU_COMMERCANT[c.niveau as keyof typeof NIVEAU_COMMERCANT] || NIVEAU_COMMERCANT.SIMPLIFIE) : null;
   const wallet = c?.user?.wallet;
 
   return (
@@ -310,7 +288,7 @@ function CommercantDrawer({
             </div>
             <div>
               <div className="text-[13px] font-medium text-slate-900">{isLoading ? '…' : c?.nom}</div>
-              <div className="text-[11px] text-slate-400">{c ? (TYPE_LABELS[c.type] || c.type) : ''}</div>
+              <div className="text-[11px] text-slate-400">{c ? (TYPE_COMMERCANT_LABELS[c.type] || c.type) : ''}</div>
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100">
@@ -330,7 +308,31 @@ function CommercantDrawer({
                   <InfoRow icon={<Store size={12} />} label="Commerce" value={c.nom} />
                   <InfoRow icon={<MapPin size={12} />} label="Ville" value={c.ville} />
                   {c.adresse && <InfoRow icon={<MapPin size={12} />} label="Adresse" value={c.adresse} />}
-                  {c.ifu && <InfoRow icon={<FileText size={12} />} label="IFU" value={c.ifu} mono />}
+                  <div className="flex items-start gap-2 col-span-2">
+                    <div className="text-slate-400 mt-0.5 flex-shrink-0"><FileText size={12} /></div>
+                    <div className="flex-1">
+                      <div className="text-[10px] text-slate-400">IFU</div>
+                      {ifuEdit !== null ? (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <input
+                            value={ifuEdit}
+                            onChange={(e) => setIfuEdit(e.target.value)}
+                            className="text-[11px] font-mono border border-slate-200 rounded px-1.5 py-0.5 flex-1"
+                            placeholder="IFU du commerçant"
+                          />
+                          <button onClick={() => ifuMut.mutate(ifuEdit)} disabled={ifuMut.isPending} className="text-[10px] text-emerald-600 font-medium">OK</button>
+                          <button onClick={() => setIfuEdit(null)} className="text-[10px] text-slate-400">Annuler</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-800 font-mono">{c.ifu || '—'}</span>
+                          <button onClick={() => setIfuEdit(c.ifu || '')} className="text-[10px] text-tikexo-primary hover:underline">
+                            {c.ifu ? 'Modifier' : 'Ajouter'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   {c.user?.telephone && <InfoRow icon={<Phone size={12} />} label="Téléphone" value={c.user.telephone} mono />}
                   {c.mobile_money_numero && (
                     <InfoRow icon={<Phone size={12} />} label={`Mobile Money (${c.mobile_money_operateur || ''})`} value={c.mobile_money_numero} mono />
@@ -416,7 +418,7 @@ function CommercantDrawer({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="text-[11px] font-medium text-slate-900 truncate">
-                                {DOC_LABELS[doc.type] || doc.type}
+                                {DOC_TYPE_LABELS[doc.type] || doc.type}
                               </div>
                               <div className="text-[10px] text-slate-400">{doc.fichier_nom} · {fmtDate(doc.createdAt)}</div>
                             </div>
@@ -451,7 +453,7 @@ function CommercantDrawer({
                                   <CheckCircle2 size={11} /> Valider
                                 </button>
                                 <button
-                                  onClick={() => { setRejetModal({ docId: doc.id, label: DOC_LABELS[doc.type] || doc.type }); setMotif(''); setMotifErr(''); }}
+                                  onClick={() => { setRejetModal({ docId: doc.id, label: DOC_TYPE_LABELS[doc.type] || doc.type }); setMotif(''); setMotifErr(''); }}
                                   className="flex items-center gap-1 text-[10px] font-medium text-[#A32D2D] bg-[#FCEBEB] px-2.5 py-1 rounded-lg hover:bg-[#f5d0d0] transition-colors"
                                 >
                                   <X size={11} /> Rejeter
@@ -507,8 +509,8 @@ function CommercantDrawer({
                           <div className="text-[11px] text-slate-700">{fmtDate(p.createdAt)}</div>
                           <div className="text-[10px] text-slate-400 font-mono truncate">{p.fedapay_transaction_id}</div>
                         </div>
-                        <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-medium flex-shrink-0', statutPayoutCls(p.statut))}>
-                          {p.statut}
+                        <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-medium flex-shrink-0', PAYOUT_STATUT[p.statut]?.cls ?? 'bg-slate-100 text-slate-700')}>
+                          {PAYOUT_STATUT[p.statut]?.label ?? p.statut}
                         </span>
                         <div className="font-mono text-[11px] text-slate-900 flex-shrink-0">{fmt(p.montant)}</div>
                       </div>
@@ -568,11 +570,11 @@ function CommercantDrawer({
                   </div>
                 )}
 
-                {c.statut !== 'SUSPENDU' && (
+                {c.statut === 'ACTIF' && (
                   <button
                     onClick={() => setConfirmModal({
                       titre: 'Suspendre le commerçant',
-                      message: `Voulez-vous vraiment suspendre ${c.nom} ? Il ne pourra plus accepter de paiements TIKEXO.`,
+                      message: `Voulez-vous vraiment suspendre ${c.nom} ? Il ne pourra plus accepter de paiements TIKEXO ni demander de reversement, mais pourra toujours se connecter.`,
                       onConfirmer: () => suspendreMut.mutate(),
                     })}
                     disabled={suspendreMut.isPending}
@@ -580,6 +582,21 @@ function CommercantDrawer({
                   >
                     <Ban size={14} />
                     Suspendre le commerçant
+                  </button>
+                )}
+
+                {(c.statut === 'ACTIF' || c.statut === 'SUSPENDU') && (
+                  <button
+                    onClick={() => setConfirmModal({
+                      titre: 'Archiver le commerçant',
+                      message: `Voulez-vous vraiment archiver ${c.nom} ? C'est une fermeture définitive du compte, difficile à annuler.`,
+                      onConfirmer: () => archiverMut.mutate(),
+                    })}
+                    disabled={archiverMut.isPending}
+                    className="w-full flex items-center justify-center gap-2 border border-slate-200 text-slate-500 text-sm font-medium py-2.5 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+                  >
+                    <Ban size={14} />
+                    Archiver le commerçant
                   </button>
                 )}
               </div>
