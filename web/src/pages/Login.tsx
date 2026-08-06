@@ -6,6 +6,9 @@ import api from '../lib/api';
 
 type Step = 'credentials' | 'wrong_portal' | 'forgot' | 'reset';
 
+// Doit rester aligné sur OTP_TTL_MINUTES_EMAIL côté backend (backend/src/utils/otp.js)
+const OTP_TTL_SECONDS = 15 * 60;
+
 interface WrongPortalInfo {
   prenom: string;
   nom: string;
@@ -28,6 +31,12 @@ interface LoginProps {
   portalLabel: string;
   portalSub: string;
   redirectTo: string;
+}
+
+function formatMMSS(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function iconForPortal(redirectTo: string) {
@@ -55,6 +64,17 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
   const [newPassword, setNewPassword]   = useState('');
   const [showNewPwd, setShowNewPwd]     = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [secondsLeft, setSecondsLeft]   = useState(OTP_TTL_SECONDS);
+
+  // Compte à rebours du code OTP reçu par email — repart à OTP_TTL_SECONDS
+  // à chaque nouvelle demande de code (handleForgotSubmit).
+  useEffect(() => {
+    if (step !== 'reset' || resetSuccess) return;
+    const id = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [step, resetSuccess]);
 
   // Déjà authentifié au chargement
   useEffect(() => {
@@ -109,6 +129,7 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
     setError(''); setLoading(true);
     try {
       await api.post('/auth/mot-de-passe/oublie', { email: forgotEmail.trim().toLowerCase() });
+      setSecondsLeft(OTP_TTL_SECONDS);
       setStep('reset');
     } catch (e: any) {
       setError(e?.response?.data?.error || 'Erreur lors de l\'envoi. Vérifiez votre email.');
@@ -354,7 +375,30 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
             )}
 
             <div className="mb-3">
-              <div className="text-[11px] text-slate-500 mb-1.5 tracking-[0.3px]">CODE REÇU PAR EMAIL</div>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="text-[11px] text-slate-500 tracking-[0.3px]">CODE REÇU PAR EMAIL</div>
+                {!resetSuccess && (
+                  secondsLeft > 0 ? (
+                    <div className="text-[11px] text-slate-400 font-mono tabular-nums">
+                      Expire dans {formatMMSS(secondsLeft)}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-tikexo-danger">Code expiré</div>
+                  )
+                )}
+              </div>
+              {secondsLeft <= 0 && !resetSuccess && (
+                <div className="text-[11px] text-slate-500 mb-2">
+                  Le code a expiré.{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setStep('forgot'); setResetCode(''); setError(''); }}
+                    className="text-tikexo-accent hover:underline"
+                  >
+                    Demander un nouveau code
+                  </button>
+                </div>
+              )}
               <input
                 type="text" inputMode="numeric" autoFocus maxLength={6}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-tikexo-accent/20 focus:border-tikexo-accent tracking-[4px] text-center font-mono"
@@ -384,7 +428,7 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
 
             {error && <div className="text-[11px] text-tikexo-danger mb-4 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</div>}
 
-            <button type="submit" disabled={loading || resetSuccess} className="w-full bg-tikexo-primary text-white rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 hover:bg-tikexo-accent transition-colors disabled:opacity-60">
+            <button type="submit" disabled={loading || resetSuccess || secondsLeft <= 0} className="w-full bg-tikexo-primary text-white rounded-lg py-3 text-sm font-medium flex items-center justify-center gap-2 hover:bg-tikexo-accent transition-colors disabled:opacity-60">
               {loading ? 'Réinitialisation…' : 'Réinitialiser le mot de passe'}
               {!loading && !resetSuccess && <ArrowRight size={16} />}
             </button>
