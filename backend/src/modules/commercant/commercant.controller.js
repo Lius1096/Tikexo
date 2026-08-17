@@ -28,6 +28,14 @@ async function fiche(req, res, next) {
   } catch (e) { next(e); }
 }
 
+async function fichePublique(req, res, next) {
+  try {
+    const data = await service.getFichePublique(req.params.id);
+    if (!data) return res.status(404).json({ success: false, error: 'Commerçant introuvable' });
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
 async function lister(req, res, next) {
   try { res.json({ success: true, data: await service.lister(req.query) }); } catch (e) { next(e); }
 }
@@ -118,6 +126,6 @@ async function getPayouts(req, res, next) {
 
 module.exports = {
   lister, creer, getById, modifier, valider, activer, suspendre, archiver, parProximite, nearby, fiche,
-  regenererQRCode, getMoi, getMesStats, demanderPayout, uploaderDocument, getDocuments, validerDocument,
-  rejeterDocument, getTransactions, getPayouts,
+  fichePublique, regenererQRCode, getMoi, getMesStats, demanderPayout, uploaderDocument, getDocuments,
+  validerDocument, rejeterDocument, getTransactions, getPayouts,
 };

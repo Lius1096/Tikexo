@@ -301,6 +301,34 @@ async function getFicheCommercant(commercantId, { lat, lng } = {}) {
 
 }
 
+/**
+ * Fiche publique — accessible sans authentification (QR vitrine affiché en
+ * rue/vitrine). Ne renvoie QUE des champs non sensibles : jamais le numéro
+ * Mobile Money, l'IFU, le téléphone, le taux de commission ou les volumes.
+ */
+async function getFichePublique(commercantId) {
+  const commercant = await prisma.commercant.findUnique({
+    where: { id: commercantId },
+    select: {
+      id: true, nom: true, type: true, ville: true, adresse: true,
+      horaires: true, photo_url: true, note_moyenne: true, statut: true,
+    },
+  });
+
+  if (!commercant || commercant.statut !== 'ACTIF') return null;
+
+  return {
+    id: commercant.id,
+    nom: commercant.nom,
+    type: commercant.type,
+    ville: commercant.ville,
+    adresse: commercant.adresse,
+    photo_url: commercant.photo_url,
+    note_moyenne: parseFloat(commercant.note_moyenne),
+    est_ouvert: estOuvertMaintenant(commercant.horaires, TIMEZONE_BENIN),
+  };
+}
+
 // Conservé pour rétrocompatibilité interne
 async function parProximite({ latitude, longitude, rayonKm = 5 }) {
   return rechercherCommercantsProches({
@@ -486,7 +514,7 @@ async function getByUserId(userId) {
 
 module.exports = {
   lister, creer, getById, getByUserId, getStats, modifier, valider, activer, suspendre, archiver,
-  rechercherCommercantsProches, getFicheCommercant, parProximite,
+  rechercherCommercantsProches, getFicheCommercant, getFichePublique, parProximite,
   regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
   getTransactions, getPayouts,
 };

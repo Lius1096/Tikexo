@@ -9,6 +9,10 @@ const { authentifier, autoriser } = require('../../middlewares/auth');
 const { s3UploadMiddleware } = require('../../config/s3');
 const prisma = require('../../config/database');
 
+// Fiche publique (QR vitrine imprimé en rue) — AVANT authentifier, aucun token requis.
+// Ne renvoie que des champs non sensibles, voir commercant.service#getFichePublique.
+router.get('/:id/public', ctrl.fichePublique);
+
 router.use(authentifier);
 
 // Un COMMERCANT ne peut agir que sur sa propre fiche (:id) — sinon n'importe quel

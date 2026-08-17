@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { QrCode, RefreshCw, Download, Loader2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import QRCode from 'qrcode';
+import { QrCode, Download, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/Toaster';
 
 export default function CommercantQRCode() {
   const { user } = useAuth();
-  const qc = useQueryClient();
   const { error: toastError } = useToast();
-  const [downloading, setDownloading] = useState(false);
+  const [pngUrl, setPngUrl] = useState<string | null>(null);
+  const [copie, setCopie] = useState(false);
 
   const { data: fiche, isLoading } = useQuery({
     queryKey: ['commercant-moi'],
@@ -18,53 +19,56 @@ export default function CommercantQRCode() {
   });
 
   const estActif = fiche?.statut === 'ACTIF';
+  const vitrineUrl = fiche ? `${window.location.origin}/c/${fiche.id}` : null;
 
-  const regen = useMutation({
-    mutationFn: () => api.post(`/commercants/${fiche?.id}/qrcode`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['commercant-moi'] }),
-    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de la régénération'),
-  });
+  // Génération PNG côté client — pas d'appel serveur nécessaire, le lien est déterministe.
+  useEffect(() => {
+    if (!vitrineUrl) return;
+    QRCode.toDataURL(vitrineUrl, {
+      errorCorrectionLevel: 'H',
+      margin: 2,
+      width: 640,
+      color: { dark: '#1A3C5E', light: '#FFFFFF' },
+    })
+      .then(setPngUrl)
+      .catch(() => toastError('Échec de la génération du QR code'));
+  }, [vitrineUrl]);
 
-  // fetch + blob : un simple <a href=cloudinaryUrl download> ne déclenche pas
-  // le téléchargement pour une URL cross-origin (le navigateur l'ouvre à la
-  // place) — on récupère le fichier nous-mêmes pour forcer le download.
-  const handleDownload = async () => {
-    if (!fiche?.qr_code_url) return;
-    setDownloading(true);
+  const handleDownload = () => {
+    if (!pngUrl || !fiche) return;
+    const a = document.createElement('a');
+    a.href = pngUrl;
+    a.download = `qr-vitrine-tikexo-${fiche.nom?.replace(/\s+/g, '-').toLowerCase()}.png`;
+    a.click();
+  };
+
+  const handleCopier = async () => {
+    if (!vitrineUrl) return;
     try {
-      const res = await fetch(fiche.qr_code_url);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qr-tikexo-${fiche.nom?.replace(/\s+/g, '-').toLowerCase()}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await navigator.clipboard.writeText(vitrineUrl);
+      setCopie(true);
+      setTimeout(() => setCopie(false), 2000);
     } catch {
-      toastError('Échec du téléchargement du QR code');
-    } finally {
-      setDownloading(false);
+      toastError('Impossible de copier le lien');
     }
   };
 
   return (
     <div className="p-6 space-y-4">
       <div>
-        <div className="text-[15px] font-medium text-slate-900 mb-0.5">Mon QR Code</div>
-        <div className="text-xs text-slate-500">Présentez ce code à vos clients pour recevoir leurs paiements TIKEXO</div>
+        <div className="text-[15px] font-medium text-slate-900 mb-0.5">Mon QR Vitrine</div>
+        <div className="text-xs text-slate-500">
+          À afficher en vitrine ou à imprimer dans la rue : un passant qui scanne découvre votre établissement et son affiliation TIKEXO.
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 p-8 flex flex-col items-center gap-6">
         {isLoading ? (
           <div className="w-48 h-48 bg-slate-100 animate-pulse rounded-xl" />
-        ) : fiche?.qr_code_url ? (
+        ) : pngUrl && estActif ? (
           <>
             <div className="p-3 bg-white border-2 border-slate-100 rounded-xl shadow-sm">
-              <img
-                src={fiche.qr_code_url}
-                alt="QR Code TIKEXO"
-                className="w-44 h-44 object-contain"
-              />
+              <img src={pngUrl} alt="QR Code vitrine TIKEXO" className="w-44 h-44 object-contain" />
             </div>
             <div className="text-center">
               <div className="text-sm font-medium text-slate-900">{fiche.nom}</div>
@@ -76,41 +80,51 @@ export default function CommercantQRCode() {
             <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
               <QrCode size={28} className="text-slate-300" />
             </div>
-            <div className="text-sm text-slate-500">Aucun QR code généré</div>
+            <div className="text-sm text-slate-500">
+              {estActif ? 'Génération du QR code…' : 'Disponible une fois le compte actif'}
+            </div>
           </div>
         )}
 
-        <div className="flex gap-3 w-full max-w-xs">
-          <button
-            onClick={() => regen.mutate()}
-            disabled={regen.isPending || isLoading || !fiche || !estActif}
-            title={!estActif ? 'Disponible une fois le compte actif' : undefined}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw size={14} className={regen.isPending ? 'animate-spin' : ''} />
-            {fiche?.qr_code_url ? 'Régénérer' : 'Générer'}
-          </button>
-          {fiche?.qr_code_url && (
+        {estActif && pngUrl && (
+          <div className="flex gap-3 w-full max-w-xs">
+            <button
+              onClick={handleCopier}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              {copie ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+              {copie ? 'Copié' : 'Copier le lien'}
+            </button>
             <button
               onClick={handleDownload}
-              disabled={downloading || !estActif}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-tikexo-gold text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg bg-tikexo-gold text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
-              {downloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              <Download size={14} />
               Télécharger
             </button>
-          )}
-        </div>
+          </div>
+        )}
+
+        {estActif && vitrineUrl && (
+          <a
+            href={vitrineUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-[11px] text-tikexo-accent hover:underline"
+          >
+            <ExternalLink size={11} /> Voir ce que verront vos clients
+          </a>
+        )}
       </div>
 
       {!estActif && fiche && (
         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700 leading-relaxed">
-          Le QR code ne sera scannable qu'une fois votre compte actif.
+          Le QR code ne sera disponible qu'une fois votre compte actif.
         </div>
       )}
 
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700 leading-relaxed">
-        <strong>Comment ça marche ?</strong> Le client scanne ce QR code depuis l'application mobile TIKEXO et confirme le montant à payer. Le paiement est instantané et sécurisé.
+        <strong>À quoi sert ce QR code ?</strong> Contrairement au QR de la Caisse (qui sert à encaisser un paiement), celui-ci ouvre une page publique présentant votre établissement — idéal pour une affiche, un flyer ou une vitrine. Pour encaisser, utilisez la page <strong>Caisse</strong>.
       </div>
     </div>
   );

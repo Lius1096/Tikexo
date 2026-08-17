@@ -17,7 +17,7 @@ const NAV = [
   { path: '/commercant',              label: 'Tableau de bord', icon: LayoutDashboard, exact: true },
   { path: '/commercant/caisse',       label: 'Caisse',          icon: ShoppingBag },
   { path: '/commercant/encaissements', label: 'Encaissements',  icon: ArrowLeftRight },
-  { path: '/commercant/qrcode',       label: 'Mon QR Code',     icon: QrCode },
+  { path: '/commercant/qrcode',       label: 'QR Vitrine',      icon: QrCode },
   { path: '/commercant/profil',       label: 'Mon profil',      icon: User },
 ];
 
@@ -25,7 +25,7 @@ const BOTTOM_NAV = [
   { path: '/commercant',              label: 'Accueil',   icon: LayoutDashboard, exact: true },
   { path: '/commercant/caisse',       label: 'Caisse',    icon: ShoppingBag },
   { path: '/commercant/encaissements', label: 'Encaiss.', icon: ArrowLeftRight },
-  { path: '/commercant/qrcode',       label: 'QR Code',   icon: QrCode },
+  { path: '/commercant/qrcode',       label: 'Vitrine',   icon: QrCode },
   { path: '/commercant/profil',       label: 'Profil',    icon: User },
 ];
 
