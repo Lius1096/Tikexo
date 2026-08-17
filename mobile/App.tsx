@@ -6,6 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import * as LocalAuthentication from 'expo-local-authentication';
 
+import { verrouBiometriqueActif } from './src/lib/preferences';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { BeneficiaireNav } from './src/navigation/BeneficiaireNav';
 import { CommercantNav } from './src/navigation/CommercantNav';
@@ -36,11 +37,12 @@ function useVerrouBiometrique(actif: boolean) {
   useEffect(() => {
     if (!actif) { setVerification(false); setVerrouille(false); return; }
     (async () => {
-      const [materiel, enrole] = await Promise.all([
+      const [materiel, enrole, preference] = await Promise.all([
         LocalAuthentication.hasHardwareAsync(),
         LocalAuthentication.isEnrolledAsync(),
+        verrouBiometriqueActif(),
       ]);
-      if (!materiel || !enrole) { setVerification(false); setVerrouille(false); return; }
+      if (!materiel || !enrole || !preference) { setVerification(false); setVerrouille(false); return; }
       setVerification(false);
       setVerrouille(true);
       await tenter();

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Linking, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, Linking, Alert, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { RGPD, texteRetentionPersonnelles, texteRetentionFinancieres } from '../../lib/rgpd';
+import { verrouBiometriqueActif, setVerrouBiometriqueActif } from '../../lib/preferences';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Screen, Card, Button, LoadingState } from '../../design-system/components';
 
@@ -17,6 +19,26 @@ export default function BeneficiaireProfil() {
   const [confirmCloture, setConfirmCloture] = useState('');
   const [cloturerLoading, setCloturerLoading] = useState(false);
   const [cloturerErr, setCloturerErr] = useState('');
+
+  const [biometrieDisponible, setBiometrieDisponible] = useState(false);
+  const [biometrieActive, setBiometrieActive] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const [materiel, enrole, preference] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+        verrouBiometriqueActif(),
+      ]);
+      setBiometrieDisponible(materiel && enrole);
+      setBiometrieActive(preference);
+    })();
+  }, []);
+
+  async function basculerBiometrie(valeur: boolean) {
+    setBiometrieActive(valeur);
+    await setVerrouBiometriqueActif(valeur);
+  }
 
   const { data: profil, isLoading } = useQuery({
     queryKey: ['beneficiaire-profil'],
@@ -152,6 +174,49 @@ export default function BeneficiaireProfil() {
         </TouchableOpacity>
       </Card>
 
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="lock-closed" size={18} color={colors.dark + '80'} />
+          <Text style={styles.sectionTitre}>Sécurité</Text>
+        </View>
+        <View style={styles.toggleLigne}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionTitre}>Verrou biométrique</Text>
+            <Text style={styles.actionSous}>
+              {biometrieDisponible ? 'Face ID / empreinte requis à l\'ouverture de l\'app' : 'Non configuré sur cet appareil'}
+            </Text>
+          </View>
+          <Switch
+            value={biometrieActive && biometrieDisponible}
+            onValueChange={basculerBiometrie}
+            disabled={!biometrieDisponible}
+            trackColor={{ true: colors.accent, false: colors.lightGray }}
+          />
+        </View>
+      </Card>
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="help-circle" size={18} color={colors.dark + '80'} />
+          <Text style={styles.sectionTitre}>Aide & support</Text>
+        </View>
+        <TouchableOpacity style={styles.action} onPress={() => Linking.openURL(`mailto:${RGPD.contact_support}`)}>
+          <View style={styles.actionIcon}>
+            <Ionicons name="chatbubble-ellipses" size={16} color={colors.dark + '99'} />
+          </View>
+          <View style={styles.actionTexte}>
+            <Text style={styles.actionTitre}>Contacter le support TIKEXO</Text>
+            <Text style={styles.actionSous}>{RGPD.contact_support}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.dark + '40'} />
+        </TouchableOpacity>
+      </Card>
+
+      <TouchableOpacity style={styles.deconnexionBtn} onPress={logout}>
+        <Ionicons name="log-out-outline" size={16} color={colors.dark + '99'} />
+        <Text style={styles.deconnexionTexte}>Déconnexion</Text>
+      </TouchableOpacity>
+
       <Modal visible={cloturerOpen} transparent animationType="fade" onRequestClose={() => setCloturerOpen(false)}>
         <View style={styles.modalFond}>
           <Card style={styles.modalCarte}>
@@ -220,6 +285,13 @@ const styles = StyleSheet.create({
   actionTexte: { flex: 1 },
   actionTitre: { fontSize: fontSize.sm, fontWeight: '600', color: colors.dark },
   actionSous: { fontSize: fontSize.xs, color: colors.dark + '60', marginTop: 2 },
+  toggleLigne: { flexDirection: 'row', alignItems: 'center' },
+  deconnexionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    borderWidth: 1, borderColor: colors.lightGray, borderRadius: borderRadius.md,
+    paddingVertical: spacing.md, marginBottom: spacing.md,
+  },
+  deconnexionTexte: { fontSize: fontSize.sm, fontWeight: '600', color: colors.dark + '99' },
   modalFond: { flex: 1, backgroundColor: '#00000080', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   modalCarte: { width: '100%' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },

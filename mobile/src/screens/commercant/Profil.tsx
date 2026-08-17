@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Linking } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, Linking, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
+import { useAuth } from '../../context/AuthContext';
+import { RGPD } from '../../lib/rgpd';
+import { verrouBiometriqueActif, setVerrouBiometriqueActif } from '../../lib/preferences';
 import { TYPE_COMMERCANT_LABELS, DOC_TYPE_LABELS } from '../../lib/commercantConstants';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Screen, Card, Button, Badge, statutTone, LoadingState } from '../../design-system/components';
@@ -37,9 +41,30 @@ const TYPES_FICHIER_ACCEPTES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 export default function CommercantProfil() {
   const qc = useQueryClient();
+  const { logout } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState<Partial<Fiche>>({});
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+
+  const [biometrieDisponible, setBiometrieDisponible] = useState(false);
+  const [biometrieActive, setBiometrieActive] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const [materiel, enrole, preference] = await Promise.all([
+        LocalAuthentication.hasHardwareAsync(),
+        LocalAuthentication.isEnrolledAsync(),
+        verrouBiometriqueActif(),
+      ]);
+      setBiometrieDisponible(materiel && enrole);
+      setBiometrieActive(preference);
+    })();
+  }, []);
+
+  async function basculerBiometrie(valeur: boolean) {
+    setBiometrieActive(valeur);
+    await setVerrouBiometriqueActif(valeur);
+  }
 
   const { data: fiche, isLoading } = useQuery<Fiche>({
     queryKey: ['commercant-moi'],
@@ -199,6 +224,46 @@ export default function CommercantProfil() {
           );
         })}
       </Card>
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="lock-closed" size={18} color={colors.dark + '80'} />
+          <Text style={styles.sectionTitre}>Sécurité</Text>
+        </View>
+        <View style={styles.toggleLigne}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.rowValue}>Verrou biométrique</Text>
+            <Text style={styles.docSous}>
+              {biometrieDisponible ? "Face ID / empreinte requis à l'ouverture de l'app" : 'Non configuré sur cet appareil'}
+            </Text>
+          </View>
+          <Switch
+            value={biometrieActive && biometrieDisponible}
+            onValueChange={basculerBiometrie}
+            disabled={!biometrieDisponible}
+            trackColor={{ true: colors.accent, false: colors.lightGray }}
+          />
+        </View>
+      </Card>
+
+      <Card style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="help-circle" size={18} color={colors.dark + '80'} />
+          <Text style={styles.sectionTitre}>Aide & support</Text>
+        </View>
+        <TouchableOpacity style={styles.docRow} onPress={() => Linking.openURL(`mailto:${RGPD.contact_support}`)}>
+          <View style={styles.docInfo}>
+            <Text style={styles.docLabel}>Contacter le support TIKEXO</Text>
+            <Text style={styles.docSous}>{RGPD.contact_support}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.dark + '40'} />
+        </TouchableOpacity>
+      </Card>
+
+      <TouchableOpacity style={styles.deconnexionBtn} onPress={logout}>
+        <Ionicons name="log-out-outline" size={16} color={colors.dark + '99'} />
+        <Text style={styles.deconnexionTexte}>Déconnexion</Text>
+      </TouchableOpacity>
     </Screen>
   );
 }
@@ -246,4 +311,11 @@ const styles = StyleSheet.create({
   docRejet: { fontSize: fontSize.xs, color: colors.danger, backgroundColor: '#FEF2F2', borderRadius: borderRadius.sm, padding: spacing.xs, marginTop: spacing.xs },
   docActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginLeft: spacing.sm },
   docIconBtn: { padding: 4 },
+  toggleLigne: { flexDirection: 'row', alignItems: 'center' },
+  deconnexionBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm,
+    borderWidth: 1, borderColor: colors.lightGray, borderRadius: borderRadius.md,
+    paddingVertical: spacing.md, marginBottom: spacing.md,
+  },
+  deconnexionTexte: { fontSize: fontSize.sm, fontWeight: '600', color: colors.dark + '99' },
 });

@@ -1,12 +1,22 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
-import { Screen, Card, ListRow, LoadingState } from '../../design-system/components';
+import { Screen, Card, ListRow, Badge, LoadingState } from '../../design-system/components';
+
+interface CommercantApercu {
+  id: string;
+  nom: string;
+  type: string;
+  est_ouvert?: boolean;
+}
 
 export default function Accueil() {
+  const navigation = useNavigation();
+
   const { data: wallet, isLoading } = useQuery({
     queryKey: ['wallet-solde'],
     queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
@@ -15,6 +25,11 @@ export default function Accueil() {
   const { data: segmente } = useQuery({
     queryKey: ['wallet-segmente'],
     queryFn: () => api.get('/wallet/solde/segmente').then((r) => r.data.data),
+  });
+
+  const { data: commercants } = useQuery({
+    queryKey: ['commercants-apercu'],
+    queryFn: () => api.get('/commercants', { params: { statut: 'ACTIF', limit: 4 } }).then((r) => r.data.data.items as CommercantApercu[]),
   });
 
   if (isLoading) return <LoadingState />;
@@ -47,6 +62,31 @@ export default function Accueil() {
           ))}
         </View>
       )}
+
+      {commercants && commercants.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderLigne}>
+            <Text style={styles.sectionTitleInline}>Commerçants près de vous</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Commercants' as never)}>
+              <Text style={styles.voirTout}>Voir tout</Text>
+            </TouchableOpacity>
+          </View>
+          {commercants.map((c) => (
+            <ListRow
+              key={c.id}
+              icon="storefront"
+              title={c.nom}
+              subtitle={c.type}
+              rightSecondary={
+                c.est_ouvert !== undefined
+                  ? <Badge label={c.est_ouvert ? 'Ouvert' : 'Fermé'} tone={c.est_ouvert ? 'success' : 'neutral'} />
+                  : undefined
+              }
+              style={styles.row}
+            />
+          ))}
+        </View>
+      )}
     </Screen>
   );
 }
@@ -64,5 +104,8 @@ const styles = StyleSheet.create({
   walletSubtitle: { color: colors.accent, fontSize: fontSize.xs, marginTop: spacing.xs, fontStyle: 'italic' },
   section: { marginTop: spacing.sm },
   sectionTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginHorizontal: spacing.md, marginBottom: spacing.xs },
+  sectionTitleInline: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark },
+  sectionHeaderLigne: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: spacing.md, marginBottom: spacing.xs },
+  voirTout: { fontSize: fontSize.xs, color: colors.accent, fontWeight: '600' },
   row: { marginTop: spacing.xs },
 });
