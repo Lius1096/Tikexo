@@ -48,7 +48,7 @@ const limiterOtp = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de demandes de code. Veuillez réessayer dans 1 heure.'),
-  keyGenerator: (req) => req.body?.telephone || req.ip,
+  keyGenerator: (req) => req.body?.telephone || realIp(req),
 });
 
 // Limite login : 5/15 min en prod, illimité en dev
@@ -58,6 +58,7 @@ const limiterLogin = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.'),
+  keyGenerator: realIp,
 });
 
 // Limite transactions : 20 req/min par bénéficiaire
@@ -67,7 +68,7 @@ const limiterTransaction = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de transactions. Veuillez réessayer dans une minute.'),
-  keyGenerator: (req) => req.user?.id || req.ip,
+  keyGenerator: (req) => req.user?.id || realIp(req),
 });
 
 // Limite webhooks FedaPay : 200 req/min par IP
@@ -77,6 +78,7 @@ const limiterWebhook = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de requêtes webhook. Veuillez réessayer dans une minute.'),
+  keyGenerator: realIp,
 });
 
 module.exports = {

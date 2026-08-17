@@ -51,6 +51,12 @@ const { obtenirObjetMedia } = require('./config/storage');
 const app = express();
 const server = http.createServer(app);
 
+// Un seul hop de proxy de confiance devant l'app (Traefik) — sans ça req.ip
+// (et donc les rate limiters sans keyGenerator dédié) renvoie l'IP interne
+// de Traefik pour TOUT LE MONDE, rendant les limites par-IP globales au
+// lieu de par-utilisateur.
+app.set('trust proxy', 1);
+
 // Monitoring Sentry — doit être init avant les routes
 initSentry(app);
 
