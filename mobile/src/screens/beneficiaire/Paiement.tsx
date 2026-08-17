@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
+import { Card, Button, LinkButton } from '../../design-system/components';
 
 type Etape = 'scan' | 'confirm';
 
@@ -112,7 +114,10 @@ export default function Paiement() {
   if (etape === 'confirm') {
     return (
       <View style={styles.container}>
-        <View style={styles.card}>
+        <Card style={styles.card}>
+          <View style={styles.iconeConfirm}>
+            <Ionicons name="storefront" size={28} color={colors.white} />
+          </View>
           <Text style={styles.titre}>Confirmer le paiement</Text>
           <Text style={styles.label}>COMMERÇANT</Text>
           <Text style={styles.nomCommercant}>{commercant?.nom ?? 'Chargement…'}</Text>
@@ -128,18 +133,15 @@ export default function Paiement() {
             placeholderTextColor={colors.dark + '60'}
           />
 
-          <TouchableOpacity
-            style={[styles.btn, payer.isPending && styles.btnDisabled]}
+          <Button
+            title={payer.isPending ? 'Traitement…' : 'Payer avec TIKEXO'}
             onPress={() => payer.mutate()}
-            disabled={payer.isPending || !montant || !commercant}
-          >
-            <Text style={styles.btnText}>{payer.isPending ? 'Traitement…' : 'Payer avec TIKEXO'}</Text>
-          </TouchableOpacity>
+            loading={payer.isPending}
+            disabled={!montant || !commercant}
+          />
 
-          <TouchableOpacity style={styles.btnSecondaire} onPress={reset}>
-            <Text style={styles.btnSecondaireText}>Rescanner</Text>
-          </TouchableOpacity>
-        </View>
+          <LinkButton title="Rescanner" onPress={reset} style={styles.rescannerWrap} />
+        </Card>
       </View>
     );
   }
@@ -149,13 +151,14 @@ export default function Paiement() {
   if (!permission.granted) {
     return (
       <View style={styles.container}>
-        <View style={styles.card}>
+        <Card style={styles.card}>
+          <View style={styles.iconeConfirm}>
+            <Ionicons name="camera" size={28} color={colors.white} />
+          </View>
           <Text style={styles.titre}>Autoriser la caméra</Text>
           <Text style={styles.label}>TIKEXO a besoin de la caméra pour scanner le QR code du commerçant.</Text>
-          <TouchableOpacity style={styles.btn} onPress={requestPermission}>
-            <Text style={styles.btnText}>Autoriser</Text>
-          </TouchableOpacity>
-        </View>
+          <Button title="Autoriser" onPress={requestPermission} />
+        </Card>
       </View>
     );
   }
@@ -182,17 +185,13 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   overlay: { position: 'absolute', bottom: spacing.xl, left: 0, right: 0, alignItems: 'center' },
   overlayTexte: { color: colors.white, fontSize: fontSize.sm, backgroundColor: '#00000099', padding: spacing.sm, borderRadius: borderRadius.md },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+  card: {},
+  iconeConfirm: {
+    width: 52, height: 52, borderRadius: borderRadius.full,
+    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center', marginBottom: spacing.md,
   },
-  titre: { fontSize: fontSize.lg, fontWeight: '700', color: colors.primary, marginBottom: spacing.lg },
+  titre: { fontSize: fontSize.lg, fontWeight: '700', color: colors.primary, marginBottom: spacing.lg, textAlign: 'center' },
   label: { fontSize: fontSize.sm, color: colors.dark + 'AA', marginBottom: spacing.xs },
   nomCommercant: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginBottom: spacing.md },
   input: {
@@ -206,15 +205,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightGray,
   },
   inputMontant: { fontSize: fontSize.xl, fontWeight: '700', textAlign: 'center' },
-  btn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.sm,
-  },
-  btnDisabled: { opacity: 0.5 },
-  btnText: { color: colors.white, fontSize: fontSize.md, fontWeight: '600' },
-  btnSecondaire: { alignItems: 'center', marginTop: spacing.md },
-  btnSecondaireText: { color: colors.dark + '99', fontSize: fontSize.sm },
+  rescannerWrap: { alignItems: 'center', marginTop: spacing.md },
 });

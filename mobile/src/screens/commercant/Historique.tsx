@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, FlatList, StyleSheet } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
-import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
+import { colors, spacing, fontSize } from '../../design-system/tokens';
+import { ListRow, EmptyState, LoadingState } from '../../design-system/components';
 
 type Transaction = {
   id: string; montant_total: string; commission_tikexo: string;
@@ -11,65 +12,43 @@ type Transaction = {
 };
 
 export default function CommercantHistorique() {
-  const { data } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['transactions-commercant'],
     queryFn: () => api.get('/transactions').then((r) => r.data.data),
   });
 
+  if (isLoading) return <LoadingState />;
+
   return (
-    <FlatList
-      style={styles.container}
-      data={data?.items || []}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }: { item: Transaction }) => {
-        const net = parseFloat(item.montant_total) - parseFloat(item.commission_tikexo);
-        return (
-          <View style={styles.item}>
-            <View>
-              <Text style={styles.benef}>
-                {item.beneficiaire?.prenom} {item.beneficiaire?.nom}
-              </Text>
-              <Text style={styles.date}>
-                {new Date(item.createdAt).toLocaleDateString('fr-FR')}
-              </Text>
-              <Text style={styles.commission}>
-                Commission TIKEXO : {Number(item.commission_tikexo).toLocaleString('fr-FR')} XOF
-              </Text>
-            </View>
-            <View style={styles.montants}>
-              <Text style={styles.montantTotal}>
-                {Number(item.montant_total).toLocaleString('fr-FR')} XOF
-              </Text>
-              <Text style={styles.montantNet}>
-                Net : {net.toLocaleString('fr-FR')} XOF
-              </Text>
-            </View>
-          </View>
-        );
-      }}
-      ListEmptyComponent={
-        <Text style={styles.empty}>Aucune transaction TIKEXO</Text>
-      }
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={data?.items || []}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        renderItem={({ item }: { item: Transaction }) => {
+          const net = parseFloat(item.montant_total) - parseFloat(item.commission_tikexo);
+          return (
+            <ListRow
+              icon="person"
+              title={`${item.beneficiaire?.prenom ?? ''} ${item.beneficiaire?.nom ?? ''}`.trim() || 'Bénéficiaire'}
+              subtitle={`${new Date(item.createdAt).toLocaleDateString('fr-FR')} · Commission ${Number(item.commission_tikexo).toLocaleString('fr-FR')} XOF`}
+              rightPrimary={`${Number(item.montant_total).toLocaleString('fr-FR')} XOF`}
+              rightPrimaryColor={colors.primary}
+              rightSecondary={<Text style={styles.net}>Net : {net.toLocaleString('fr-FR')} XOF</Text>}
+            />
+          );
+        }}
+        ListEmptyComponent={
+          <EmptyState icon="receipt-outline" title="Aucune transaction TIKEXO" subtitle="Vos encaissements apparaîtront ici" />
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightGray },
-  item: {
-    backgroundColor: colors.white,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    borderRadius: borderRadius.md,
-  },
-  benef: { fontSize: fontSize.base, fontWeight: '600', color: colors.dark },
-  date: { fontSize: fontSize.xs, color: colors.dark + '60', marginTop: 2 },
-  commission: { fontSize: fontSize.xs, color: colors.gold, marginTop: 2 },
-  montants: { alignItems: 'flex-end' },
-  montantTotal: { fontSize: fontSize.md, fontWeight: '700', color: colors.primary },
-  montantNet: { fontSize: fontSize.xs, color: colors.success, marginTop: 2 },
-  empty: { textAlign: 'center', color: colors.dark + '60', padding: spacing.xl },
+  list: { paddingVertical: spacing.sm, flexGrow: 1 },
+  net: { fontSize: fontSize.xs, color: colors.success, fontWeight: '600' },
 });

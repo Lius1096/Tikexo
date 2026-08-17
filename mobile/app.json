@@ -63,6 +63,12 @@
           "faceIDPermission": "TIKEXO utilise Face ID pour sécuriser votre compte"
         }
       ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TIKEXO utilise votre position pour trouver les commerçants partenaires proches de vous"
+        }
+      ],
       "expo-asset",
       "expo-font"
     ],

@@ -24,6 +24,14 @@ export const fontSize = {
   xs: 11, sm: 13, base: 15, md: 17, lg: 20, xl: 24, xxl: 32,
 } as const;
 
+export const fontWeight = {
+  regular: '400', medium: '500', semibold: '600', bold: '700', black: '900',
+} as const;
+
+export const iconSize = {
+  sm: 16, md: 20, lg: 24, xl: 32,
+} as const;
+
 export const shadows = {
   card: {
     shadowColor: '#000',

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Text, TextInput, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { colors, spacing, borderRadius, fontSize, shadows } from '../design-system/tokens';
+import { colors, spacing, borderRadius, fontSize } from '../design-system/tokens';
+import { Card, Button, LinkButton } from '../design-system/components';
 
 type Etape = 'login' | 'forgot-email' | 'forgot-code';
 
@@ -79,11 +81,14 @@ export default function LoginScreen() {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
+          <View style={styles.logo}>
+            <Ionicons name="restaurant" size={28} color={colors.white} />
+          </View>
           <Text style={styles.marque}>TIKEXO</Text>
           <Text style={styles.sousTitre}>Titre-restaurant 100% digital</Text>
         </View>
 
-        <View style={styles.carte}>
+        <Card style={styles.carte}>
           {etape === 'login' && (
             <>
               <Text style={styles.titre}>Connexion</Text>
@@ -104,23 +109,21 @@ export default function LoginScreen() {
                 value={motDePasse}
                 onChangeText={(t) => { setMotDePasse(t); setErreur(''); }}
               />
-              <TouchableOpacity onPress={() => { setForgotEmail(email); setEtape('forgot-email'); setErreur(''); }}>
-                <Text style={styles.lien}>Mot de passe oublié ?</Text>
-              </TouchableOpacity>
+              <LinkButton
+                title="Mot de passe oublié ?"
+                onPress={() => { setForgotEmail(email); setEtape('forgot-email'); setErreur(''); }}
+                style={styles.lienWrap}
+              />
 
               {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
 
-              <TouchableOpacity style={styles.bouton} onPress={handleLogin} disabled={loading}>
-                <Text style={styles.boutonTexte}>{loading ? 'Connexion en cours…' : 'Se connecter'}</Text>
-              </TouchableOpacity>
+              <Button title="Se connecter" onPress={handleLogin} loading={loading} />
             </>
           )}
 
           {etape === 'forgot-email' && (
             <>
-              <TouchableOpacity onPress={() => { setEtape('login'); setErreur(''); }}>
-                <Text style={styles.retour}>← Retour</Text>
-              </TouchableOpacity>
+              <LinkButton title="← Retour" onPress={() => { setEtape('login'); setErreur(''); }} style={styles.retourWrap} />
               <Text style={styles.titre}>Mot de passe oublié</Text>
               <Text style={styles.description}>
                 Entrez votre email. Vous recevrez un code à 6 chiffres pour réinitialiser votre mot de passe.
@@ -135,20 +138,19 @@ export default function LoginScreen() {
                 onChangeText={(t) => { setForgotEmail(t); setErreur(''); }}
               />
               {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
-              <TouchableOpacity style={styles.bouton} onPress={handleForgotSubmit} disabled={loading}>
-                <Text style={styles.boutonTexte}>{loading ? 'Envoi en cours…' : 'Envoyer le code'}</Text>
-              </TouchableOpacity>
+              <Button title="Envoyer le code" onPress={handleForgotSubmit} loading={loading} />
             </>
           )}
 
           {etape === 'forgot-code' && (
             <>
-              <TouchableOpacity onPress={() => { setEtape('forgot-email'); setErreur(''); }}>
-                <Text style={styles.retour}>← Retour</Text>
-              </TouchableOpacity>
+              <LinkButton title="← Retour" onPress={() => { setEtape('forgot-email'); setErreur(''); }} style={styles.retourWrap} />
               <Text style={styles.titre}>Nouveau mot de passe</Text>
               {resetOk ? (
-                <Text style={styles.succes}>Mot de passe réinitialisé ! Redirection…</Text>
+                <View style={styles.succesWrap}>
+                  <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+                  <Text style={styles.succes}>Mot de passe réinitialisé ! Redirection…</Text>
+                </View>
               ) : (
                 <>
                   <Text style={styles.champLabel}>CODE REÇU PAR EMAIL</Text>
@@ -169,14 +171,12 @@ export default function LoginScreen() {
                     onChangeText={(t) => { setNouveauMdp(t); setErreur(''); }}
                   />
                   {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
-                  <TouchableOpacity style={styles.bouton} onPress={handleResetSubmit} disabled={loading}>
-                    <Text style={styles.boutonTexte}>{loading ? 'Réinitialisation…' : 'Réinitialiser le mot de passe'}</Text>
-                  </TouchableOpacity>
+                  <Button title="Réinitialiser le mot de passe" onPress={handleResetSubmit} loading={loading} />
                 </>
               )}
             </>
           )}
-        </View>
+        </Card>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -186,9 +186,14 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flexGrow: 1, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
   hero: { alignItems: 'center', marginBottom: spacing.xl },
+  logo: {
+    width: 56, height: 56, borderRadius: borderRadius.full,
+    backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
   marque: { color: colors.white, fontSize: fontSize.xl, fontWeight: '700', letterSpacing: 3 },
   sousTitre: { color: colors.white + 'AA', fontSize: fontSize.xs, marginTop: spacing.xs },
-  carte: { width: '100%', maxWidth: 380, backgroundColor: colors.white, borderRadius: borderRadius.lg, padding: spacing.lg, ...shadows.card },
+  carte: { width: '100%', maxWidth: 380 },
   titre: { fontSize: fontSize.md, fontWeight: '700', color: colors.dark, marginBottom: spacing.md },
   description: { fontSize: fontSize.sm, color: colors.dark + 'AA', marginBottom: spacing.md, lineHeight: 18 },
   champLabel: { fontSize: fontSize.xs, color: colors.dark + '99', marginBottom: spacing.xs, letterSpacing: 0.3 },
@@ -198,10 +203,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm, backgroundColor: colors.background, color: colors.dark,
   },
   inputCode: { textAlign: 'center', letterSpacing: 6, fontVariant: ['tabular-nums'] },
-  lien: { color: colors.accent, fontSize: fontSize.xs, textAlign: 'right', marginBottom: spacing.md },
-  retour: { color: colors.dark + '99', fontSize: fontSize.xs, marginBottom: spacing.md },
+  lienWrap: { alignItems: 'flex-end', marginBottom: spacing.md },
+  retourWrap: { marginBottom: spacing.md },
   erreur: { color: colors.danger, fontSize: fontSize.xs, backgroundColor: '#FEF2F2', borderRadius: borderRadius.sm, padding: spacing.sm, marginBottom: spacing.md },
-  succes: { color: colors.success, fontSize: fontSize.sm, textAlign: 'center', paddingVertical: spacing.lg },
-  bouton: { backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.xs },
-  boutonTexte: { color: colors.white, fontSize: fontSize.base, fontWeight: '600' },
+  succesWrap: { alignItems: 'center', paddingVertical: spacing.lg },
+  succes: { color: colors.success, fontSize: fontSize.sm, textAlign: 'center', marginTop: spacing.sm },
 });

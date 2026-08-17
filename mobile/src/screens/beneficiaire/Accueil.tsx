@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
-import { colors, spacing, borderRadius, shadows, fontSize } from '../../design-system/tokens';
+import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
+import { Screen, Card, ListRow, LoadingState } from '../../design-system/components';
 
 export default function Accueil() {
   const { data: wallet, isLoading } = useQuery({
@@ -15,57 +17,52 @@ export default function Accueil() {
     queryFn: () => api.get('/wallet/solde/segmente').then((r) => r.data.data),
   });
 
+  if (isLoading) return <LoadingState />;
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Carte solde */}
-      <View style={styles.walletCard}>
+    <Screen scroll contentContainerStyle={styles.content}>
+      <Card variant="primary" style={styles.walletCard}>
+        <View style={styles.walletIcon}>
+          <Ionicons name="wallet" size={22} color={colors.white} />
+        </View>
         <Text style={styles.walletLabel}>Votre solde TIKEXO</Text>
         <Text style={styles.walletSolde}>
-          {isLoading ? '...' : Number(wallet?.solde || 0).toLocaleString('fr-FR')} XOF
+          {Number(wallet?.solde || 0).toLocaleString('fr-FR')} XOF
         </Text>
         <Text style={styles.walletSubtitle}>"Ton repas, ton droit"</Text>
-      </View>
+      </Card>
 
-      {/* Sources */}
       {segmente?.sources?.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Solde par employeur</Text>
           {segmente.sources.map((s: { entreprise_id: string; entreprise_nom: string; montant: number }) => (
-            <View key={s.entreprise_id} style={styles.sourceRow}>
-              <Text style={styles.sourceNom}>{s.entreprise_nom}</Text>
-              <Text style={styles.sourceMontant}>
-                {Number(s.montant).toLocaleString('fr-FR')} XOF
-              </Text>
-            </View>
+            <ListRow
+              key={s.entreprise_id}
+              icon="business"
+              title={s.entreprise_nom}
+              rightPrimary={`${Number(s.montant).toLocaleString('fr-FR')} XOF`}
+              rightPrimaryColor={colors.primary}
+              style={styles.row}
+            />
           ))}
         </View>
       )}
-    </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightGray },
-  walletCard: {
-    backgroundColor: colors.primary,
-    margin: spacing.md,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xl,
-    ...shadows.card,
-    alignItems: 'center',
+  content: { paddingBottom: spacing.xl },
+  walletCard: { margin: spacing.md, alignItems: 'center' },
+  walletIcon: {
+    width: 44, height: 44, borderRadius: borderRadius.full,
+    backgroundColor: colors.white + '22', alignItems: 'center', justifyContent: 'center',
+    marginBottom: spacing.sm,
   },
   walletLabel: { color: colors.white + 'CC', fontSize: fontSize.sm },
   walletSolde: { color: colors.white, fontSize: fontSize.xxl, fontWeight: '700', marginTop: spacing.xs },
   walletSubtitle: { color: colors.accent, fontSize: fontSize.xs, marginTop: spacing.xs, fontStyle: 'italic' },
-  section: {
-    backgroundColor: colors.white,
-    margin: spacing.md,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    ...shadows.card,
-  },
-  sectionTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginBottom: spacing.sm },
-  sourceRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs },
-  sourceNom: { color: colors.dark, fontSize: fontSize.base },
-  sourceMontant: { color: colors.primary, fontSize: fontSize.base, fontWeight: '600' },
+  section: { marginTop: spacing.sm },
+  sectionTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginHorizontal: spacing.md, marginBottom: spacing.xs },
+  row: { marginTop: spacing.xs },
 });

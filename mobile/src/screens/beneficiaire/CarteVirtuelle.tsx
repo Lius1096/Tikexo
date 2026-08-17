@@ -1,19 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize, shadows } from '../../design-system/tokens';
+import { LoadingState } from '../../design-system/components';
 
 export default function CarteVirtuelle() {
-  const { data: user } = useQuery({
+  const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ['profil'],
     queryFn: () => api.get('/auth/profil').then((r) => r.data.data),
   });
 
-  const { data: wallet } = useQuery({
+  const { data: wallet, isLoading: walletLoading } = useQuery({
     queryKey: ['wallet-solde'],
     queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
+
+  if (userLoading || walletLoading) return <LoadingState />;
 
   return (
     <View style={styles.container}>
@@ -42,6 +46,7 @@ export default function CarteVirtuelle() {
       </View>
 
       <View style={styles.infoBox}>
+        <Ionicons name="information-circle" size={20} color={colors.primary} style={styles.infoIcon} />
         <Text style={styles.infoText}>
           Cette carte virtuelle TIKEXO est acceptée chez tous les commerçants partenaires. Votre solde provient uniquement des dotations de votre employeur.
         </Text>
@@ -69,10 +74,12 @@ const styles = StyleSheet.create({
   chip: { width: 40, height: 30, backgroundColor: colors.gold, borderRadius: 4, justifyContent: 'center', alignItems: 'center' },
   chipInner: { width: 24, height: 18, backgroundColor: colors.gold + '80', borderRadius: 2 },
   infoBox: {
+    flexDirection: 'row',
     backgroundColor: colors.lightBlue,
     borderRadius: borderRadius.md,
     padding: spacing.md,
     marginTop: spacing.lg,
   },
-  infoText: { color: colors.primary, fontSize: fontSize.sm, lineHeight: 20 },
+  infoIcon: { marginRight: spacing.sm, marginTop: 2 },
+  infoText: { flex: 1, color: colors.primary, fontSize: fontSize.sm, lineHeight: 20 },
 });
