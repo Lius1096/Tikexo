@@ -20,6 +20,9 @@ router.post('/:id/cvv', autoriser('BENEFICIAIRE'), limiterOtp, ctrl.getCVV);
 // QR Code dynamique
 router.get('/:id/qrcode', autoriser('BENEFICIAIRE'), ctrl.getQRCode);
 
+// Token NFC dynamique (tap HCE)
+router.get('/:id/nfctoken', autoriser('BENEFICIAIRE'), ctrl.getNFCToken);
+
 // Bloquer sa propre carte
 router.post('/:id/bloquer-moi', autoriser('BENEFICIAIRE'), ctrl.bloquerMaCarte);
 
@@ -36,6 +39,10 @@ router.post('/paiement/qr/valider', autoriser('COMMERCANT', 'SUPER_ADMIN', 'ADMI
 
 // Validation NFC (terminal)
 router.post('/paiement/nfc/valider', autoriser('COMMERCANT', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerNFC);
+
+// Validation + débit en un seul appel — commerçant scanne/tape la carte du bénéficiaire
+router.post('/paiement/qr/payer', autoriser('COMMERCANT'), ctrl.payerQR);
+router.post('/paiement/nfc/payer', autoriser('COMMERCANT'), ctrl.payerNFC);
 
 // ── Employeur : demander carte physique pour un bénéficiaire ─────────────────
 router.post('/physique/demande/:userId', autoriser('ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.demanderPhysiqueEmployeur);

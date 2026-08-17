@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Eye, EyeOff, QrCode, Shield, Lock, Wifi, ChevronRight, X, AlertTriangle, RefreshCw, MapPin, Send, Copy, Check } from 'lucide-react';
 import { clsx } from 'clsx';
+import QRCodeSVG from 'react-qr-code';
 import api from '../../lib/api';
 import CarteVisuelle, { CarteVirtuelle, CarteVersо } from '../../components/CarteVisuelle';
 import { useToast } from '../../components/Toaster';
@@ -60,12 +61,15 @@ function ModalQR({ carteId, onClose }: { carteId: string; onClose: () => void })
       <div className="text-white/60 text-xs tracking-widest mb-6">QR CODE DE PAIEMENT</div>
 
       {/* Zone QR */}
-      <div className="w-56 h-56 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-6">
-        <div className="text-[#1A3B8C] text-xs text-center px-4">
-          <QrCode size={80} className="mx-auto mb-2 text-[#1A3B8C]/30" />
-          <p className="text-[10px] text-slate-400">QR dynamique</p>
-          <p className="text-[9px] text-slate-300">(Cloudinary en prod)</p>
-        </div>
+      <div className="w-56 h-56 bg-white rounded-2xl flex items-center justify-center shadow-2xl mb-6 p-4">
+        {data?.qr_url ? (
+          <QRCodeSVG value={data.qr_url} size={200} fgColor="#1A3B8C" bgColor="#ffffff" />
+        ) : (
+          <div className="text-[#1A3B8C] text-xs text-center px-4">
+            <QrCode size={80} className="mx-auto mb-2 text-[#1A3B8C]/30" />
+            <p className="text-[10px] text-slate-400">Génération…</p>
+          </div>
+        )}
       </div>
 
       <CountdownCircle seconds={secondes} total={60} />

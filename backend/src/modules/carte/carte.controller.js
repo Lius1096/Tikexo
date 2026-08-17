@@ -28,6 +28,13 @@ async function getQRCode(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getNFCToken(req, res, next) {
+  try {
+    const data = await service.getNFCToken(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
 async function validerQR(req, res, next) {
   try {
     const { payload, signature } = req.body;
@@ -43,6 +50,30 @@ async function validerNFC(req, res, next) {
     if (!token || !signature) return res.status(400).json({ success: false, error: 'token et signature requis' });
     const data = await service.validerNFC(token, signature);
     res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function payerQR(req, res, next) {
+  try {
+    const { payload, signature, montantTotal, localisation } = req.body;
+    if (!payload || !signature) return res.status(400).json({ success: false, error: 'payload et signature requis' });
+    if (!Number.isInteger(montantTotal) || montantTotal <= 0) {
+      return res.status(400).json({ success: false, error: 'montantTotal invalide' });
+    }
+    const data = await service.payerParQR(req.user.id, payload, signature, montantTotal, localisation);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function payerNFC(req, res, next) {
+  try {
+    const { token, signature, montantTotal, localisation } = req.body;
+    if (!token || !signature) return res.status(400).json({ success: false, error: 'token et signature requis' });
+    if (!Number.isInteger(montantTotal) || montantTotal <= 0) {
+      return res.status(400).json({ success: false, error: 'montantTotal invalide' });
+    }
+    const data = await service.payerParNFC(req.user.id, token, signature, montantTotal, localisation);
+    res.status(201).json({ success: true, data });
   } catch (err) { next(err); }
 }
 
@@ -130,7 +161,8 @@ async function debloquer(req, res, next) {
 }
 
 module.exports = {
-  creerVirtuelle, getMaCarte, getCVV, getQRCode, validerQR, validerNFC,
+  creerVirtuelle, getMaCarte, getCVV, getQRCode, getNFCToken, validerQR, validerNFC,
+  payerQR, payerNFC,
   bloquerMaCarte, demanderPhysique, demanderPhysiqueEmployeur, activerPhysique,
   listerDemandes, validerDemande, lister, creer, bloquer, debloquer,
 };

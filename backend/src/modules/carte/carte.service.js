@@ -113,6 +113,39 @@ async function getQRCode(userId, carteId) {
   return { qr_url: qrData, expires_at: expiresAt, secondes_restantes: 60 };
 }
 
+// ─── Bénéficiaire : générer un token NFC (tap HCE) ────────────────────────────
+// Pas de mise en cache contrairement au QR (CarteDigi n'a pas de colonne dédiée
+// et la fenêtre de 30s est volontairement courte — un jeton frais à chaque
+// demande, généré juste avant que le bénéficiaire n'approche son téléphone).
+async function getNFCToken(userId, carteId) {
+  const carte = await _verifierPropriete(userId, carteId);
+  _verifierActive(carte);
+
+  const wallet = await prisma.wallet.findFirst({
+    where: { user_id: userId, type: 'BENEFICIAIRE' },
+  });
+  if (!wallet) {
+    const err = new Error('Wallet introuvable'); err.statusCode = 404; throw err;
+  }
+
+  const { token, tokenStr, signature } = carteUtils.genererNFCToken(wallet.id);
+
+  await prisma.nFCToken.create({
+    data: {
+      wallet_id : wallet.id,
+      token_unique: token.token_unique,
+      expires_at: new Date(token.expires_at),
+    },
+  });
+
+  await prisma.carteDigi.update({
+    where: { id: carteId },
+    data : { nfc_derniere_utilisation: new Date() },
+  });
+
+  return { nfc_token: `${tokenStr}::${signature}`, expires_at: token.expires_at, secondes_restantes: 30 };
+}
+
 // ─── Valider QR (côté commerçant) ────────────────────────────────────────────
 
 async function validerQR(payloadStr, signature) {
@@ -167,6 +200,88 @@ async function validerNFC(tokenStr, signature) {
   });
 
   return { autorise: true, wallet_id, montant_max_sans_pin: montantMax };
+}
+
+// ─── Paiement carte (commerçant scanne/tape la carte du bénéficiaire) ────────
+// Validation + débit en UN SEUL appel atomique — ne jamais séparer en
+// "valider" puis "débiter" : le nonce serait marqué utilisé sans garantie
+// qu'un débit ait réellement eu lieu (trou de rejeu). Toute la logique
+// financière (solde, anti-fraude, plafonds, commission) vient de
+// transaction.service.js#creer — jamais dupliquée ici.
+
+async function payerParQR(commercantUserId, payloadStr, signature, montantTotal, localisation) {
+  const resultat = carteUtils.validerQRCodeSignature(payloadStr, signature);
+  if (!resultat.valide) {
+    const err = new Error(resultat.motif); err.statusCode = 400; throw err;
+  }
+  const { nonce, wallet_id } = resultat.payload;
+
+  // Réclamation atomique du nonce — updateMany avec utilise:false dans le WHERE
+  // sert de compare-and-swap au niveau SQL (contrairement à validerQR ci-dessus
+  // qui fait un findUnique puis un update séparés, avec une fenêtre de rejeu
+  // entre les deux sous requêtes concurrentes).
+  const claim = await prisma.qRCodeTransaction.updateMany({
+    where: { nonce, utilise: false },
+    data : { utilise: true, utilise_at: new Date() },
+  });
+  if (claim.count === 0) {
+    const err = new Error('QR code déjà utilisé ou invalide'); err.statusCode = 409; throw err;
+  }
+
+  const wallet = await prisma.wallet.findUnique({
+    where: { id: wallet_id },
+    select: { id: true, user_id: true, statut: true },
+  });
+  if (!wallet || wallet.statut !== 'ACTIF') {
+    const err = new Error('Wallet non disponible'); err.statusCode = 403; throw err;
+  }
+
+  const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: commercantUserId } });
+
+  const transactionService = require('../transaction/transaction.service');
+  return transactionService.creer(wallet.user_id, { commercantId: commercant.id, montantTotal, localisation });
+}
+
+async function payerParNFC(commercantUserId, tokenStr, signature, montantTotal, localisation) {
+  const resultat = carteUtils.validerNFCToken(tokenStr, signature);
+  if (!resultat.valide) {
+    const err = new Error(resultat.motif); err.statusCode = 400; throw err;
+  }
+  const { token_unique, wallet_id } = resultat.token;
+
+  const montantMax = parseInt(process.env.CARTE_NFC_MONTANT_MAX || '5000', 10);
+  if (montantTotal > montantMax) {
+    const err = new Error(`Montant supérieur au plafond NFC sans confirmation (${montantMax} XOF)`);
+    err.statusCode = 403; err.code = 'NFC_PLAFOND_SANS_PIN'; throw err;
+  }
+
+  const claim = await prisma.nFCToken.updateMany({
+    where: { token_unique, utilise: false },
+    data : { utilise: true },
+  });
+  if (claim.count === 0) {
+    const err = new Error('Token NFC déjà utilisé ou invalide'); err.statusCode = 409; throw err;
+  }
+
+  const wallet = await prisma.wallet.findUnique({
+    where: { id: wallet_id },
+    select: { id: true, user_id: true, statut: true },
+  });
+  if (!wallet || wallet.statut !== 'ACTIF') {
+    const err = new Error('Wallet non disponible'); err.statusCode = 403; throw err;
+  }
+
+  const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: commercantUserId } });
+
+  const transactionService = require('../transaction/transaction.service');
+  const transaction = await transactionService.creer(wallet.user_id, { commercantId: commercant.id, montantTotal, localisation });
+
+  await prisma.nFCToken.update({
+    where: { token_unique },
+    data : { transaction_id: transaction.transaction.id },
+  });
+
+  return transaction;
 }
 
 // ─── Blocage / déblocage ─────────────────────────────────────────────────────
@@ -481,7 +596,8 @@ function _verifierActive(carte) {
 }
 
 module.exports = {
-  creerVirtuelle, getMaCarte, getCVV, getQRCode, validerQR, validerNFC,
+  creerVirtuelle, getMaCarte, getCVV, getQRCode, getNFCToken, validerQR, validerNFC,
+  payerParQR, payerParNFC,
   bloquer, debloquer, demanderPhysique, demanderPhysiqueEmployeur, activerPhysique,
   listerDemandes, validerDemande, creer, lister, listerTout,
 };

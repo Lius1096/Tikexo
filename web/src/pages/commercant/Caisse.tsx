@@ -1,11 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import QRCodeSVG from 'react-qr-code';
-import { CheckCircle, RefreshCw, Maximize2, X, TrendingUp, ShoppingBag, Clock, Delete, ShieldOff } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { CheckCircle, RefreshCw, Maximize2, X, TrendingUp, ShoppingBag, Clock, Delete, ShieldOff, Camera, CameraOff, AlertTriangle } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt, fmtHeure } from '../../utils/format';
+
+// QR carte bénéficiaire : "tikexo:<payloadStr>::<signature>" — cf. carte.service.js#getQRCode.
+// Format distinct du QR marchand (tikexo://paiement/<base64>) construit par buildQRValue ci-dessous.
+function decodeCardQR(raw: string): { payloadStr: string; signature: string } | null {
+  const prefix = 'tikexo:';
+  if (!raw.startsWith(prefix)) return null;
+  const [payloadStr, signature] = raw.slice(prefix.length).split('::');
+  return payloadStr && signature ? { payloadStr, signature } : null;
+}
 
 interface Transaction {
   id: string;
@@ -35,7 +45,82 @@ export default function CommercantCaisse() {
   const [nouveauPaiement, setNouveauPaiement] = useState<Transaction | null>(null);
   const prevCountRef = useRef(0);
 
+  // ── Mode "Scanner la carte du client" ──
+  const [mode, setMode] = useState<'afficher' | 'scanner'>('afficher');
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [scanActive, setScanActive] = useState(false);
+  const [camError, setCamError]     = useState('');
+  const [scanErr, setScanErr]       = useState('');
+  const [selectedCam, setSelectedCam] = useState('');
+  const scannerRef  = useRef<Html5Qrcode | null>(null);
+  const scanningRef = useRef(false);
+
   const montant = parseInt(montantSaisi.replace(/\s/g, ''), 10) || 0;
+
+  const payerCarteMut = useMutation({
+    mutationFn: (body: { payload: string; signature: string; montantTotal: number }) =>
+      api.post('/cartes/paiement/qr/payer', body).then((r) => r.data.data),
+    onSuccess: () => {
+      setMontantSaisi('');
+      setScanErr('');
+      qc.invalidateQueries({ queryKey: ['commercant-transactions-jour'] });
+    },
+    onError: (e: any) => setScanErr(e?.response?.data?.error ?? 'Paiement refusé — réessayez'),
+  });
+
+  useEffect(() => {
+    if (mode !== 'scanner') return;
+    Html5Qrcode.getCameras()
+      .then((cams) => { if (cams.length > 0) setSelectedCam(cams[cams.length - 1].id); })
+      .catch(() => setCamError('Impossible de détecter les caméras.'));
+  }, [mode]);
+
+  useEffect(() => {
+    if (!cameraOpen || !selectedCam) return;
+    const el = document.getElementById('caisse-qr-reader');
+    if (el) el.innerHTML = '';
+    const scanner = new Html5Qrcode('caisse-qr-reader');
+    scannerRef.current = scanner;
+    scanningRef.current = false;
+    setScanActive(false);
+    setCamError('');
+
+    scanner
+      .start(
+        selectedCam,
+        { fps: 10, qrbox: { width: 200, height: 200 } },
+        (decoded) => {
+          const p = decodeCardQR(decoded);
+          if (!p) { setCamError('QR carte non reconnu.'); return; }
+          scanningRef.current = false;
+          scanner.stop().catch(() => {});
+          setCameraOpen(false);
+          setScanActive(false);
+          payerCarteMut.mutate({ payload: p.payloadStr, signature: p.signature, montantTotal: montant });
+        },
+        () => {}
+      )
+      .then(() => { scanningRef.current = true; setScanActive(true); })
+      .catch((e: Error) => { setCamError(e?.message ?? "Impossible d'accéder à la caméra."); setCameraOpen(false); });
+
+    return () => {
+      if (scanningRef.current) { scanningRef.current = false; scanner.stop().catch(() => {}); }
+      setScanActive(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraOpen, selectedCam]);
+
+  function fermerCamera() {
+    if (scanningRef.current && scannerRef.current) { scanningRef.current = false; scannerRef.current.stop().catch(() => {}); }
+    setCameraOpen(false);
+    setScanActive(false);
+  }
+
+  // Coupe la caméra si le commerçant quitte le mode scanner
+  useEffect(() => {
+    if (mode !== 'scanner') fermerCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   /* ── Fiche commerçant ── */
   const { data: fiche, isLoading: loadFiche } = useQuery({
@@ -156,37 +241,110 @@ export default function CommercantCaisse() {
             )}
           </div>
 
-          {/* QR code */}
-          <div className="flex flex-col items-center py-4 gap-2 border-b border-slate-100">
-            {loadFiche ? (
-              <div className="w-36 h-36 bg-slate-100 animate-pulse rounded-lg" />
-            ) : qrValue ? (
-              <div
-                className="p-3 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-tikexo-accent transition-colors"
-                onClick={() => setFullscreen(true)}
-                title="Agrandir"
-              >
-                <QRCodeSVG value={qrValue} size={120} fgColor="#1A3C5E" bgColor="#ffffff" />
-              </div>
-            ) : (
-              <div className="w-32 h-32 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center">
-                <div className="text-[11px] text-slate-300">Chargement…</div>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFullscreen(true)}
-                disabled={!qrValue}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tikexo-primary text-white text-[11px] hover:bg-tikexo-accent transition-colors disabled:opacity-40"
-              >
-                <Maximize2 size={11} /> Agrandir
-              </button>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 text-[11px] text-slate-500">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                En attente
+          {/* Onglets mode paiement */}
+          <div className="flex border-b border-slate-100 flex-shrink-0">
+            <button
+              onClick={() => setMode('afficher')}
+              className={clsx(
+                'flex-1 text-[11px] font-medium py-2.5 transition-colors',
+                mode === 'afficher' ? 'text-tikexo-primary border-b-2 border-tikexo-primary' : 'text-slate-400 hover:text-slate-600'
+              )}
+            >
+              Afficher mon QR
+            </button>
+            <button
+              onClick={() => setMode('scanner')}
+              className={clsx(
+                'flex-1 text-[11px] font-medium py-2.5 transition-colors',
+                mode === 'scanner' ? 'text-tikexo-primary border-b-2 border-tikexo-primary' : 'text-slate-400 hover:text-slate-600'
+              )}
+            >
+              Scanner la carte client
+            </button>
+          </div>
+
+          {mode === 'afficher' ? (
+            /* QR marchand — le client scanne */
+            <div className="flex flex-col items-center py-4 gap-2 border-b border-slate-100">
+              {loadFiche ? (
+                <div className="w-36 h-36 bg-slate-100 animate-pulse rounded-lg" />
+              ) : qrValue ? (
+                <div
+                  className="p-3 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-tikexo-accent transition-colors"
+                  onClick={() => setFullscreen(true)}
+                  title="Agrandir"
+                >
+                  <QRCodeSVG value={qrValue} size={120} fgColor="#1A3C5E" bgColor="#ffffff" />
+                </div>
+              ) : (
+                <div className="w-32 h-32 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center">
+                  <div className="text-[11px] text-slate-300">Chargement…</div>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFullscreen(true)}
+                  disabled={!qrValue}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-tikexo-primary text-white text-[11px] hover:bg-tikexo-accent transition-colors disabled:opacity-40"
+                >
+                  <Maximize2 size={11} /> Agrandir
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 text-[11px] text-slate-500">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  En attente
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Scan de la carte du client */
+            <div className="flex flex-col items-center py-4 gap-2 border-b border-slate-100 px-3">
+              <div
+                id="caisse-qr-reader"
+                className={clsx('w-full rounded-lg overflow-hidden bg-black transition-all', cameraOpen ? 'min-h-[180px]' : 'h-0')}
+              />
+
+              {!cameraOpen && (
+                <div className="w-full h-32 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1.5">
+                  <CameraOff size={20} className="text-slate-300" />
+                  <div className="text-[10px] text-slate-400 text-center px-3">
+                    {montant === 0 ? 'Saisissez un montant avant de scanner' : 'Prêt à scanner'}
+                  </div>
+                </div>
+              )}
+
+              {camError && (
+                <div className="flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2.5 py-2 w-full">
+                  <AlertTriangle size={12} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-red-600">{camError}</p>
+                </div>
+              )}
+              {scanErr && (
+                <div className="flex items-start gap-1.5 bg-red-50 border border-red-100 rounded-lg px-2.5 py-2 w-full">
+                  <AlertTriangle size={12} className="text-red-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-red-600">{scanErr}</p>
+                </div>
+              )}
+              {payerCarteMut.isSuccess && !cameraOpen && (
+                <div className="flex items-center gap-1.5 bg-[#EAF3DE] border border-[#B6D7A8] rounded-lg px-2.5 py-2 w-full">
+                  <CheckCircle size={12} className="text-[#166534] flex-shrink-0" />
+                  <p className="text-[10px] text-[#166534]">Paiement carte accepté</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => { if (cameraOpen) { fermerCamera(); } else { setCamError(''); setScanErr(''); setCameraOpen(true); } }}
+                disabled={montant === 0 || payerCarteMut.isPending}
+                className={clsx(
+                  'w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+                  cameraOpen ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-tikexo-primary text-white hover:bg-tikexo-accent'
+                )}
+              >
+                {payerCarteMut.isPending
+                  ? 'Traitement…'
+                  : cameraOpen ? <><CameraOff size={12} /> Fermer</> : <><Camera size={12} /> Scanner la carte</>}
+              </button>
+            </div>
+          )}
 
           {/* Clavier numérique */}
           <div className="p-3 flex-1 flex flex-col justify-center">
