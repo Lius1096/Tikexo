@@ -55,7 +55,10 @@ export default function Commercants() {
         const r = await api.get('/commercants/nearby', {
           params: { lat: position.lat, lng: position.lng, rayon: 5000, categorie: typeFiltre || undefined },
         });
-        return r.data.data.data as CommercantItem[];
+        // Le contrôleur backend fait res.json({ success: true, ...result }) où
+        // result = { data, meta } — donc pas de double imbrication comme sur
+        // /commercants (qui fait res.json({ success, data: {...} })).
+        return (r.data.data ?? []) as CommercantItem[];
       }
       const r = await api.get('/commercants', {
         params: { statut: 'ACTIF', type: typeFiltre || undefined, limit: 50 },
