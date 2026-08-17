@@ -69,11 +69,11 @@ async function verifierOtp(telephoneRaw, code) {
 
   const user = await prisma.user.findUniqueOrThrow({ where: { telephone } });
 
-  // Un employeur (ADMIN_RH / GESTIONNAIRE_RH) reste INACTIF jusqu'à la validation KYB par l'admin.
+  // Un employeur (ADMIN_DIRECTEUR / ADMIN_RH / GESTIONNAIRE_RH) reste INACTIF jusqu'à la validation KYB par l'admin.
   // La connexion est bloquée tant que le compte n'a pas été activé par l'équipe TIKEXO.
   if (user.statut === 'INACTIF') {
     const errStatut = new Error(
-      user.role === 'ADMIN_RH' || user.role === 'GESTIONNAIRE_RH'
+      user.role === 'ADMIN_DIRECTEUR' || user.role === 'ADMIN_RH' || user.role === 'GESTIONNAIRE_RH'
         ? 'Votre compte est en attente de validation KYB. Vous recevrez un SMS dès que votre dossier est approuvé.'
         : 'Votre compte est en attente d\'activation. Contactez votre employeur ou le support TIKEXO.'
     );
@@ -310,6 +310,7 @@ async function loginEmail(emailRaw, motDePasse) {
 
   if (user.statut === 'INACTIF') {
     const messagesParRole = {
+      ADMIN_DIRECTEUR: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
       ADMIN_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
       GESTIONNAIRE_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
       COMMERCANT: "Votre dossier commerçant est en cours d'examen par l'équipe TIKEXO. Vous serez notifié par email dès l'activation de votre compte.",

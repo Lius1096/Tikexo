@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/database');
 const { redisConnection } = require('../queues/redis');
 
-const ROLES_ADMIN = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
+const ROLES_ADMIN = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
 const USER_CACHE_TTL = 300; // 5 minutes
 
 async function getUserCached(userId) {
@@ -139,7 +139,7 @@ async function verifierEntreprise(req, res, next) {
     return next();
   }
 
-  if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role)) {
+  if (['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role)) {
     const admin = await prisma.entrepriseAdmin.findFirst({
       where: { user_id: req.user.id, entreprise_id: entrepriseId },
     });

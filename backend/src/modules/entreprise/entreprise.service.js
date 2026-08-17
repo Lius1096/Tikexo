@@ -336,8 +336,8 @@ async function retirerRh(entrepriseId, userId, adminId) {
     err.statusCode = 404;
     throw err;
   }
-  if (cible.role === 'ADMIN_RH') {
-    const err = new Error('Impossible de retirer le compte RH principal de l\'entreprise');
+  if (cible.role === 'ADMIN_RH' || cible.role === 'ADMIN_DIRECTEUR') {
+    const err = new Error('Impossible de retirer le compte administrateur principal de l\'entreprise');
     err.statusCode = 403;
     throw err;
   }

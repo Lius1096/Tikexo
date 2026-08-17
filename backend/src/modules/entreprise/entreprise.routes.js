@@ -9,7 +9,7 @@ router.use(authentifier);
 // Un ADMIN_RH/GESTIONNAIRE_RH ne peut agir que sur sa propre entreprise (:id).
 // SUPER_ADMIN/ADMIN_OPS (backoffice TIKEXO) ne sont pas concernés par cette restriction.
 const checkEntrepriseProprietaire = (req, res, next) => {
-  if (['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role)) {
+  if (['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role)) {
     if (!req.user.entrepriseId || req.user.entrepriseId !== req.params.id) {
       return res.status(403).json({ success: false, error: 'TIKEXO — Accès refusé à cette entreprise' });
     }
@@ -19,19 +19,19 @@ const checkEntrepriseProprietaire = (req, res, next) => {
 
 router.get('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.lister);
 router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creer);
-router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getById);
-router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.modifier);
+router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getById);
+router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.modifier);
 router.post('/:id/valider-kyb', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerKYB);
 router.post('/:id/suspendre', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.suspendre);
 router.post('/:id/archiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.archiver);
-router.get('/:id/beneficiaires', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getBeneficiaires);
-router.get('/:id/wallet', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getWallet);
-router.get('/:id/stats', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getStats);
-router.get('/:id/facturation', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getFacturation);
+router.get('/:id/beneficiaires', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getBeneficiaires);
+router.get('/:id/wallet', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getWallet);
+router.get('/:id/stats', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getStats);
+router.get('/:id/facturation', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getFacturation);
 
-router.get('/:id/equipe-rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getEquipeRH);
-router.post('/:id/rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.inviterRh);
-router.delete('/:id/rh/:userId', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.retirerRh);
+router.get('/:id/equipe-rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getEquipeRH);
+router.post('/:id/rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.inviterRh);
+router.delete('/:id/rh/:userId', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.retirerRh);
 
 router.post('/:id/users/:userId/toggle-statut', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.toggleStatutUser);
 

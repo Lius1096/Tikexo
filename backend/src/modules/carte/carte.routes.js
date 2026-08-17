@@ -38,12 +38,12 @@ router.post('/paiement/qr/valider', autoriser('COMMERCANT', 'SUPER_ADMIN', 'ADMI
 router.post('/paiement/nfc/valider', autoriser('COMMERCANT', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerNFC);
 
 // ── Employeur : demander carte physique pour un bénéficiaire ─────────────────
-router.post('/physique/demande/:userId', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.demanderPhysiqueEmployeur);
+router.post('/physique/demande/:userId', autoriser('ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.demanderPhysiqueEmployeur);
 
 // ── Admin / Employeur ─────────────────────────────────────────────────────────
 
 // Lister (admin = tout, employeur = ?entrepriseId)
-router.get('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.lister);
+router.get('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.lister);
 
 // Demandes de cartes physiques en attente (admin only)
 router.get('/demandes', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.listerDemandes);
@@ -55,7 +55,7 @@ router.post('/:id/valider-demande', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.
 router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creer);
 
 // Bloquer / débloquer (admin ou employeur)
-router.post('/:id/bloquer',   autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.bloquer);
-router.post('/:id/debloquer', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.debloquer);
+router.post('/:id/bloquer',   autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.bloquer);
+router.post('/:id/debloquer', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), ctrl.debloquer);
 
 module.exports = router;

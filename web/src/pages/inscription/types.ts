@@ -17,6 +17,7 @@ export interface InscriptionData {
     email_rh: string;
     mot_de_passe: string;
     confirmer_mot_de_passe: string;
+    role_inscription: '' | 'DIRECTEUR' | 'RH';
   };
   cgu: boolean;
 }
@@ -26,7 +27,7 @@ export const DEFAULT_DATA: InscriptionData = {
     nom: '', nif: '', rccm: '', secteur: '', adresse: '', ville: '',
     nb_salaries: '', dotation_max: '', montant_max_wallet: '',
   },
-  admin: { prenom: '', nom: '', telephone: '', email_rh: '', mot_de_passe: '', confirmer_mot_de_passe: '' },
+  admin: { prenom: '', nom: '', telephone: '', email_rh: '', mot_de_passe: '', confirmer_mot_de_passe: '', role_inscription: '' },
   cgu: false,
 };
 

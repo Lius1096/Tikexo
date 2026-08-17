@@ -53,6 +53,18 @@ async function inscrire({ entreprise: e, admin: a }) {
     throw err;
   }
 
+  // Rôle du signataire de l'inscription — détermine le rôle applicatif
+  // (privilèges futurs réservés RH) ET le niveau de dotation repas.
+  // N'a aucun rapport l'un avec l'autre : deux axes indépendants.
+  if (!['DIRECTEUR', 'RH'].includes(a.role_inscription)) {
+    const err = new Error('Merci de préciser si vous inscrivez l\'entreprise en tant que Directeur ou Responsable RH');
+    err.statusCode = 400;
+    err.code = 'ROLE_INSCRIPTION_REQUIS';
+    throw err;
+  }
+  const roleCompte = a.role_inscription === 'DIRECTEUR' ? 'ADMIN_DIRECTEUR' : 'ADMIN_RH';
+  const niveauBeneficiaire = a.role_inscription === 'DIRECTEUR' ? 'DIRECTEUR' : 'CADRE';
+
   // Vérifier unicité NIF
   const nifExiste = await prisma.entreprise.findUnique({ where: { nif: e.nif } });
   if (nifExiste) {
@@ -126,7 +138,7 @@ async function inscrire({ entreprise: e, admin: a }) {
         email_perso: email,
         email_pro: email,
         mot_de_passe_hash: motDePasseHash,
-        role: 'ADMIN_RH',
+        role: roleCompte,
         statut: 'INACTIF',
       },
     });
@@ -135,11 +147,11 @@ async function inscrire({ entreprise: e, admin: a }) {
       data: {
         entreprise_id: entreprise.id,
         user_id: newUser.id,
-        role: 'ADMIN_RH',
+        role: roleCompte,
       },
     });
 
-    // Wallet personnel (pour recevoir des dotations repas en tant que Directeur)
+    // Wallet personnel (pour recevoir des dotations repas en tant que salarié)
     await tx.wallet.create({
       data: {
         user_id: newUser.id,
@@ -148,12 +160,12 @@ async function inscrire({ entreprise: e, admin: a }) {
       },
     });
 
-    // Lien bénéficiaire : l'admin est aussi un employé Directeur
+    // Lien bénéficiaire : l'admin est aussi un employé, à son niveau déclaré
     await tx.lienEntrepriseBeneficiaire.create({
       data: {
         entreprise_id: entreprise.id,
         user_id: newUser.id,
-        niveau: 'DIRECTEUR',
+        niveau: niveauBeneficiaire,
         allocation_mensuelle: dotationMax || 15000,
         statut: 'ACTIF',
       },

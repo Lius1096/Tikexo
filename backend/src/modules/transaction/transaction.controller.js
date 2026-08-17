@@ -28,7 +28,7 @@ async function exportCsv(req, res, next) {
     else if (role === 'COMMERCANT') {
       const c = await prisma.commercant.findUnique({ where: { user_id: userId } });
       if (c) where.commercant_id = c.id;
-    } else if (role === 'ADMIN_RH' || role === 'GESTIONNAIRE_RH') {
+    } else if (role === 'ADMIN_DIRECTEUR' || role === 'ADMIN_RH' || role === 'GESTIONNAIRE_RH') {
       const adminLink = await prisma.entrepriseAdmin.findFirst({ where: { user_id: userId } });
       if (adminLink) {
         const liens = await prisma.lienEntrepriseBeneficiaire.findMany({

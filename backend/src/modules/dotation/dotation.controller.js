@@ -4,7 +4,7 @@ const service = require('./dotation.service');
 // Un ADMIN_RH/GESTIONNAIRE_RH n'agit / ne voit que les dotations de sa propre
 // entreprise. SUPER_ADMIN/ADMIN_OPS (backoffice TIKEXO) ne sont pas restreints.
 function scopeEntreprise(req) {
-  return ['ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role) ? req.user.entrepriseId : null;
+  return ['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'].includes(req.user.role) ? req.user.entrepriseId : null;
 }
 
 async function calculer(req, res, next) {

@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 
 interface MembreRh {
   id: string;
-  role: 'ADMIN_RH' | 'GESTIONNAIRE_RH';
+  role: 'ADMIN_DIRECTEUR' | 'ADMIN_RH' | 'GESTIONNAIRE_RH';
   matricule: string | null;
   createdAt: string;
   user: {
@@ -23,7 +23,7 @@ interface InviteForm {
 
 const FORM_VIDE: InviteForm = { prenom: '', nom: '', telephone: '', email_pro: '', matricule: '' };
 
-const ROLE_LABEL: Record<string, string> = { ADMIN_RH: 'RH principal', GESTIONNAIRE_RH: 'Gestionnaire RH' };
+const ROLE_LABEL: Record<string, string> = { ADMIN_DIRECTEUR: 'Directeur', ADMIN_RH: 'RH principal', GESTIONNAIRE_RH: 'Gestionnaire RH' };
 const STATUT_LABEL: Record<string, { label: string; className: string }> = {
   ACTIF:  { label: 'Actif',       className: 'bg-[#ECFDF5] text-[#065F46]' },
   INACTIF:{ label: 'Invité·e',    className: 'bg-[#FFFBEB] text-[#92400E]' },
@@ -34,7 +34,7 @@ export default function EquipeRh() {
   const { user } = useAuth();
   const entrepriseId = user?.entrepriseId;
   const qc = useQueryClient();
-  const estAdminRh = user?.role === 'ADMIN_RH';
+  const estAdminRh = user?.role === 'ADMIN_RH' || user?.role === 'ADMIN_DIRECTEUR';
 
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<InviteForm>(FORM_VIDE);
@@ -102,7 +102,7 @@ export default function EquipeRh() {
             <div className="divide-y divide-slate-50">
               {membres.map((m) => {
                 const statutInfo = STATUT_LABEL[m.user.statut] ?? { label: m.user.statut, className: 'bg-slate-100 text-slate-600' };
-                const peutRetirer = estAdminRh && m.role !== 'ADMIN_RH' && m.user.statut !== 'BLOQUE';
+                const peutRetirer = estAdminRh && m.role !== 'ADMIN_RH' && m.role !== 'ADMIN_DIRECTEUR' && m.user.statut !== 'BLOQUE';
                 return (
                   <div key={m.id} className="flex items-center gap-3 px-4 py-3.5">
                     <div className="w-9 h-9 rounded-full bg-[#EEF2FF] text-[#4F46E5] flex items-center justify-center text-[11px] font-semibold flex-shrink-0">
@@ -111,7 +111,7 @@ export default function EquipeRh() {
                     <div className="min-w-0 flex-1">
                       <div className="text-[13px] font-medium text-slate-900 truncate flex items-center gap-1.5">
                         {m.user.prenom} {m.user.nom}
-                        {m.role === 'ADMIN_RH' && <ShieldCheck size={13} className="text-[#4F46E5] flex-shrink-0" />}
+                        {(m.role === 'ADMIN_RH' || m.role === 'ADMIN_DIRECTEUR') && <ShieldCheck size={13} className="text-[#4F46E5] flex-shrink-0" />}
                       </div>
                       <div className="text-[11px] text-slate-400 truncate">
                         {m.user.email_pro || m.user.telephone} · {ROLE_LABEL[m.role] ?? m.role}

@@ -49,6 +49,7 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
     emailValide &&
     pwdValide &&
     pwdMatch &&
+    a.role_inscription &&
     data.cgu;
 
   return (
@@ -149,6 +150,15 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
       </div>
 
       <div className="section-label" style={{ marginTop: '16px' }}>CONTACT ADMINISTRATEUR RH</div>
+
+      <div className="form-group">
+        <label className="form-label">Vous inscrivez cette entreprise en tant que <span className="form-required">*</span></label>
+        <select className="form-select" value={a.role_inscription} onChange={(ev) => setA({ role_inscription: ev.target.value as InscriptionData['admin']['role_inscription'] })}>
+          <option value="">Sélectionner…</option>
+          <option value="DIRECTEUR">Directeur / Dirigeant</option>
+          <option value="RH">Responsable RH</option>
+        </select>
+      </div>
 
       <div className="form-row">
         <div className="form-group">

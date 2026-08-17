@@ -10,7 +10,7 @@ router.post('/webhook', limiterWebhook, ctrl.traiterWebhook);
 
 router.use(authentifier);
 
-router.post('/collecte', autoriser('ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creerCollecte);
+router.post('/collecte', autoriser('ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH', 'SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creerCollecte);
 router.post('/payout/:commercantId', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.declencherPayout);
 router.get('/operations', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.listerOperations);
 

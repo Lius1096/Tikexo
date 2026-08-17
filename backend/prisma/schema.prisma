@@ -479,6 +479,7 @@ model Notification {
 enum Role {
   SUPER_ADMIN
   ADMIN_OPS
+  ADMIN_DIRECTEUR
   ADMIN_RH
   GESTIONNAIRE_RH
   MANAGER

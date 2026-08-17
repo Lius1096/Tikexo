@@ -79,6 +79,7 @@ export default function Inscription() {
           telephone: data.admin.telephone,
           email_rh: data.admin.email_rh,
           mot_de_passe: data.admin.mot_de_passe,
+          role_inscription: data.admin.role_inscription,
         },
       });
       const inscriptionData: InscriptionResult = res.data;
