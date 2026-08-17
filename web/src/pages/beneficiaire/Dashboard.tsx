@@ -14,6 +14,13 @@ const TYPE_LABELS: Record<string, string> = {
   COMMISSION_DOTATION: 'Frais de service TIKEXO',
 };
 
+function libelleEntree(e: any): string {
+  if (e.type === 'COMMISSION_DOTATION' && e.metadata?.taux != null) {
+    return `${TYPE_LABELS[e.type]} (${e.metadata.taux}%)`;
+  }
+  return TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ');
+}
+
 export default function BeneficiaireDashboard() {
   const { user } = useAuth();
 
@@ -113,7 +120,7 @@ export default function BeneficiaireDashboard() {
               return (
                 <div key={e.id} className="flex items-center justify-between px-4 py-3">
                   <div>
-                    <div className="text-xs font-medium text-slate-800">{TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ')}</div>
+                    <div className="text-xs font-medium text-slate-800">{libelleEntree(e)}</div>
                     <div className="text-[11px] text-slate-400">
                       {new Date(e.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>

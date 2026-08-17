@@ -16,6 +16,9 @@ const TYPE_LABELS: Record<string, string> = {
 
 function libelleEntree(e: any): string {
   if (e.type === 'PAIEMENT' && e.commercant_nom) return `Paiement — ${e.commercant_nom}`;
+  if (e.type === 'COMMISSION_DOTATION' && e.metadata?.taux != null) {
+    return `${TYPE_LABELS[e.type]} (${e.metadata.taux}%)`;
+  }
   return TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ');
 }
 

@@ -142,6 +142,7 @@ async function prelevierCommissionDotation(prisma, { walletBenefId, montantNum, 
   await transfererEntreWallets(prisma, walletBenefId, walletPlateforme.id, commission, 'COMMISSION_DOTATION', {
     source_entreprise_id: sourceEntrepriseId,
     description: 'Commission TIKEXO sur dotation',
+    taux: tauxCommission,
   });
 }
 
