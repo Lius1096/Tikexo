@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, Platform, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { ListRow, Badge, EmptyState, LoadingState } from '../../design-system/components';
+import CommercantsCarte from './CommercantsCarte';
 
 type TypeCommercant = 'RESTAURANT' | 'BOULANGERIE' | 'EPICERIE' | 'TRAITEUR' | 'CAFETERIA' | 'LIVRAISON' | 'SUPERMARCHE';
 
@@ -20,10 +21,13 @@ const TYPES: { value: TypeCommercant | ''; label: string }[] = [
   { value: 'SUPERMARCHE', label: 'Supermarché' },
 ];
 
-interface CommercantItem {
+export interface CommercantItem {
   id: string;
   nom: string;
   type: string;
+  adresse?: string;
+  latitude?: number;
+  longitude?: number;
   distance_label?: string;
   duree_a_pied?: string;
   est_ouvert?: boolean;
@@ -31,9 +35,11 @@ interface CommercantItem {
 }
 
 export default function Commercants() {
+  const [recherche, setRecherche] = useState('');
   const [typeFiltre, setTypeFiltre] = useState<TypeCommercant | ''>('');
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
   const [locRefusee, setLocRefusee] = useState(false);
+  const [vue, setVue] = useState<'liste' | 'carte'>('liste');
 
   useEffect(() => {
     (async () => {
@@ -68,19 +74,54 @@ export default function Commercants() {
     enabled: position !== null || locRefusee,
   });
 
+  const items = (data || []).filter((c) =>
+    !recherche
+    || c.nom.toLowerCase().includes(recherche.toLowerCase())
+    || c.adresse?.toLowerCase().includes(recherche.toLowerCase())
+  );
+
   return (
     <View style={styles.container}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtres} contentContainerStyle={styles.filtresContent}>
-        {TYPES.map((t) => (
-          <TouchableOpacity
-            key={t.value || 'tous'}
-            style={[styles.chip, typeFiltre === t.value && styles.chipActif]}
-            onPress={() => setTypeFiltre(t.value)}
-          >
-            <Text style={[styles.chipTexte, typeFiltre === t.value && styles.chipTexteActif]}>{t.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.rechercheWrap}>
+        <Ionicons name="search" size={14} color={colors.dark + '60'} style={styles.rechercheIcone} />
+        <TextInput
+          style={styles.recherche}
+          placeholder="Rechercher un restaurant…"
+          value={recherche}
+          onChangeText={setRecherche}
+        />
+      </View>
+
+      <View style={styles.entete}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtres} contentContainerStyle={styles.filtresContent}>
+          {TYPES.map((t) => (
+            <TouchableOpacity
+              key={t.value || 'tous'}
+              style={[styles.chip, typeFiltre === t.value && styles.chipActif]}
+              onPress={() => setTypeFiltre(t.value)}
+            >
+              <Text style={[styles.chipTexte, typeFiltre === t.value && styles.chipTexteActif]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {Platform.OS !== 'web' && (
+          <View style={styles.toggleVue}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, vue === 'liste' && styles.toggleBtnActif]}
+              onPress={() => setVue('liste')}
+            >
+              <Ionicons name="list" size={16} color={vue === 'liste' ? colors.white : colors.dark + '80'} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, vue === 'carte' && styles.toggleBtnActif]}
+              onPress={() => setVue('carte')}
+            >
+              <Ionicons name="map" size={16} color={vue === 'carte' ? colors.white : colors.dark + '80'} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
 
       {locRefusee && (
         <View style={styles.infoLoc}>
@@ -91,9 +132,11 @@ export default function Commercants() {
 
       {isLoading ? (
         <LoadingState />
+      ) : vue === 'carte' && Platform.OS !== 'web' ? (
+        <CommercantsCarte items={items} position={position} />
       ) : (
         <FlatList
-          data={data || []}
+          data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
@@ -119,7 +162,14 @@ export default function Commercants() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightGray },
-  filtres: { flexGrow: 0, backgroundColor: colors.white },
+  rechercheWrap: { backgroundColor: colors.white, paddingHorizontal: spacing.md, paddingTop: spacing.sm, position: 'relative', justifyContent: 'center' },
+  rechercheIcone: { position: 'absolute', left: spacing.md + spacing.sm, top: spacing.sm + 10, zIndex: 1 },
+  recherche: {
+    backgroundColor: colors.lightGray, borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm, paddingLeft: spacing.xl + spacing.xs, paddingRight: spacing.sm, fontSize: fontSize.sm,
+  },
+  entete: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, paddingRight: spacing.md },
+  filtres: { flexGrow: 0, flex: 1 },
   filtresContent: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: spacing.xs },
   chip: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full,
@@ -128,6 +178,9 @@ const styles = StyleSheet.create({
   chipActif: { backgroundColor: colors.primary },
   chipTexte: { fontSize: fontSize.xs, color: colors.dark + '99', fontWeight: '600' },
   chipTexteActif: { color: colors.white },
+  toggleVue: { flexDirection: 'row', backgroundColor: colors.lightGray, borderRadius: borderRadius.sm, padding: 2, gap: 2 },
+  toggleBtn: { width: 30, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: borderRadius.sm - 2 },
+  toggleBtnActif: { backgroundColor: colors.primary },
   infoLoc: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, padding: spacing.sm, paddingHorizontal: spacing.md },
   infoLocTexte: { fontSize: fontSize.xs, color: colors.dark + '80' },
   list: { paddingVertical: spacing.sm, flexGrow: 1 },

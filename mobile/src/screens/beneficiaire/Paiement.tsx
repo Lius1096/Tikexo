@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
@@ -53,6 +54,7 @@ function decodeQR(raw: string): QRPayload | null {
 }
 
 export default function Paiement() {
+  const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [etape, setEtape] = useState<Etape>('scan');
   const [payload, setPayload] = useState<QRPayload | null>(null);
@@ -172,6 +174,9 @@ export default function Paiement() {
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={scanned ? undefined : handleScan}
       />
+      <TouchableOpacity style={styles.btnFermer} onPress={() => navigation.navigate('Accueil' as never)}>
+        <Ionicons name="close" size={22} color={colors.white} />
+      </TouchableOpacity>
       <View style={styles.overlay}>
         <Text style={styles.overlayTexte}>Pointez la caméra vers le QR code du commerçant</Text>
       </View>
@@ -182,6 +187,7 @@ export default function Paiement() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.lightGray, padding: spacing.md, justifyContent: 'center' },
   scanContainer: { flex: 1, backgroundColor: '#000' },
+  btnFermer: { position: 'absolute', top: spacing.xl, right: spacing.md, width: 40, height: 40, borderRadius: borderRadius.full, backgroundColor: '#00000099', alignItems: 'center', justifyContent: 'center' },
   camera: { flex: 1 },
   overlay: { position: 'absolute', bottom: spacing.xl, left: 0, right: 0, alignItems: 'center' },
   overlayTexte: { color: colors.white, fontSize: fontSize.sm, backgroundColor: '#00000099', padding: spacing.sm, borderRadius: borderRadius.md },
