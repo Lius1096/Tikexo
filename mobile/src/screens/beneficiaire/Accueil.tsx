@@ -57,9 +57,15 @@ export default function Accueil() {
         <Text style={styles.walletSubtitle}>"Ton repas, ton droit"</Text>
       </Card>
 
-      {segmente?.sources?.length > 0 && (
+      {/* N'a de sens que si le solde vient d'au moins deux employeurs — pour
+          l'immense majorité des bénéficiaires (un seul employeur), afficher
+          cette section répéterait juste le solde total sans rien expliquer. */}
+      {segmente?.sources?.length > 1 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Solde par employeur</Text>
+          <Text style={styles.sectionSousTitre}>
+            Votre solde provient de plusieurs employeurs — répartition ci-dessous
+          </Text>
           {segmente.sources.map((s: { entreprise_id: string; entreprise_nom: string; montant: number }) => (
             <ListRow
               key={s.entreprise_id}
@@ -115,6 +121,7 @@ const styles = StyleSheet.create({
   walletSubtitle: { color: colors.accent, fontSize: fontSize.xs, marginTop: spacing.xs, fontStyle: 'italic' },
   section: { marginTop: spacing.sm },
   sectionTitle: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginHorizontal: spacing.md, marginBottom: spacing.xs },
+  sectionSousTitre: { fontSize: fontSize.xs, color: colors.dark + '60', marginHorizontal: spacing.md, marginBottom: spacing.xs, marginTop: -spacing.xs },
   sectionTitleInline: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark },
   sectionHeaderLigne: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: spacing.md, marginBottom: spacing.xs },
   voirTout: { fontSize: fontSize.xs, color: colors.accent, fontWeight: '600' },

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, RefreshControl, TextInput } from 'react-native';
+import { View, Text, FlatList, StyleSheet, RefreshControl, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
@@ -46,8 +46,15 @@ function libelleEntree(e: EntreeLedger): string {
   return TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ');
 }
 
+const FILTRES: { value: string; label: string }[] = [
+  { value: '', label: 'Tout' },
+  { value: 'DOTATION', label: 'Dotations' },
+  { value: 'PAIEMENT', label: 'Paiements' },
+];
+
 export default function Historique() {
   const [recherche, setRecherche] = useState('');
+  const [filtreType, setFiltreType] = useState('');
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['beneficiaire-historique'],
@@ -59,9 +66,9 @@ export default function Historique() {
   const entries: EntreeLedger[] = data?.entries ?? [];
   const walletId: string | undefined = data?.walletId;
 
-  const filtrees = entries.filter((e) =>
-    !recherche || libelleEntree(e).toLowerCase().includes(recherche.toLowerCase())
-  );
+  const filtrees = entries
+    .filter((e) => !filtreType || e.type === filtreType)
+    .filter((e) => !recherche || libelleEntree(e).toLowerCase().includes(recherche.toLowerCase()));
 
   // "Total dépensé" ne doit compter que les vrais achats (PAIEMENT) — y
   // mélanger les frais de service prélevés automatiquement à la dotation
@@ -110,11 +117,22 @@ export default function Historique() {
                 </Text>
               </View>
             )}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtres} contentContainerStyle={styles.filtresContent}>
+              {FILTRES.map((f) => (
+                <TouchableOpacity
+                  key={f.value || 'tout'}
+                  style={[styles.chip, filtreType === f.value && styles.chipActif]}
+                  onPress={() => setFiltreType(f.value)}
+                >
+                  <Text style={[styles.chipTexte, filtreType === f.value && styles.chipTexteActif]}>{f.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
             <View style={styles.rechercheWrap}>
               <Ionicons name="search" size={14} color={colors.dark + '60'} style={styles.rechercheIcone} />
               <TextInput
                 style={styles.recherche}
-                placeholder="Filtrer par type…"
+                placeholder="Rechercher…"
                 value={recherche}
                 onChangeText={setRecherche}
               />
@@ -136,7 +154,11 @@ export default function Historique() {
           );
         }}
         ListEmptyComponent={
-          <EmptyState icon="receipt-outline" title="Aucune transaction TIKEXO" subtitle="Vos dotations et paiements apparaîtront ici" />
+          <EmptyState
+            icon="receipt-outline"
+            title={filtreType === 'DOTATION' ? 'Aucune dotation reçue pour l\'instant' : 'Aucune transaction TIKEXO'}
+            subtitle="Vos dotations et paiements apparaîtront ici"
+          />
         }
       />
     </View>
@@ -157,6 +179,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightGray, borderRadius: borderRadius.sm,
   },
   fraisTexte: { flex: 1, fontSize: fontSize.xs, color: colors.dark + '80', lineHeight: 16 },
+  filtres: { flexGrow: 0 },
+  filtresContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.sm, gap: spacing.xs },
+  chip: {
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.full,
+    backgroundColor: colors.white, borderWidth: 1, borderColor: colors.lightGray, marginRight: spacing.xs,
+  },
+  chipActif: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipTexte: { fontSize: fontSize.xs, color: colors.dark + '99', fontWeight: '600' },
+  chipTexteActif: { color: colors.white },
   rechercheWrap: { marginHorizontal: spacing.md, marginBottom: spacing.xs, position: 'relative', justifyContent: 'center' },
   rechercheIcone: { position: 'absolute', left: spacing.sm, zIndex: 1 },
   recherche: {
