@@ -18,7 +18,7 @@ beforeAll(async () => {
   const entreprise = await prisma.entreprise.create({
     data: {
       nom: 'Test Entreprise TX',
-      nif: 'TEST-NIF-TX-' + Date.now(),
+      ifu: 'TEST-IFU-TX-' + Date.now(),
       kyb_valide: true,
       statut: 'ACTIF',
     },

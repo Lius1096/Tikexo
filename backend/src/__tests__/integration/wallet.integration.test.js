@@ -20,7 +20,7 @@ beforeAll(async () => {
   const ent = await prisma.entreprise.create({
     data: {
       nom: 'Entreprise Wallet Test',
-      nif: 'NIF-WAL-' + Date.now(),
+      ifu: 'IFU-WAL-' + Date.now(),
       kyb_valide: true, statut: 'ACTIF',
     },
   });

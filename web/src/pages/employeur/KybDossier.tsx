@@ -12,7 +12,7 @@ import { useToast } from '../../components/Toaster';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type StatutKyb = 'NON_SOUMIS' | 'EN_COURS' | 'EN_REVUE' | 'VALIDE' | 'REJETE';
-type TypeDoc = 'CARTE_NIF' | 'EXTRAIT_RCCM' | 'PIECE_IDENTITE_DIRIGEANT' | 'STATUTS_SOCIETE';
+type TypeDoc = 'CARTE_IFU' | 'EXTRAIT_RCCM' | 'PIECE_IDENTITE_DIRIGEANT' | 'STATUTS_SOCIETE';
 type StatutDoc = 'EN_ATTENTE' | 'VALIDE' | 'REJETE';
 
 interface KybDoc {
@@ -35,7 +35,7 @@ const DOCS_CONFIG: {
   Icon: LucideIcon;
   iconBg: string; iconColor: string; obligatoire: boolean;
 }[] = [
-  { type: 'CARTE_NIF',                label: 'Carte NIF / Attestation DGID',  description: 'Identifiant fiscal béninois en cours de validité', Icon: FileText,   iconBg: '#EAF3DE', iconColor: '#3B6D11', obligatoire: true },
+  { type: 'CARTE_IFU',                label: 'Carte IFU / Attestation DGID',  description: 'Identifiant fiscal béninois en cours de validité', Icon: FileText,   iconBg: '#EAF3DE', iconColor: '#3B6D11', obligatoire: true },
   { type: 'EXTRAIT_RCCM',             label: 'Extrait RCCM',                   description: 'Registre du Commerce et du Crédit Mobilier',       Icon: Store,      iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true },
   { type: 'PIECE_IDENTITE_DIRIGEANT', label: "Pièce d'identité du dirigeant",  description: 'CNI ou passeport recto/verso',                     Icon: CreditCard, iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true },
   { type: 'STATUTS_SOCIETE',          label: 'Statuts de la société',           description: 'Requis pour les grandes entreprises (ETI / GE)',  Icon: FileCheck,  iconBg: '#F1F5F9', iconColor: '#94A3B8', obligatoire: false },

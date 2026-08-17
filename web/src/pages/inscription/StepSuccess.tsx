@@ -33,7 +33,7 @@ export default function StepSuccess({ data, entrepriseId, uploadStatus = 'idle',
 
         <div className="si-card">
           <div className="si-row"><span className="si-label">Entreprise</span><span className="si-val">{data.entreprise.nom}</span></div>
-          <div className="si-row"><span className="si-label">NIF</span><span className="si-val mono">{data.entreprise.nif}</span></div>
+          <div className="si-row"><span className="si-label">IFU</span><span className="si-val mono">{data.entreprise.ifu}</span></div>
           {data.entreprise.rccm && (
             <div className="si-row"><span className="si-label">RCCM</span><span className="si-val mono">{data.entreprise.rccm}</span></div>
           )}

@@ -63,11 +63,11 @@ async function main() {
 
   // Entreprise de démonstration
   const entrepriseDemo = await prisma.entreprise.upsert({
-    where: { nif: 'NIF-DEMO-001' },
+    where: { ifu: 'IFU-DEMO-001' },
     update: {},
     create: {
       nom: 'Société de Démonstration TIKEXO',
-      nif: 'NIF-DEMO-001',
+      ifu: 'IFU-DEMO-001',
       rccm: 'RCCM-DEMO-001',
       secteur: 'Services',
       adresse: 'Avenue Jean Paul II, Cotonou',
@@ -216,11 +216,11 @@ async function main() {
 
   // ── Entreprise 2 ──────────────────────────────────────────────────────────
   const entreprise2 = await prisma.entreprise.upsert({
-    where: { nif: 'NIF-DEMO-002' },
+    where: { ifu: 'IFU-DEMO-002' },
     update: {},
     create: {
       nom: 'BéninTech Industries',
-      nif: 'NIF-DEMO-002',
+      ifu: 'IFU-DEMO-002',
       rccm: 'RCCM-DEMO-002',
       secteur: 'Technologie',
       adresse: 'Zone Industrielle de Glo-Djigbé',

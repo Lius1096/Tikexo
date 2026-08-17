@@ -1,7 +1,7 @@
 export interface InscriptionData {
   entreprise: {
     nom: string;
-    nif: string;
+    ifu: string;
     rccm: string;
     secteur: string;
     adresse: string;
@@ -24,7 +24,7 @@ export interface InscriptionData {
 
 export const DEFAULT_DATA: InscriptionData = {
   entreprise: {
-    nom: '', nif: '', rccm: '', secteur: '', adresse: '', ville: '',
+    nom: '', ifu: '', rccm: '', secteur: '', adresse: '', ville: '',
     nb_salaries: '', dotation_max: '', montant_max_wallet: '',
   },
   admin: { prenom: '', nom: '', telephone: '', email_rh: '', mot_de_passe: '', confirmer_mot_de_passe: '', role_inscription: '' },

@@ -8,7 +8,7 @@ import type { LucideIcon } from 'lucide-react';
 import StepsBar from './StepsBar';
 import { calculerFraisGestion } from './types';
 
-export type TypeDoc = 'CARTE_NIF' | 'EXTRAIT_RCCM' | 'PIECE_IDENTITE_DIRIGEANT' | 'STATUTS_SOCIETE';
+export type TypeDoc = 'CARTE_IFU' | 'EXTRAIT_RCCM' | 'PIECE_IDENTITE_DIRIGEANT' | 'STATUTS_SOCIETE';
 
 export interface KybFile {
   type: TypeDoc;
@@ -33,7 +33,7 @@ const DOCS_CONFIG: {
   obligatoire: boolean;
   maxMo: number;
 }[] = [
-  { type: 'CARTE_NIF',                label: 'Carte NIF / Attestation DGID',  description: 'Identifiant fiscal béninois en cours de validité', Icon: FileText,   iconBg: '#EAF3DE', iconColor: '#3B6D11', obligatoire: true,  maxMo: 10 },
+  { type: 'CARTE_IFU',                label: 'Carte IFU / Attestation DGID',  description: 'Identifiant fiscal béninois en cours de validité', Icon: FileText,   iconBg: '#EAF3DE', iconColor: '#3B6D11', obligatoire: true,  maxMo: 10 },
   { type: 'EXTRAIT_RCCM',             label: 'Extrait RCCM',                   description: 'Registre du Commerce et du Crédit Mobilier',       Icon: Store,      iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true,  maxMo: 10 },
   { type: 'PIECE_IDENTITE_DIRIGEANT', label: "Pièce d'identité du dirigeant", description: 'CNI ou passeport recto/verso',                     Icon: CreditCard, iconBg: '#DBEAFE', iconColor: '#185FA5', obligatoire: true,  maxMo: 10 },
   { type: 'STATUTS_SOCIETE',          label: 'Statuts de la société',          description: 'Requis pour les grandes entreprises (ETI / GE)',   Icon: FileCheck,  iconBg: '#F1F5F9', iconColor: '#94A3B8', obligatoire: false, maxMo: 20 },

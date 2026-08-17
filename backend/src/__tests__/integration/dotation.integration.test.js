@@ -20,7 +20,7 @@ beforeAll(async () => {
   const ent = await prisma.entreprise.create({
     data: {
       nom: 'Entreprise Dotation Test',
-      nif: 'NIF-DOT-' + Date.now(),
+      ifu: 'IFU-DOT-' + Date.now(),
       kyb_valide: true, statut: 'ACTIF',
     },
   });

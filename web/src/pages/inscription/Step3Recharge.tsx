@@ -81,10 +81,10 @@ export default function Step3Recharge({ data, onSubmit, onBack, loading, erreur 
                 <span className="rc-label">Entreprise</span>
                 <span className="rc-val" style={{ fontSize: '10px' }}>{data.entreprise.nom || '—'}</span>
               </div>
-              {data.entreprise.nif && (
+              {data.entreprise.ifu && (
                 <div className="rc-row">
-                  <span className="rc-label">NIF</span>
-                  <span className="rc-val mono">{data.entreprise.nif}</span>
+                  <span className="rc-label">IFU</span>
+                  <span className="rc-val mono">{data.entreprise.ifu}</span>
                 </div>
               )}
               {data.entreprise.rccm && (

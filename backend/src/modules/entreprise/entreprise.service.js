@@ -15,7 +15,7 @@ async function lister(filtres = {}) {
     ...(statut ? { statut } : {}),
     ...(q?.trim() ? { OR: [
       { nom: { contains: q.trim(), mode: 'insensitive' } },
-      { nif: { contains: q.trim(), mode: 'insensitive' } },
+      { ifu: { contains: q.trim(), mode: 'insensitive' } },
     ] } : {}),
   };
 
@@ -63,7 +63,7 @@ async function creer(data) {
   const entreprise = await prisma.entreprise.create({
     data: {
       nom: data.nom,
-      nif: data.nif,
+      ifu: data.ifu,
       rccm: data.rccm,
       secteur: data.secteur,
       adresse: data.adresse,
@@ -98,7 +98,7 @@ async function getById(id) {
 
 async function modifier(id, data) {
   // email_perso immuable — pas de modification possible via cette API
-  const { nif, ...updateData } = data;
+  const { ifu, ...updateData } = data;
   return prisma.entreprise.update({
     where: { id },
     data: updateData,

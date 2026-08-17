@@ -21,7 +21,7 @@ test.describe('Admin Entreprise — TIKEXO', () => {
     await page.goto('/admin/entreprises/nouveau');
 
     await page.fill('[data-testid="nom-input"]', 'Entreprise E2E Test');
-    await page.fill('[data-testid="nif-input"]', 'NIF-E2E-' + Date.now());
+    await page.fill('[data-testid="ifu-input"]', 'IFU-E2E-' + Date.now());
     await page.fill('[data-testid="adresse-input"]', 'Cotonou, Bénin');
     await page.fill('[data-testid="email-input"]', 'test.e2e@entreprise.bj');
     await page.fill('[data-testid="telephone-input"]', '+22990000001');

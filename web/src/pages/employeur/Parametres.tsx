@@ -56,7 +56,7 @@ export default function EmployeurParametres() {
 
   const CHAMPS_READONLY = [
     { label: 'Nom', value: data?.nom },
-    { label: 'NIF', value: data?.nif },
+    { label: 'IFU', value: data?.ifu },
     { label: 'RCCM', value: data?.rccm ?? '—' },
     { label: 'Statut', value: data?.statut },
     { label: 'KYB', value: data?.kyb_valide ? 'Validé' : 'En attente' },

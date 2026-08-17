@@ -7,7 +7,7 @@ beforeAll(async () => {
   const entreprise = await prisma.entreprise.create({
     data: {
       nom: 'Sécurité Ledger Test',
-      nif: 'NIF-LEDGER-SEC-' + Date.now(),
+      ifu: 'IFU-LEDGER-SEC-' + Date.now(),
       kyb_valide: true,
       statut: 'ACTIF',
     },

@@ -8,12 +8,12 @@ let tokenBenef, tokenAdminRHA, tokenAdminRHB, entAId, entBId;
 
 beforeAll(async () => {
   const entA = await prisma.entreprise.create({
-    data: { nom: 'Sécurité A', nif: 'NIF-SEC-A-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
+    data: { nom: 'Sécurité A', ifu: 'IFU-SEC-A-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
   });
   entAId = entA.id;
 
   const entB = await prisma.entreprise.create({
-    data: { nom: 'Sécurité B', nif: 'NIF-SEC-B-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
+    data: { nom: 'Sécurité B', ifu: 'IFU-SEC-B-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
   });
   entBId = entB.id;
 

@@ -50,7 +50,7 @@ model Entreprise {
   id                      String           @id @default(cuid())
   nom                     String
   rccm                    String?
-  nif                     String           @unique
+  ifu                     String           @unique
   secteur                 String?
   adresse                 String?
   ville                   String           @default("Cotonou")
@@ -657,7 +657,7 @@ enum StatutKyb {
 }
 
 enum TypeKybDocument {
-  CARTE_NIF
+  CARTE_IFU
   EXTRAIT_RCCM
   PIECE_IDENTITE_DIRIGEANT
   STATUTS_SOCIETE

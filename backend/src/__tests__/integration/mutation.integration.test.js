@@ -19,13 +19,13 @@ const emailProApres = `marie.dupont.${Date.now()}@entreprise-b.bj`;
 
 beforeAll(async () => {
   const entA = await prisma.entreprise.create({
-    data: { nom: 'Entreprise A', nif: 'NIF-MUT-A-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
+    data: { nom: 'Entreprise A', ifu: 'IFU-MUT-A-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
   });
   entAId = entA.id;
   await prisma.wallet.create({ data: { entreprise_id: entAId, type: 'ENTREPRISE', solde: 100000, currency: 'XOF' } });
 
   const entB = await prisma.entreprise.create({
-    data: { nom: 'Entreprise B', nif: 'NIF-MUT-B-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
+    data: { nom: 'Entreprise B', ifu: 'IFU-MUT-B-' + Date.now(), kyb_valide: true, statut: 'ACTIF' },
   });
   entBId = entB.id;
   await prisma.wallet.create({ data: { entreprise_id: entBId, type: 'ENTREPRISE', solde: 100000, currency: 'XOF' } });

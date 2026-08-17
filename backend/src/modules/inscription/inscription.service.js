@@ -65,12 +65,12 @@ async function inscrire({ entreprise: e, admin: a }) {
   const roleCompte = a.role_inscription === 'DIRECTEUR' ? 'ADMIN_DIRECTEUR' : 'ADMIN_RH';
   const niveauBeneficiaire = a.role_inscription === 'DIRECTEUR' ? 'DIRECTEUR' : 'CADRE';
 
-  // Vérifier unicité NIF
-  const nifExiste = await prisma.entreprise.findUnique({ where: { nif: e.nif } });
-  if (nifExiste) {
-    const err = new Error('Ce NIF est déjà enregistré sur TIKEXO');
+  // Vérifier unicité IFU
+  const ifuExiste = await prisma.entreprise.findUnique({ where: { ifu: e.ifu } });
+  if (ifuExiste) {
+    const err = new Error('Cet IFU est déjà enregistré sur TIKEXO');
     err.statusCode = 409;
-    err.code = 'NIF_DEJA_EXISTANT';
+    err.code = 'IFU_DEJA_EXISTANT';
     throw err;
   }
 
@@ -105,7 +105,7 @@ async function inscrire({ entreprise: e, admin: a }) {
     const entreprise = await tx.entreprise.create({
       data: {
         nom: e.nom,
-        nif: e.nif,
+        ifu: e.ifu,
         rccm: e.rccm || null,
         secteur: e.secteur || null,
         adresse: e.adresse || null,
@@ -177,7 +177,7 @@ async function inscrire({ entreprise: e, admin: a }) {
         action: 'INSCRIPTION',
         entite: 'Entreprise',
         entite_id: entreprise.id,
-        apres: { nom: entreprise.nom, nif: entreprise.nif, plan: planLabel },
+        apres: { nom: entreprise.nom, ifu: entreprise.ifu, plan: planLabel },
       },
     });
 
@@ -206,7 +206,7 @@ async function inscrire({ entreprise: e, admin: a }) {
 
 // Upload KYB sans authentification — autorisé uniquement tant que le dossier n'est pas validé
 async function uploadDocumentInscription({ entreprise_id, type, fichier }) {
-  const TYPES_VALIDES = ['CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT', 'STATUTS_SOCIETE'];
+  const TYPES_VALIDES = ['CARTE_IFU', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT', 'STATUTS_SOCIETE'];
   if (!TYPES_VALIDES.includes(type)) {
     const err = new Error('Type de document invalide'); err.statusCode = 400; throw err;
   }
@@ -240,7 +240,7 @@ async function uploadDocumentInscription({ entreprise_id, type, fichier }) {
   });
 
   // Recalculer statut du dossier
-  const OBLIGATOIRES = ['CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
+  const OBLIGATOIRES = ['CARTE_IFU', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
   const tousLesDocs = await prisma.kybDocument.findMany({ where: { dossier_id: dossier.id }, orderBy: { createdAt: 'desc' } });
   const docsActifs = {};
   for (const d of tousLesDocs) {

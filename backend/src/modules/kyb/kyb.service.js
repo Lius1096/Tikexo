@@ -8,7 +8,7 @@ const { kybApprouve, kybRejete } = require('../../utils/emailTemplates');
 const { creerOtp } = require('../../utils/otp');
 const { envoyerOtpSms } = require('../../config/sms');
 
-const DOCS_OBLIGATOIRES = ['CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
+const DOCS_OBLIGATOIRES = ['CARTE_IFU', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
 const TAILLE_MAX_DEFAUT = 10 * 1024 * 1024; // 10 Mo
 const TAILLE_MAX_STATUTS = 20 * 1024 * 1024; // 20 Mo
 const FORMATS_ACCEPTES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -326,7 +326,7 @@ async function listerDossiers(filtres = {}) {
     prisma.kybDossier.findMany({
       where,
       include: {
-        entreprise: { select: { id: true, nom: true, nif: true, rccm: true } },
+        entreprise: { select: { id: true, nom: true, ifu: true, rccm: true } },
         documents: { orderBy: { createdAt: 'desc' } },
       },
       orderBy: [

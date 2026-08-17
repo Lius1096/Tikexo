@@ -21,7 +21,7 @@ async function uploadDocument(req, res, next) {
     }
 
     const { type } = req.body;
-    const typesValides = ['CARTE_NIF', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT', 'STATUTS_SOCIETE'];
+    const typesValides = ['CARTE_IFU', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT', 'STATUTS_SOCIETE'];
     if (!typesValides.includes(type)) {
       return res.status(400).json({ success: false, message: 'Type de document invalide' });
     }

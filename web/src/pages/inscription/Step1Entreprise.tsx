@@ -38,7 +38,7 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
 
   const valide =
     e.nom.trim() &&
-    e.nif.trim() &&
+    e.ifu.trim() &&
     e.secteur &&
     e.adresse.trim() &&
     e.ville &&
@@ -65,10 +65,10 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
 
       <div className="form-row">
         <div className="form-group">
-          <label className="form-label">NIF <span className="form-required">*</span></label>
-          <input className="form-input" placeholder="ex : NIF-BJ-XXXXX" value={e.nif} onChange={(ev) => setE({ nif: ev.target.value.toUpperCase() })} />
-          {e.nif.length >= 5 && (
-            <div className="form-success"><CheckCircle2 size={12} /> NIF vérifié DGID Bénin</div>
+          <label className="form-label">IFU <span className="form-required">*</span></label>
+          <input className="form-input" placeholder="ex : 3202119990001" value={e.ifu} onChange={(ev) => setE({ ifu: ev.target.value.toUpperCase() })} />
+          {e.ifu.length >= 5 && (
+            <div className="form-success"><CheckCircle2 size={12} /> IFU vérifié DGID Bénin</div>
           )}
         </div>
         <div className="form-group">
@@ -249,7 +249,7 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
       <div className="kyb-notice">
         <ShieldCheck size={15} color="#185FA5" style={{ flexShrink: 0, marginTop: 1 }} />
         <div className="kyb-notice-text">
-          <strong style={{ fontWeight: 500 }}>Vérification KYB automatique.</strong> Votre NIF est vérifié en temps réel auprès de la DGID Bénin. La validation complète par l'équipe TIKEXO se fait sous 48h ouvrées.
+          <strong style={{ fontWeight: 500 }}>Vérification KYB automatique.</strong> Votre IFU est vérifié en temps réel auprès de la DGID Bénin. La validation complète par l'équipe TIKEXO se fait sous 48h ouvrées.
         </div>
       </div>
 

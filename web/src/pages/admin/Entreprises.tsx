@@ -14,7 +14,7 @@ import { ConfirmModal } from '../../components/ui/ConfirmModal';
 interface EntrepriseRow {
   id: string;
   nom: string;
-  nif: string;
+  ifu: string;
   rccm?: string;
   secteur?: string;
   adresse?: string;
@@ -75,7 +75,7 @@ interface KybData {
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const DOC_LABELS: Record<string, string> = {
-  CARTE_NIF: 'Carte NIF / Attestation DGID',
+  CARTE_IFU: 'Carte IFU / Attestation DGID',
   EXTRAIT_RCCM: 'Extrait RCCM',
   PIECE_IDENTITE_DIRIGEANT: "Pièce d'identité du dirigeant",
   STATUTS_SOCIETE: 'Statuts de la société',
@@ -150,7 +150,7 @@ export default function AdminEntreprises() {
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Rechercher par nom ou NIF…"
+          placeholder="Rechercher par nom ou IFU…"
           className="w-64 text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#1A3C5E]/20 focus:border-[#1A3C5E]"
         />
       </div>
@@ -354,7 +354,7 @@ function EntrepriseDrawer({
                 <div className="text-[13px] font-medium text-slate-900">
                   {isLoading ? '…' : ent?.nom}
                 </div>
-                <div className="text-[11px] text-slate-400 font-mono">{ent?.nif}</div>
+                <div className="text-[11px] text-slate-400 font-mono">{ent?.ifu}</div>
               </div>
             </div>
             <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-100">
@@ -373,7 +373,7 @@ function EntrepriseDrawer({
 
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <InfoRow icon={<Building2 size={12} />} label="Entreprise" value={ent.nom} />
-                    <InfoRow icon={<FileText size={12} />} label="NIF" value={ent.nif} mono />
+                    <InfoRow icon={<FileText size={12} />} label="IFU" value={ent.ifu} mono />
                     {ent.rccm && <InfoRow icon={<FileText size={12} />} label="RCCM" value={ent.rccm} mono />}
                     {ent.secteur && <InfoRow icon={<Building2 size={12} />} label="Secteur" value={ent.secteur} />}
                     <InfoRow icon={<MapPin size={12} />} label="Ville" value={ent.ville} />
