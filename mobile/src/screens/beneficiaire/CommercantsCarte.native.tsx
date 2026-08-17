@@ -10,10 +10,11 @@ import type { CommercantItem } from './Commercants';
 const CENTRE_DEFAUT = { latitude: 6.3703, longitude: 2.3912 };
 
 export default function CommercantsCarte({
-  items, position,
+  items, position, onVoirFiche,
 }: {
   items: CommercantItem[];
   position: { lat: number; lng: number } | null;
+  onVoirFiche: (item: CommercantItem) => void;
 }) {
   const [selection, setSelection] = useState<CommercantItem | null>(null);
 
@@ -50,21 +51,24 @@ export default function CommercantsCarte({
           <TouchableOpacity style={styles.ficheFermer} onPress={() => setSelection(null)}>
             <Ionicons name="close" size={16} color={colors.dark + '80'} />
           </TouchableOpacity>
-          <View style={styles.ficheHeader}>
-            <View style={styles.ficheIcone}>
-              <Ionicons name="storefront" size={18} color={colors.primary} />
+          <TouchableOpacity onPress={() => onVoirFiche(selection)} activeOpacity={0.7}>
+            <View style={styles.ficheHeader}>
+              <View style={styles.ficheIcone}>
+                <Ionicons name="storefront" size={18} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ficheNom}>{selection.nom}</Text>
+                <Text style={styles.ficheSous}>
+                  {[selection.type, selection.distance_label, selection.duree_a_pied].filter(Boolean).join(' · ')}
+                </Text>
+              </View>
+              {selection.est_ouvert !== undefined && (
+                <Badge label={selection.est_ouvert ? 'Ouvert' : 'Fermé'} tone={selection.est_ouvert ? 'success' : 'neutral'} />
+              )}
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.ficheNom}>{selection.nom}</Text>
-              <Text style={styles.ficheSous}>
-                {[selection.type, selection.distance_label, selection.duree_a_pied].filter(Boolean).join(' · ')}
-              </Text>
-            </View>
-            {selection.est_ouvert !== undefined && (
-              <Badge label={selection.est_ouvert ? 'Ouvert' : 'Fermé'} tone={selection.est_ouvert ? 'success' : 'neutral'} />
-            )}
-          </View>
-          {!!selection.adresse && <Text style={styles.ficheAdresse}>{selection.adresse}</Text>}
+            {!!selection.adresse && <Text style={styles.ficheAdresse}>{selection.adresse}</Text>}
+            <Text style={styles.voirFiche}>Voir la fiche <Ionicons name="chevron-forward" size={11} /></Text>
+          </TouchableOpacity>
         </Card>
       )}
     </View>
@@ -81,4 +85,5 @@ const styles = StyleSheet.create({
   ficheNom: { fontSize: fontSize.sm, fontWeight: '700', color: colors.dark, paddingRight: spacing.lg },
   ficheSous: { fontSize: fontSize.xs, color: colors.dark + '80', marginTop: 2 },
   ficheAdresse: { fontSize: fontSize.xs, color: colors.dark + '99', marginTop: spacing.sm },
+  voirFiche: { fontSize: fontSize.xs, color: colors.accent, fontWeight: '600', marginTop: spacing.sm },
 });

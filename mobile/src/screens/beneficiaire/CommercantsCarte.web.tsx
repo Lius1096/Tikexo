@@ -11,6 +11,7 @@ import type { CommercantItem } from './Commercants';
 export default function CommercantsCarte(_props: {
   items: CommercantItem[];
   position: { lat: number; lng: number } | null;
+  onVoirFiche: (item: CommercantItem) => void;
 }) {
   return <View />;
 }

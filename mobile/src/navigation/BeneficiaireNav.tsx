@@ -10,6 +10,7 @@ import Paiement from '../screens/beneficiaire/Paiement';
 import Historique from '../screens/beneficiaire/Historique';
 import CarteVirtuelle from '../screens/beneficiaire/CarteVirtuelle';
 import Commercants from '../screens/beneficiaire/Commercants';
+import CommercantFiche from '../screens/beneficiaire/CommercantFiche';
 import Profil from '../screens/beneficiaire/Profil';
 
 const Tab = createBottomTabNavigator();
@@ -57,6 +58,16 @@ export function BeneficiaireNav() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={Tabs} />
+      <Stack.Screen
+        name="CommercantFiche"
+        component={CommercantFiche}
+        options={{
+          headerShown: true,
+          title: '',
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: colors.white,
+        }}
+      />
       <Stack.Screen
         name="Profil"
         component={Profil}

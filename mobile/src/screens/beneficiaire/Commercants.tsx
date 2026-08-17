@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, Platform, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
@@ -35,6 +36,7 @@ export interface CommercantItem {
 }
 
 export default function Commercants() {
+  const navigation = useNavigation();
   const [recherche, setRecherche] = useState('');
   const [typeFiltre, setTypeFiltre] = useState<TypeCommercant | ''>('');
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -133,7 +135,11 @@ export default function Commercants() {
       {isLoading ? (
         <LoadingState />
       ) : vue === 'carte' && Platform.OS !== 'web' ? (
-        <CommercantsCarte items={items} position={position} />
+        <CommercantsCarte
+          items={items}
+          position={position}
+          onVoirFiche={(item) => (navigation.getParent() as any)?.navigate('CommercantFiche', { id: item.id, nom: item.nom })}
+        />
       ) : (
         <FlatList
           data={items}
@@ -149,6 +155,7 @@ export default function Commercants() {
                   ? <Badge label={item.est_ouvert ? 'Ouvert' : 'Fermé'} tone={item.est_ouvert ? 'success' : 'neutral'} />
                   : undefined
               }
+              onPress={() => (navigation.getParent() as any)?.navigate('CommercantFiche', { id: item.id, nom: item.nom })}
             />
           )}
           ListEmptyComponent={

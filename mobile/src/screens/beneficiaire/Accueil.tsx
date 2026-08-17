@@ -93,6 +93,7 @@ export default function Accueil() {
                   : undefined
               }
               style={styles.row}
+              onPress={() => (navigation.getParent() as any)?.navigate('CommercantFiche', { id: c.id, nom: c.nom })}
             />
           ))}
         </View>
