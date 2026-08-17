@@ -28,7 +28,15 @@ function loadDraft(): { etape: Etape; data: InscriptionData } {
     const parsed = JSON.parse(raw);
     return {
       etape: parsed.etape ?? 1,
-      data: { ...DEFAULT_DATA, ...parsed.data },
+      // Fusion en profondeur des objets imbriqués — un brouillon plus ancien
+      // que la forme actuelle de InscriptionData (ex : champ renommé/ajouté
+      // depuis) ne doit jamais laisser une clé manquante à undefined.
+      data: {
+        ...DEFAULT_DATA,
+        ...parsed.data,
+        entreprise: { ...DEFAULT_DATA.entreprise, ...parsed.data?.entreprise },
+        admin: { ...DEFAULT_DATA.admin, ...parsed.data?.admin },
+      },
     };
   } catch {
     return { etape: 1, data: DEFAULT_DATA };
