@@ -63,13 +63,13 @@ export default function LandingPricing() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center max-w-4xl mx-auto">
+      <div className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-3 lg:px-0 lg:pb-0 lg:grid lg:grid-cols-3 lg:items-center lg:overflow-visible max-w-4xl lg:mx-auto">
         {PLANS.map((p: any) => (
           <div
             key={p.name}
-            className={`rounded-2xl p-7 transition-all duration-200 ${
+            className={`flex-none w-[82vw] snap-start lg:w-full rounded-2xl p-7 transition-all duration-200 ${
               p.featured
-                ? 'bg-white shadow-[0_0_80px_rgba(14,165,233,0.15)] scale-[1.05]'
+                ? 'bg-white shadow-[0_0_80px_rgba(14,165,233,0.15)] lg:scale-[1.05]'
                 : 'border border-white/[0.07] hover:border-white/[0.14] hover:bg-white/[0.04]'
             }`}
             style={!p.featured ? { background: 'rgba(255,255,255,0.03)' } : {}}

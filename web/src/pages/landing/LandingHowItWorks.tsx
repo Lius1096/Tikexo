@@ -41,13 +41,13 @@ export default function LandingHowItWorks() {
         {subtitle}
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="no-scrollbar flex gap-4 overflow-x-auto snap-x snap-mandatory -mx-6 px-6 pb-3 lg:mx-0 lg:px-0 lg:pb-0 lg:grid lg:grid-cols-3 lg:overflow-visible">
         {steps.map((s, idx) => {
           const Icon = ICONS[idx % ICONS.length];
           return (
           <div
             key={s.num}
-            className={`rounded-2xl p-7 border transition-all duration-200 ${
+            className={`flex-none w-[82vw] snap-start lg:w-full rounded-2xl p-7 border transition-all duration-200 ${
               s.highlight
                 ? 'border-sky-500/25 bg-sky-500/[0.18]'
                 : 'border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.05] hover:border-sky-500/35'
