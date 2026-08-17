@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
@@ -17,15 +17,25 @@ interface CommercantApercu {
 export default function Accueil() {
   const navigation = useNavigation();
 
-  const { data: wallet, isLoading } = useQuery({
+  const { data: wallet, isLoading, refetch: refetchSolde } = useQuery({
     queryKey: ['wallet-solde'],
     queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
 
-  const { data: segmente } = useQuery({
+  const { data: segmente, refetch: refetchSegmente } = useQuery({
     queryKey: ['wallet-segmente'],
     queryFn: () => api.get('/wallet/solde/segmente').then((r) => r.data.data),
   });
+
+  // Le solde peut changer sans action de ce côté de l'app (dotation reçue,
+  // carte scannée par un commerçant pendant que l'app était en arrière-plan)
+  // — on revérifie à chaque fois que l'onglet Accueil regagne le focus.
+  useFocusEffect(
+    useCallback(() => {
+      refetchSolde();
+      refetchSegmente();
+    }, [refetchSolde, refetchSegmente])
+  );
 
   const { data: commercants } = useQuery({
     queryKey: ['commercants-apercu'],

@@ -63,8 +63,13 @@ export default function Historique() {
     !recherche || libelleEntree(e).toLowerCase().includes(recherche.toLowerCase())
   );
 
+  // "Total dépensé" ne doit compter que les vrais achats (PAIEMENT) — y
+  // mélanger les frais de service prélevés automatiquement à la dotation
+  // (COMMISSION_DOTATION) donnait l'impression trompeuse d'avoir "dépensé"
+  // un montant que le bénéficiaire n'a pourtant jamais choisi de dépenser.
   const totalCredits = entries.filter((e) => e.wallet_destination_id === walletId).reduce((s, e) => s + parseFloat(e.montant), 0);
-  const totalDebits = entries.filter((e) => e.wallet_destination_id !== walletId).reduce((s, e) => s + parseFloat(e.montant), 0);
+  const totalDepense = entries.filter((e) => e.wallet_destination_id !== walletId && e.type === 'PAIEMENT').reduce((s, e) => s + parseFloat(e.montant), 0);
+  const totalFrais = entries.filter((e) => e.wallet_destination_id !== walletId && e.type === 'COMMISSION_DOTATION').reduce((s, e) => s + parseFloat(e.montant), 0);
 
   return (
     <View style={styles.container}>
@@ -92,9 +97,17 @@ export default function Historique() {
                   </View>
                   <View>
                     <Text style={styles.resumeLabel}>Total dépensé</Text>
-                    <Text style={[styles.resumeValeur, { color: colors.danger }]}>{totalDebits.toLocaleString('fr-FR')} XOF</Text>
+                    <Text style={[styles.resumeValeur, { color: colors.danger }]}>{totalDepense.toLocaleString('fr-FR')} XOF</Text>
                   </View>
                 </Card>
+              </View>
+            )}
+            {totalFrais > 0 && (
+              <View style={styles.fraisBox}>
+                <Ionicons name="information-circle" size={14} color={colors.dark + '80'} />
+                <Text style={styles.fraisTexte}>
+                  Dont {totalFrais.toLocaleString('fr-FR')} XOF de frais de service TIKEXO, prélevés automatiquement à chaque dotation — hors de vos achats.
+                </Text>
               </View>
             )}
             <View style={styles.rechercheWrap}>
@@ -138,6 +151,12 @@ const styles = StyleSheet.create({
   resumeIcone: { width: 32, height: 32, borderRadius: borderRadius.full, alignItems: 'center', justifyContent: 'center' },
   resumeLabel: { fontSize: fontSize.xs, color: colors.dark + '60' },
   resumeValeur: { fontSize: fontSize.sm, fontWeight: '700' },
+  fraisBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: spacing.xs,
+    marginHorizontal: spacing.md, marginBottom: spacing.sm, padding: spacing.sm,
+    backgroundColor: colors.lightGray, borderRadius: borderRadius.sm,
+  },
+  fraisTexte: { flex: 1, fontSize: fontSize.xs, color: colors.dark + '80', lineHeight: 16 },
   rechercheWrap: { marginHorizontal: spacing.md, marginBottom: spacing.xs, position: 'relative', justifyContent: 'center' },
   rechercheIcone: { position: 'absolute', left: spacing.sm, zIndex: 1 },
   recherche: {

@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Screen, Card, LoadingState } from '../../design-system/components';
 
 export default function CommercantDashboard() {
-  const { data: wallet, isLoading } = useQuery({
+  const { data: wallet, isLoading, refetch } = useQuery({
     queryKey: ['wallet-solde'],
     queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
+
+  // Le solde change à chaque encaissement (Scanner/Caisse) sans que ce
+  // Dashboard soit forcément remonté — on revérifie à chaque focus.
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   if (isLoading) return <LoadingState />;
 

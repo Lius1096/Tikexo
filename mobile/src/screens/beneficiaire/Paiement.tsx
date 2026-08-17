@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Card, Button, LinkButton } from '../../design-system/components';
@@ -55,6 +55,7 @@ function decodeQR(raw: string): QRPayload | null {
 
 export default function Paiement() {
   const navigation = useNavigation();
+  const qc = useQueryClient();
   const [permission, requestPermission] = useCameraPermissions();
   const [etape, setEtape] = useState<Etape>('scan');
   const [payload, setPayload] = useState<QRPayload | null>(null);
@@ -88,6 +89,13 @@ export default function Paiement() {
         montantTotal: parseFloat(montant),
       }),
     onSuccess: () => {
+      // Sans ça, le paiement réussit bien côté backend mais l'écran Accueil
+      // (toujours monté en arrière-plan dans le tab navigator) continue
+      // d'afficher le solde en cache — d'où l'impression que le compte
+      // n'est pas débité alors que la transaction est bien passée.
+      qc.invalidateQueries({ queryKey: ['wallet-solde'] });
+      qc.invalidateQueries({ queryKey: ['wallet-segmente'] });
+      qc.invalidateQueries({ queryKey: ['beneficiaire-historique'] });
       Alert.alert('TIKEXO', 'Paiement effectué avec succès !');
       reset();
     },

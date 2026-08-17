@@ -55,6 +55,7 @@ export default function ScannerCarte() {
       setMontantSaisi('');
       setScanning(false);
       qc.invalidateQueries({ queryKey: ['transactions-jour'] });
+      qc.invalidateQueries({ queryKey: ['wallet-solde'] });
     },
     onError: (err: any) => {
       Alert.alert('TIKEXO — Erreur', err.response?.data?.error || 'Paiement refusé, réessayez.');
