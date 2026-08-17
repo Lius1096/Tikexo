@@ -6,7 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
-import { Card, Button, LoadingState, CarteRecto, CarteVerso, CarteData } from '../../design-system/components';
+import { Screen, Card, Button, LoadingState, CarteRecto, CarteVerso, CarteData } from '../../design-system/components';
 
 // ─── Modal QR plein écran — même logique que web/beneficiaire/Carte.tsx#ModalQR ──
 function ModalQR({ carteId, onClose }: { carteId: string; onClose: () => void }) {
@@ -132,7 +132,7 @@ export default function CarteVirtuelle() {
 
   if (!carte) {
     return (
-      <View style={styles.videContainer}>
+      <Screen scroll contentContainerStyle={styles.videContainer}>
         <View style={styles.videIcone}>
           <Ionicons name="shield" size={28} color={colors.primary} />
         </View>
@@ -144,7 +144,7 @@ export default function CarteVirtuelle() {
           loading={creerMut.isPending}
           style={styles.videBtn}
         />
-      </View>
+      </Screen>
     );
   }
 
@@ -152,7 +152,7 @@ export default function CarteVirtuelle() {
     <>
       {showQRModal && <ModalQR carteId={carte.id} onClose={() => setShowQRModal(false)} />}
 
-      <View style={styles.container}>
+      <Screen scroll contentContainerStyle={styles.container}>
         <View style={styles.carteWrap}>
           {showVerso ? <CarteVerso cvv={showCVV ? cvv : undefined} /> : <CarteRecto carte={carte} cvv={showCVV ? cvv : undefined} />}
         </View>
@@ -296,14 +296,14 @@ export default function CarteVirtuelle() {
             </View>
           </View>
         )}
-      </View>
+      </Screen>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightGray, padding: spacing.md },
-  videContainer: { flex: 1, backgroundColor: colors.lightGray, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+  container: { padding: spacing.md, paddingBottom: spacing.xl },
+  videContainer: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   videIcone: { width: 64, height: 64, borderRadius: borderRadius.lg, backgroundColor: colors.lightBlue, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
   videTitre: { fontSize: fontSize.md, fontWeight: '700', color: colors.dark, marginBottom: spacing.xs },
   videSous: { fontSize: fontSize.sm, color: colors.dark + '80', textAlign: 'center', marginBottom: spacing.lg, maxWidth: 260 },
