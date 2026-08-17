@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -56,6 +56,20 @@ export default function Paiement() {
   const [payload, setPayload] = useState<QRPayload | null>(null);
   const [montant, setMontant] = useState('');
   const [scanned, setScanned] = useState(false);
+
+  // Bug connu expo-camera (iOS) : onBarcodeScanned ne se déclenche jamais si la
+  // CameraView est montée dans le même cycle que l'octroi de la permission —
+  // https://github.com/expo/expo/issues/28758. On force un remontage juste après.
+  const [cameraKey, setCameraKey] = useState(0);
+  const permissionEtaitAccordee = useRef(permission?.granted ?? false);
+  useEffect(() => {
+    if (permission?.granted && !permissionEtaitAccordee.current) {
+      const t = setTimeout(() => setCameraKey((k) => k + 1), 300);
+      permissionEtaitAccordee.current = true;
+      return () => clearTimeout(t);
+    }
+    permissionEtaitAccordee.current = permission?.granted ?? false;
+  }, [permission?.granted]);
 
   const { data: commercant } = useQuery({
     queryKey: ['commercant-fiche', payload?.commercant_id],
@@ -149,7 +163,9 @@ export default function Paiement() {
   return (
     <View style={styles.scanContainer}>
       <CameraView
+        key={cameraKey}
         style={styles.camera}
+        facing="back"
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={scanned ? undefined : handleScan}
       />
