@@ -54,7 +54,10 @@ async function creerEcritureLedger(prisma, {
   metadata,
 }) {
   if (!montant || montant <= 0) {
-    throw new Error(`TIKEXO — Montant invalide : ${montant}`);
+    const err = new Error(`TIKEXO — Montant invalide : ${montant}`);
+    err.statusCode = 400;
+    err.code = 'MONTANT_INVALIDE';
+    throw err;
   }
 
   // Opérations atomiques — extraites pour pouvoir s'exécuter dans ou hors transaction

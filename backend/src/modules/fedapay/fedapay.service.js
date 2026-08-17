@@ -22,6 +22,13 @@ const DEV_MOCK = process.env.FEDAPAY_SECRET_KEY === 'sk_sandbox_REMPLACER' || !p
 async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur }) {
   const montantNum = parseFloat(montant.toString());
 
+  if (!montantNum || montantNum <= 0) {
+    const err = new Error('TIKEXO — Montant de rechargement invalide');
+    err.statusCode = 400;
+    err.code = 'MONTANT_INVALIDE';
+    throw err;
+  }
+
   // Vérifier le plafond wallet avant tout appel FedaPay
   const [walletEntreprise, entreprise] = await Promise.all([
     prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
