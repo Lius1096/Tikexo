@@ -29,6 +29,7 @@ out/
 .output/
 web/dist/
 mobile/dist/
+mobile/.expo/
 
 # ── Prisma ────────────────────────────────────────────────────────────────────
 # Le client généré est reconstruit via `prisma generate` — inutile de le versionner
