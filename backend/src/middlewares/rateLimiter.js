@@ -1,5 +1,7 @@
 // Rate limiters TIKEXO
 const rateLimit = require('express-rate-limit');
+const { RedisStore } = require('rate-limit-redis');
+const { redisConnection } = require('../queues/redis');
 
 // Chaque limiteur a sa propre fenêtre : le message doit annoncer le bon délai,
 // sinon l'utilisateur attend le mauvais temps avant de réessayer.
@@ -10,6 +12,16 @@ const creerHandler = (message) => (req, res) => {
     retryAfter: res.getHeader('Retry-After'),
   });
 };
+
+// Store Redis partagé (connexion BullMQ réutilisée) — indispensable dès qu'il
+// y a plus d'une instance app : un store en mémoire local donnerait à chaque
+// instance son propre compteur, multipliant de fait la limite réelle par le
+// nombre d'instances. Un prefix distinct par limiteur évite que deux
+// limiteurs différents ne partagent les mêmes clés Redis pour une même IP.
+const creerStore = (prefix) => new RedisStore({
+  sendCommand: (...args) => redisConnection.call(...args),
+  prefix: `rl:${prefix}:`,
+});
 
 // Clé réelle : X-Forwarded-For (derrière Traefik/proxy) ou IP directe
 function realIp(req) {
@@ -29,6 +41,7 @@ const limiterGeneral = rateLimit({
   handler: creerHandler('TIKEXO — Trop de requêtes. Veuillez patienter quelques instants avant de réessayer.'),
   keyGenerator: realIp,
   skip: (req) => req.path === '/v1/auth/profil',
+  store: creerStore('general'),
 });
 
 // Limite profil : vérification de session — 600 req/min par IP (10/sec)
@@ -39,6 +52,7 @@ const limiterProfil = rateLimit({
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de vérifications de session. Veuillez réessayer dans une minute.'),
   keyGenerator: realIp,
+  store: creerStore('profil'),
 });
 
 // Limite OTP : 10/heure — relâchée uniquement en développement local
@@ -49,6 +63,7 @@ const limiterOtp = rateLimit({
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de demandes de code. Veuillez réessayer dans 1 heure.'),
   keyGenerator: (req) => req.body?.telephone || realIp(req),
+  store: creerStore('otp'),
 });
 
 // Limite login : 5/15 min en prod, illimité en dev
@@ -59,6 +74,7 @@ const limiterLogin = rateLimit({
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de tentatives de connexion. Veuillez réessayer dans 15 minutes.'),
   keyGenerator: realIp,
+  store: creerStore('login'),
 });
 
 // Limite transactions : 20 req/min par bénéficiaire
@@ -69,6 +85,7 @@ const limiterTransaction = rateLimit({
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de transactions. Veuillez réessayer dans une minute.'),
   keyGenerator: (req) => req.user?.id || realIp(req),
+  store: creerStore('transaction'),
 });
 
 // Limite webhooks FedaPay : 200 req/min par IP
@@ -79,6 +96,7 @@ const limiterWebhook = rateLimit({
   legacyHeaders: false,
   handler: creerHandler('TIKEXO — Trop de requêtes webhook. Veuillez réessayer dans une minute.'),
   keyGenerator: realIp,
+  store: creerStore('webhook'),
 });
 
 module.exports = {
