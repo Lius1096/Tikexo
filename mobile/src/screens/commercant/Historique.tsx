@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 
 type Transaction = {
@@ -13,7 +13,7 @@ type Transaction = {
 export default function CommercantHistorique() {
   const { data } = useQuery({
     queryKey: ['transactions-commercant'],
-    queryFn: () => axios.get('/api/v1/transactions').then((r) => r.data.data),
+    queryFn: () => api.get('/transactions').then((r) => r.data.data),
   });
 
   return (

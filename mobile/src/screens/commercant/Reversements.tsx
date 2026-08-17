@@ -1,14 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize, shadows } from '../../design-system/tokens';
 
 export default function Reversements() {
+  // /fedapay/operations est réservé aux admins TIKEXO côté backend — un
+  // commerçant recevait 403. /commercants/:id/payouts est le bon endpoint,
+  // protégé par checkCommercantProprietaire (le commerçant ne voit que les
+  // siens).
+  const { data: commercant } = useQuery({
+    queryKey: ['mon-commercant'],
+    queryFn: () => api.get('/commercants/moi').then((r) => r.data.data),
+  });
+
   const { data: operations } = useQuery({
-    queryKey: ['fedapay-payouts'],
-    queryFn: () =>
-      axios.get('/api/v1/fedapay/operations?type=PAYOUT').then((r) => r.data.data),
+    queryKey: ['commercant-payouts', commercant?.id],
+    queryFn: () => api.get(`/commercants/${commercant.id}/payouts`).then((r) => r.data.data),
+    enabled: !!commercant?.id,
   });
 
   return (
@@ -20,7 +29,7 @@ export default function Reversements() {
         </Text>
       </View>
 
-      {(operations?.items || []).map((op: { id: string; montant: string; statut: string; createdAt: string }) => (
+      {(operations || []).map((op: { id: string; montant: string; statut: string; createdAt: string }) => (
         <View key={op.id} style={styles.item}>
           <View>
             <Text style={styles.montant}>
@@ -36,7 +45,7 @@ export default function Reversements() {
         </View>
       ))}
 
-      {(operations?.items || []).length === 0 && (
+      {(operations || []).length === 0 && (
         <Text style={styles.empty}>Aucun reversement pour l'instant</Text>
       )}
     </ScrollView>

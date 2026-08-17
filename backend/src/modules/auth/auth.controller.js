@@ -65,7 +65,8 @@ async function refreshToken(req, res, next) {
     }
     const { accessToken, refreshToken: newRefresh } = await authService.refreshToken(token);
     setAuthCookies(res, { accessToken, refreshToken: newRefresh });
-    res.json({ success: true, data: { message: 'Tokens renouvelés' } });
+    // Cf. loginEmail — les tokens sont aussi renvoyés dans le corps pour mobile.
+    res.json({ success: true, data: { message: 'Tokens renouvelés', accessToken, refreshToken: newRefresh } });
   } catch (err) {
     next(err);
   }
@@ -119,7 +120,10 @@ async function loginEmail(req, res, next) {
     const { email, mot_de_passe } = req.body;
     const { accessToken, refreshToken, ...rest } = await authService.loginEmail(email, mot_de_passe);
     setAuthCookies(res, { accessToken, refreshToken });
-    res.json({ success: true, data: rest });
+    // Les cookies httpOnly servent le web. Les tokens sont aussi renvoyés dans le
+    // corps pour les clients qui ne peuvent pas s'appuyer dessus (app mobile —
+    // cf. middlewares/auth.js qui accepte déjà un Bearer token en fallback).
+    res.json({ success: true, data: { ...rest, accessToken, refreshToken } });
   } catch (err) {
     next(err);
   }

@@ -1,69 +1,171 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useMutation } from '@tanstack/react-query';
-import axios from 'axios';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 
+type Etape = 'scan' | 'confirm';
+
+interface QRPayload {
+  app: string;
+  type: string;
+  commercant_id: string;
+  montant?: number;
+  version: string;
+}
+
+// atob n'est pas garanti disponible sur Hermes selon la version — décodeur
+// base64 autonome plutôt que de dépendre d'un polyfill global.
+const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function decodeBase64(input: string): string {
+  let str = input.replace(/[^A-Za-z0-9+/]/g, '');
+  let output = '';
+  for (let i = 0; i < str.length; i += 4) {
+    const enc1 = B64_CHARS.indexOf(str[i]);
+    const enc2 = B64_CHARS.indexOf(str[i + 1]);
+    const enc3 = B64_CHARS.indexOf(str[i + 2]);
+    const enc4 = B64_CHARS.indexOf(str[i + 3]);
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+    output += String.fromCharCode(chr1);
+    if (enc3 !== -1 && str[i + 2] !== undefined) output += String.fromCharCode(chr2);
+    if (enc4 !== -1 && str[i + 3] !== undefined) output += String.fromCharCode(chr3);
+  }
+  return output;
+}
+
+// Même format que web/src/pages/beneficiaire/Scanner.tsx#decodeQR —
+// tikexo://paiement/<base64 JSON {app,type,commercant_id,montant?,version}>
+function decodeQR(raw: string): QRPayload | null {
+  const prefix = 'tikexo://paiement/';
+  if (!raw.startsWith(prefix)) return null;
+  try {
+    const data = JSON.parse(decodeBase64(raw.slice(prefix.length)));
+    if (data.app !== 'TIKEXO' || data.type !== 'PAIEMENT') return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export default function Paiement() {
-  const [commercantId, setCommercantId] = useState('');
+  const [permission, requestPermission] = useCameraPermissions();
+  const [etape, setEtape] = useState<Etape>('scan');
+  const [payload, setPayload] = useState<QRPayload | null>(null);
   const [montant, setMontant] = useState('');
+  const [scanned, setScanned] = useState(false);
+
+  const { data: commercant } = useQuery({
+    queryKey: ['commercant-fiche', payload?.commercant_id],
+    queryFn: () => api.get(`/commercants/${payload!.commercant_id}/fiche`).then((r) => r.data.data),
+    enabled: !!payload?.commercant_id,
+  });
 
   const payer = useMutation({
     mutationFn: () =>
-      axios.post('/api/v1/transactions', {
-        commercantId,
+      api.post('/transactions', {
+        commercantId: payload!.commercant_id,
         montantTotal: parseFloat(montant),
       }),
     onSuccess: () => {
       Alert.alert('TIKEXO', 'Paiement effectué avec succès !');
-      setMontant('');
-      setCommercantId('');
+      reset();
     },
     onError: (err: any) => {
       Alert.alert('TIKEXO — Erreur', err.response?.data?.error || 'Paiement impossible');
     },
   });
 
+  function reset() {
+    setEtape('scan');
+    setPayload(null);
+    setMontant('');
+    setScanned(false);
+  }
+
+  function handleScan({ data }: { data: string }) {
+    if (scanned) return;
+    const p = decodeQR(data);
+    if (!p) return; // QR non reconnu — on continue de scanner
+    setScanned(true);
+    setPayload(p);
+    if (p.montant && p.montant > 0) setMontant(String(p.montant));
+    setEtape('confirm');
+  }
+
+  if (etape === 'confirm') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.titre}>Confirmer le paiement</Text>
+          <Text style={styles.label}>COMMERÇANT</Text>
+          <Text style={styles.nomCommercant}>{commercant?.nom ?? 'Chargement…'}</Text>
+
+          <Text style={styles.label}>MONTANT (XOF)</Text>
+          <TextInput
+            style={[styles.input, styles.inputMontant]}
+            value={montant}
+            onChangeText={setMontant}
+            keyboardType="numeric"
+            editable={!(payload?.montant && payload.montant > 0)}
+            placeholder="0"
+            placeholderTextColor={colors.dark + '60'}
+          />
+
+          <TouchableOpacity
+            style={[styles.btn, payer.isPending && styles.btnDisabled]}
+            onPress={() => payer.mutate()}
+            disabled={payer.isPending || !montant || !commercant}
+          >
+            <Text style={styles.btnText}>{payer.isPending ? 'Traitement…' : 'Payer avec TIKEXO'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.btnSecondaire} onPress={reset}>
+            <Text style={styles.btnSecondaireText}>Rescanner</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!permission) return <View style={styles.container} />;
+
+  if (!permission.granted) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.titre}>Autoriser la caméra</Text>
+          <Text style={styles.label}>TIKEXO a besoin de la caméra pour scanner le QR code du commerçant.</Text>
+          <TouchableOpacity style={styles.btn} onPress={requestPermission}>
+            <Text style={styles.btnText}>Autoriser</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.titre}>Effectuer un paiement</Text>
-
-        <Text style={styles.label}>ID Commerçant (scanné via QR)</Text>
-        <TextInput
-          style={styles.input}
-          value={commercantId}
-          onChangeText={setCommercantId}
-          placeholder="Scan le QR code du commerçant"
-          placeholderTextColor={colors.dark + '60'}
-        />
-
-        <Text style={styles.label}>Montant (XOF)</Text>
-        <TextInput
-          style={[styles.input, styles.inputMontant]}
-          value={montant}
-          onChangeText={setMontant}
-          keyboardType="numeric"
-          placeholder="0"
-          placeholderTextColor={colors.dark + '60'}
-        />
-
-        <TouchableOpacity
-          style={[styles.btn, payer.isPending && styles.btnDisabled]}
-          onPress={() => payer.mutate()}
-          disabled={payer.isPending || !commercantId || !montant}
-        >
-          <Text style={styles.btnText}>
-            {payer.isPending ? 'Traitement...' : 'Payer avec TIKEXO'}
-          </Text>
-        </TouchableOpacity>
+    <View style={styles.scanContainer}>
+      <CameraView
+        style={styles.camera}
+        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        onBarcodeScanned={scanned ? undefined : handleScan}
+      />
+      <View style={styles.overlay}>
+        <Text style={styles.overlayTexte}>Pointez la caméra vers le QR code du commerçant</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.lightGray, padding: spacing.md },
+  container: { flex: 1, backgroundColor: colors.lightGray, padding: spacing.md, justifyContent: 'center' },
+  scanContainer: { flex: 1, backgroundColor: '#000' },
+  camera: { flex: 1 },
+  overlay: { position: 'absolute', bottom: spacing.xl, left: 0, right: 0, alignItems: 'center' },
+  overlayTexte: { color: colors.white, fontSize: fontSize.sm, backgroundColor: '#00000099', padding: spacing.sm, borderRadius: borderRadius.md },
   card: {
     backgroundColor: colors.white,
     borderRadius: borderRadius.lg,
@@ -76,6 +178,7 @@ const styles = StyleSheet.create({
   },
   titre: { fontSize: fontSize.lg, fontWeight: '700', color: colors.primary, marginBottom: spacing.lg },
   label: { fontSize: fontSize.sm, color: colors.dark + 'AA', marginBottom: spacing.xs },
+  nomCommercant: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginBottom: spacing.md },
   input: {
     borderWidth: 1,
     borderColor: colors.lightGray,
@@ -96,4 +199,6 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: colors.white, fontSize: fontSize.md, fontWeight: '600' },
+  btnSecondaire: { alignItems: 'center', marginTop: spacing.md },
+  btnSecondaireText: { color: colors.dark + '99', fontSize: fontSize.sm },
 });

@@ -1,18 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, shadows, fontSize } from '../../design-system/tokens';
 
 export default function Accueil() {
   const { data: wallet, isLoading } = useQuery({
     queryKey: ['wallet-solde'],
-    queryFn: () => axios.get('/api/v1/wallet/solde').then((r) => r.data.data),
+    queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
 
   const { data: segmente } = useQuery({
     queryKey: ['wallet-segmente'],
-    queryFn: () => axios.get('/api/v1/wallet/solde/segmente').then((r) => r.data.data),
+    queryFn: () => api.get('/wallet/solde/segmente').then((r) => r.data.data),
   });
 
   return (

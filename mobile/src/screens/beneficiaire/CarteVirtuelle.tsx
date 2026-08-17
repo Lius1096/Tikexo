@@ -1,18 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize, shadows } from '../../design-system/tokens';
 
 export default function CarteVirtuelle() {
   const { data: user } = useQuery({
     queryKey: ['profil'],
-    queryFn: () => axios.get('/api/v1/auth/profil').then((r) => r.data.data),
+    queryFn: () => api.get('/auth/profil').then((r) => r.data.data),
   });
 
   const { data: wallet } = useQuery({
     queryKey: ['wallet-solde'],
-    queryFn: () => axios.get('/api/v1/wallet/solde').then((r) => r.data.data),
+    queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
 
   return (

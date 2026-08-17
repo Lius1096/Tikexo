@@ -1,20 +1,13 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Share } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize, shadows } from '../../design-system/tokens';
 
 export default function QrCode() {
-  const { data: profil } = useQuery({
-    queryKey: ['profil'],
-    queryFn: () => axios.get('/api/v1/auth/profil').then((r) => r.data.data),
-  });
-
   const { data: commercant } = useQuery({
     queryKey: ['mon-commercant'],
-    queryFn: () =>
-      profil ? axios.get(`/api/v1/commercants/${profil.commercant?.id}`).then((r) => r.data.data) : null,
-    enabled: !!profil,
+    queryFn: () => api.get('/commercants/moi').then((r) => r.data.data),
   });
 
   const partager = async () => {

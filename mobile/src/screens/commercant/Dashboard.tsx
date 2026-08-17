@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../../lib/api';
 import { colors, spacing, borderRadius, shadows, fontSize } from '../../design-system/tokens';
 
 export default function CommercantDashboard() {
   const { data: wallet } = useQuery({
     queryKey: ['wallet-solde'],
-    queryFn: () => axios.get('/api/v1/wallet/solde').then((r) => r.data.data),
+    queryFn: () => api.get('/wallet/solde').then((r) => r.data.data),
   });
 
   return (
