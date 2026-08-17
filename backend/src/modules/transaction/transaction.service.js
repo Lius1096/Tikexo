@@ -86,14 +86,14 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   const walletPlateforme = await prisma.wallet.findUnique({ where: { id: 'wallet-plateforme-tikexo' } });
 
   // 7. Calculer les frais — taux propre au marchand (négociable par l'admin,
-  // commercant.taux_commission), appliqué symétriquement des deux côtés comme
-  // avant (fallback TAUX_COMMISSION_DEFAUT si jamais le champ était absent).
-  // - fraisBenef    : taux % du montant, prélevé en plus sur le wallet bénéficiaire
+  // commercant.taux_commission ; fallback TAUX_COMMISSION_DEFAUT si absent).
+  // La part bénéficiaire (5 %) n'est plus prélevée ici : elle est retenue en
+  // amont, à la dotation (cf. wallet.service.js#prelevierCommissionDotation).
+  // Le bénéficiaire paie donc exactement le prix affiché par le commerçant.
   // - fraisCommercant : taux % du montant, déduit de ce que reçoit le commerçant
-  // - commissionTikexo (total) = fraisBenef + fraisCommercant
-  // - Bénéficiaire débité    : montantTotal + fraisBenef
+  // - Bénéficiaire débité    : montantTotal (prix affiché, sans supplément)
   // - Commerçant crédité     : montantTotal − fraisCommercant
-  // - Plateforme créditée    : fraisBenef + fraisCommercant
+  // - Plateforme créditée    : fraisCommercant
   // Le XOF n'a pas de sous-unité (pas de centime) — arrondir au franc entier,
   // pas au centime. Sinon le wallet accumule des soldes fractionnaires
   // (ex: 894.37 XOF) que FedaPay/mobile money ne peuvent pas transférer tels
@@ -102,9 +102,8 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   const tauxCommission = (commercant.taux_commission != null
     ? parseFloat(commercant.taux_commission.toString())
     : TAUX_COMMISSION_DEFAUT) / 100;
-  const fraisBenef       = Math.round(montantTotal * tauxCommission);
   const fraisCommercant  = Math.round(montantTotal * tauxCommission);
-  const commissionTikexo = fraisBenef + fraisCommercant;
+  const commissionTikexo = fraisCommercant;
   const montantCommercant = montantTotal - fraisCommercant;
 
   // 8. Exécuter la transaction de manière atomique
@@ -132,7 +131,9 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
       { transaction_id: txn.id }
     );
 
-    // Débit bénéficiaire → plateforme (frais benef 5 % + frais commercant 5 %)
+    // Débit bénéficiaire → plateforme (part de la commission commerçant, prélevée
+    // sur ce que le bénéficiaire paie plutôt que sur ce que reçoit le commerçant,
+    // pour que le solde du commerçant reste toujours net dès la 1ère écriture)
     if (commissionTikexo > 0 && walletPlateforme) {
       await transfererEntreWallets(
         tx,

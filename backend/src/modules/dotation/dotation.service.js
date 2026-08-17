@@ -244,6 +244,20 @@ async function traiterDistributionDotation(job) {
     { dotation_id: dotationId, source_entreprise_id: entrepriseId }
   );
 
+  const entreprise = await prisma.entreprise.findUnique({
+    where: { id: entrepriseId },
+    select: { taux_commission_defaut: true },
+  });
+  if (entreprise) {
+    const { prelevierCommissionDotation } = require('../wallet/wallet.service');
+    await prelevierCommissionDotation(prisma, {
+      walletBenefId,
+      montantNum: montant,
+      tauxCommission: parseFloat(entreprise.taux_commission_defaut.toString()),
+      sourceEntrepriseId: entrepriseId,
+    });
+  }
+
   await prisma.$executeRaw`
     UPDATE "Wallet"
     SET solde_reserve = GREATEST(0, solde_reserve - ${montant}::numeric), "updatedAt" = NOW()

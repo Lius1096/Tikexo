@@ -127,6 +127,24 @@ async function degeler(walletId, adminId) {
   return { walletId, statut: 'ACTIF' };
 }
 
+// Prélève la commission bénéficiaire (taux_commission_defaut de l'entreprise,
+// 5% par défaut) sur une dotation qui vient d'être créditée — TOUJOURS APPELÉ
+// APRÈS le crédit intégral au bénéficiaire, jamais avant : le prélèvement doit
+// partir du wallet bénéficiaire (visible dans son historique), pas de
+// l'entreprise. Cf. transaction.service.js pour le même principe côté paiement.
+async function prelevierCommissionDotation(prisma, { walletBenefId, montantNum, tauxCommission, sourceEntrepriseId }) {
+  const commission = Math.round(montantNum * (tauxCommission / 100));
+  if (commission <= 0) return;
+  const walletPlateforme = await prisma.wallet.findUnique({ where: { id: 'wallet-plateforme-tikexo' } });
+  if (!walletPlateforme) return;
+
+  const { transfererEntreWallets } = require('../../utils/ledger');
+  await transfererEntreWallets(prisma, walletBenefId, walletPlateforme.id, commission, 'COMMISSION_DOTATION', {
+    source_entreprise_id: sourceEntrepriseId,
+    description: 'Commission TIKEXO sur dotation',
+  });
+}
+
 // Rechargement individuel — wallet entreprise → wallet bénéficiaire
 async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
   const montantNum = parseFloat(montant);
@@ -138,7 +156,7 @@ async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
   const [walletEnt, walletBenef, ent] = await Promise.all([
     prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
     prisma.wallet.findUniqueOrThrow({ where: { user_id: beneficiaireId } }),
-    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true, taux_commission_defaut: true } }),
   ]);
 
   if (!ent.kyb_valide) {
@@ -153,6 +171,13 @@ async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
   await transfererEntreWallets(prisma, walletEnt.id, walletBenef.id, montantNum, 'DOTATION', {
     source_entreprise_id: entrepriseId,
     description: 'Rechargement individuel RH',
+  });
+
+  await prelevierCommissionDotation(prisma, {
+    walletBenefId: walletBenef.id,
+    montantNum,
+    tauxCommission: parseFloat(ent.taux_commission_defaut.toString()),
+    sourceEntrepriseId: entrepriseId,
   });
 
   await prisma.auditLog.create({
@@ -173,12 +198,13 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
 
   const [walletEnt, ent] = await Promise.all([
     prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
-    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { kyb_valide: true, taux_commission_defaut: true } }),
   ]);
 
   if (!ent.kyb_valide) {
     const err = new Error('KYB requis'); err.statusCode = 403; err.code = 'KYB_REQUIS'; throw err;
   }
+  const tauxCommission = parseFloat(ent.taux_commission_defaut.toString());
 
   const totalMontant = credits.reduce((s, c) => s + parseFloat(c.montant || 0), 0);
   const soldeDisponible = parseFloat(walletEnt.solde) - parseFloat(walletEnt.solde_reserve);
@@ -207,6 +233,7 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
     }
     try {
       await transfererEntreWallets(prisma, walletEnt.id, walletDestId, montantNum, 'DOTATION', { source_entreprise_id: entrepriseId, description: 'Rechargement groupé RH' });
+      await prelevierCommissionDotation(prisma, { walletBenefId: walletDestId, montantNum, tauxCommission, sourceEntrepriseId: entrepriseId });
       resultats.push({ beneficiaireId: credit.beneficiaireId, montant: montantNum, statut: 'OK' });
       totalTransfere += montantNum;
     } catch {
@@ -221,4 +248,4 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
   return { total: totalTransfere, nb_ok: resultats.filter((r) => r.statut === 'OK').length, nb_ignore: resultats.filter((r) => r.statut !== 'OK').length, resultats };
 }
 
-module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler, crediterBenef, crediterGroupe };
+module.exports = { getSolde, getSoldeSegmente, getHistorique, recharger, geler, degeler, crediterBenef, crediterGroupe, prelevierCommissionDotation };

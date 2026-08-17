@@ -11,6 +11,7 @@ const TYPE_LABELS: Record<string, string> = {
   COMPLEMENT: 'Complément',
   REMBOURSEMENT: 'Remboursement',
   RECHARGE: 'Recharge',
+  COMMISSION_DOTATION: 'Frais de service TIKEXO',
 };
 
 function libelleEntree(e: any): string {

@@ -5,6 +5,15 @@ import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt } from '../../utils/format';
 
+const TYPE_LABELS: Record<string, string> = {
+  DOTATION: 'Dotation employeur',
+  PAIEMENT: 'Paiement commerçant',
+  COMPLEMENT: 'Complément',
+  REMBOURSEMENT: 'Remboursement',
+  RECHARGE: 'Recharge',
+  COMMISSION_DOTATION: 'Frais de service TIKEXO',
+};
+
 export default function BeneficiaireDashboard() {
   const { user } = useAuth();
 
@@ -104,7 +113,7 @@ export default function BeneficiaireDashboard() {
               return (
                 <div key={e.id} className="flex items-center justify-between px-4 py-3">
                   <div>
-                    <div className="text-xs font-medium text-slate-800">{e.type.replace(/_/g, ' ')}</div>
+                    <div className="text-xs font-medium text-slate-800">{TYPE_LABELS[e.type] ?? e.type.replace(/_/g, ' ')}</div>
                     <div className="text-[11px] text-slate-400">
                       {new Date(e.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </div>
