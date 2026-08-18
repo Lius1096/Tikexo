@@ -11,6 +11,14 @@ const { rechargeConfirmee } = require('../../utils/emailTemplates');
 const MAX_TENTATIVES = 3;
 const INTERVALLE_RETRY_HEURES = 1;
 const SEUIL_MINIMUM = parseFloat(process.env.TIKEXO_PAYOUT_SEUIL_MINIMUM || '1000');
+// Frais TIKEXO sur reversement anticipé (déclenché manuellement par le
+// commerçant) — le batch automatique quotidien reste gratuit. FedaPay ne
+// facture rien sur un virement mobile money vers le même réseau (0 XOF),
+// des frais s'appliquent seulement en cross-opérateur (montant non publié) ;
+// ce taux couvre ce risque et finance le service "reversement à la demande"
+// façon "instant payout" Stripe/PayPal. Valeur provisoire, ajustable ici
+// sans redéploiement du code.
+const TAUX_FRAIS_PAYOUT_MANUEL = parseFloat(process.env.TIKEXO_PAYOUT_FRAIS_MANUEL_TAUX || '1.5');
 
 const DEV_MOCK = process.env.FEDAPAY_SECRET_KEY === 'sk_sandbox_REMPLACER' || !process.env.FEDAPAY_SECRET_KEY;
 
@@ -235,7 +243,7 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
  * Déclenche un payout FedaPay vers le Mobile Money d'un commerçant.
  * Planifie un retry en cas d'échec (max 3 tentatives).
  */
-async function declencherPayout(prisma, commercantId) {
+async function declencherPayout(prisma, commercantId, { manuel = false } = {}) {
   const { FedaPay } = require('../../config/fedapay');
 
   // Étape verrouillée : lit le solde, vérifie qu'aucun payout n'est déjà en
@@ -244,7 +252,7 @@ async function declencherPayout(prisma, commercantId) {
   // le wallet + la vérification "déjà en attente" empêchent un double-clic ou
   // un recoupement avec le cron de batching de déclencher deux virements
   // réels pour le même solde.
-  const { commercant, wallet, operation, solde } = await prisma.$transaction(async (tx) => {
+  const { commercant, wallet, operation, solde, frais, montantAPayer } = await prisma.$transaction(async (tx) => {
     const commercant = await tx.commercant.findUniqueOrThrow({
       where: { id: commercantId },
       include: { user: { select: { wallet: true } } },
@@ -288,53 +296,81 @@ async function declencherPayout(prisma, commercantId) {
       throw err;
     }
 
+    // Frais uniquement sur un reversement déclenché manuellement — le batch
+    // automatique quotidien (jobBatchingPayouts) reste gratuit.
+    const frais = manuel ? Math.round(solde * (TAUX_FRAIS_PAYOUT_MANUEL / 100)) : 0;
+    const montantAPayer = solde - frais;
+
     const idempotenceKey = `payout_${commercantId}_${Date.now()}`;
 
     const operation = await tx.fedapayOperation.create({
       data: {
         type: 'PAYOUT',
         fedapay_transaction_id: idempotenceKey,
-        montant: solde,
+        montant: montantAPayer,
         statut: 'EN_ATTENTE',
         commercant_id: commercantId,
       },
     });
 
-    return { commercant, wallet, operation, solde };
+    return { commercant, wallet, operation, solde, frais, montantAPayer };
   });
 
   try {
-    const payout = await FedaPay.Payout.create({
-      description: `TIKEXO — Reversement commerçant ${commercant.nom}`,
-      amount: solde,
-      currency: { iso: 'XOF' },
-      customer: {
-        phone_number: {
-          number: commercant.mobile_money_numero,
-          country: 'bj',
+    let payoutId;
+    if (DEV_MOCK) {
+      payoutId = `mock_${operation.id}`;
+      logger.info('TIKEXO DEV — Mock payout commerçant', { commercantId, montantAPayer, frais, manuel });
+    } else {
+      const payout = await FedaPay.Payout.create({
+        description: `TIKEXO — Reversement commerçant ${commercant.nom}`,
+        amount: montantAPayer,
+        currency: { iso: 'XOF' },
+        customer: {
+          phone_number: {
+            number: commercant.mobile_money_numero,
+            country: 'bj',
+          },
         },
-      },
-    });
+      });
 
-    await payout.sendNow();
+      await payout.sendNow();
+      payoutId = payout.id.toString();
+    }
 
     // Débiter le wallet commerçant — exactement le montant réellement envoyé
-    // à FedaPay (solde arrondi), jamais le solde brut fractionnaire.
+    // à FedaPay (solde arrondi moins frais éventuels), jamais le solde brut.
     await debiterWallet(
       prisma,
       wallet.id,
-      solde,
+      montantAPayer,
       'PAYOUT',
-      { fedapay_transaction_id: payout.id.toString(), operation_id: operation.id }
+      { fedapay_transaction_id: payoutId, operation_id: operation.id }
     );
+
+    // Frais TIKEXO sur reversement anticipé — écriture séparée et distincte
+    // du PAYOUT lui-même (même principe que prelevierCommissionDotation côté
+    // bénéficiaire), pour que le commerçant retrouve précisément ce qui lui a
+    // été prélevé et pourquoi dans son historique.
+    if (frais > 0) {
+      const walletPlateforme = await prisma.wallet.findUnique({ where: { id: 'wallet-plateforme-tikexo' } });
+      if (walletPlateforme) {
+        const { transfererEntreWallets } = require('../../utils/ledger');
+        await transfererEntreWallets(prisma, wallet.id, walletPlateforme.id, frais, 'FRAIS_PAYOUT_MANUEL', {
+          operation_id: operation.id,
+          taux: TAUX_FRAIS_PAYOUT_MANUEL,
+          description: 'Frais TIKEXO — reversement anticipé',
+        });
+      }
+    }
 
     await prisma.$executeRaw`
       UPDATE "FedapayOperation"
-      SET fedapay_transaction_id = ${payout.id.toString()}, statut = 'APPROUVE', "updatedAt" = NOW()
+      SET fedapay_transaction_id = ${payoutId}, statut = 'APPROUVE', "updatedAt" = NOW()
       WHERE id = ${operation.id}
     `;
 
-    return { payout_id: payout.id, montant: solde };
+    return { payout_id: payoutId, montant: montantAPayer, frais, solde_brut: solde };
   } catch (err) {
     const tentatives = operation.tentatives + 1;
     const prochaineTentative = tentatives < MAX_TENTATIVES

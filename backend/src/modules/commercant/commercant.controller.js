@@ -89,7 +89,7 @@ async function demanderPayout(req, res, next) {
     const { declencherPayout } = require('../fedapay/fedapay.service');
     const prisma = require('../../config/database');
     const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
-    const result = await declencherPayout(prisma, commercant.id);
+    const result = await declencherPayout(prisma, commercant.id, { manuel: true });
     res.json({ success: true, data: result });
   } catch (e) { next(e); }
 }

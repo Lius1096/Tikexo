@@ -1,5 +1,10 @@
 // Service commerçant TIKEXO
 const prisma = require('../../config/database');
+// Même variable d'environnement que fedapay.service.js#declencherPayout —
+// exposée ici pour que le client affiche le montant net AVANT confirmation
+// d'un reversement manuel (transparence sur les frais avant l'action, pas
+// juste après).
+const TAUX_FRAIS_PAYOUT_MANUEL = parseFloat(process.env.TIKEXO_PAYOUT_FRAIS_MANUEL_TAUX || '1.5');
 const { genererQRCodeCommercant } = require('../../utils/qrcode');
 const { envoyerEmailAsync } = require('../../utils/email');
 const { logger } = require('../../middlewares/errorHandler');
@@ -509,7 +514,7 @@ async function getByUserId(userId) {
   });
   if (!result) return null;
   const { user, ...rest } = result;
-  return { ...rest, wallet: user?.wallet ?? null };
+  return { ...rest, wallet: user?.wallet ?? null, frais_payout_manuel_taux: TAUX_FRAIS_PAYOUT_MANUEL };
 }
 
 module.exports = {
