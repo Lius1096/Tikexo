@@ -22,6 +22,16 @@ const TAUX_FRAIS_PAYOUT_MANUEL = parseFloat(process.env.TIKEXO_PAYOUT_FRAIS_MANU
 
 const DEV_MOCK = process.env.FEDAPAY_SECRET_KEY === 'sk_sandbox_REMPLACER' || !process.env.FEDAPAY_SECRET_KEY;
 
+// FedaPay exige un champ "mode" (méthode de transfert) sur tout Payout —
+// absent, l'API sandbox répond 500 avec un corps vide au lieu d'une erreur
+// de validation exploitable. Bénin uniquement ; CELTIS non confirmé côté
+// documentation FedaPay (aucun mode "celtis_*" listé), à vérifier auprès
+// du support si un commerçant CELTIS a besoin d'un reversement.
+const MODE_PAYOUT_PAR_OPERATEUR = {
+  MTN: 'mtn_open',
+  MOOV: 'moov',
+};
+
 /**
  * Crée une collecte FedaPay pour recharger le wallet d'une entreprise.
  * La FedapayOperation est créée en base AVANT d'appeler FedaPay (idempotence).
@@ -326,6 +336,7 @@ async function declencherPayout(prisma, commercantId, { manuel = false } = {}) {
         description: `TIKEXO — Reversement commerçant ${commercant.nom}`,
         amount: montantAPayer,
         currency: { iso: 'XOF' },
+        mode: MODE_PAYOUT_PAR_OPERATEUR[commercant.mobile_money_operateur] || 'mtn_open',
         customer: {
           phone_number: {
             number: commercant.mobile_money_numero,
@@ -520,10 +531,14 @@ async function declencherPayoutUser(prisma, { userId, montant: montantBrut, moti
   const { FedaPay } = require('../../config/fedapay');
 
   try {
+    // User ne stocke pas d'opérateur mobile money (contrairement à Commercant) —
+    // mtn_open par défaut en attendant un vrai champ ; à corriger si ce flux de
+    // remboursement est utilisé en dehors du MTN.
     const payout = await FedaPay.Payout.create({
       description: motif || `TIKEXO — Remboursement utilisateur`,
       amount: montant,
       currency: { iso: 'XOF' },
+      mode: 'mtn_open',
       customer: { phone_number: { number: user.telephone, country: 'bj' } },
     });
 
