@@ -185,6 +185,25 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
     return { ignore: true };
   }
 
+  // "transferred" doit être traité AVANT le garde-fou anti-doublon ci-dessous :
+  // declencherPayout marque déjà l'opération APPROUVE de façon synchrone dès
+  // que sendNow() réussit, bien avant qu'un éventuel webhook "transferred"
+  // n'arrive. Si on laissait le garde-fou "déjà APPROUVE" s'appliquer en
+  // premier, cette confirmation de livraison finale serait systématiquement
+  // ignorée pour tout payout/remboursement — jamais atteignable. Cette
+  // écriture est sans effet de bord sur les soldes (déjà débités), donc sûre
+  // à traiter même si l'opération est déjà APPROUVE.
+  if (statut === 'transferred') {
+    await prisma.$executeRaw`
+      UPDATE "FedapayOperation"
+      SET statut = 'APPROUVE', webhook_payload = ${JSON.stringify(payload)}::jsonb, "updatedAt" = NOW()
+      WHERE id = ${operation.id}
+    `;
+
+    logger.info('TIKEXO — Virement FedaPay confirmé livré', { fedapayId, type: operation.type });
+    return { transfere: true, operation_id: operation.id };
+  }
+
   if (operation.statut === 'APPROUVE') {
     logger.info('TIKEXO — Webhook doublon ignoré', { fedapayId });
     return { doublon: true };
@@ -246,6 +265,7 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
     return { echoue: true };
   }
 
+  logger.info('TIKEXO — Webhook FedaPay statut non géré', { fedapayId, statut, type: operation.type });
   return { statut_inconnu: statut };
 }
 
