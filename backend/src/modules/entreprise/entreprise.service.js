@@ -285,20 +285,44 @@ async function inviterRh(entrepriseId, data, adminId) {
   });
 
   const token = crypto.randomBytes(32).toString('hex');
-  const user = await prisma.user.create({
-    data: {
-      telephone,
-      nom: data.nom,
-      prenom: data.prenom,
-      email_pro: emailPro,
-      role: 'GESTIONNAIRE_RH',
-      statut: 'INACTIF',
-      invitation_token: token,
-    },
-  });
 
-  const entrepriseAdmin = await prisma.entrepriseAdmin.create({
-    data: { entreprise_id: entrepriseId, user_id: user.id, role: 'GESTIONNAIRE_RH', matricule },
+  // Même principe qu'à l'inscription : un RH est aussi un salarié de
+  // l'entreprise (wallet + niveau de dotation), pas seulement un compte
+  // d'accès — sans ça il n'apparaît jamais dans "Bénéficiaires" et n'a pas
+  // de wallet repas personnel. Niveau CADRE par défaut (le formulaire
+  // d'invitation ne demande pas de niveau spécifique).
+  const { user, entrepriseAdmin } = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        telephone,
+        nom: data.nom,
+        prenom: data.prenom,
+        email_pro: emailPro,
+        role: 'GESTIONNAIRE_RH',
+        statut: 'INACTIF',
+        invitation_token: token,
+      },
+    });
+
+    const entrepriseAdmin = await tx.entrepriseAdmin.create({
+      data: { entreprise_id: entrepriseId, user_id: user.id, role: 'GESTIONNAIRE_RH', matricule },
+    });
+
+    await tx.wallet.create({
+      data: { user_id: user.id, type: 'BENEFICIAIRE', currency: 'XOF' },
+    });
+
+    await tx.lienEntrepriseBeneficiaire.create({
+      data: {
+        entreprise_id: entrepriseId,
+        user_id: user.id,
+        niveau: 'CADRE',
+        allocation_mensuelle: 8000,
+        statut: 'ACTIF',
+      },
+    });
+
+    return { user, entrepriseAdmin };
   });
 
   await prisma.auditLog.create({
