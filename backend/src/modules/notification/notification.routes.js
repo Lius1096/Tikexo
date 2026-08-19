@@ -13,5 +13,6 @@ router.get('/non-lues/compte', ctrl.compterNonLues);
 
 router.post('/:id/lu', ctrl.marquerLu);
 router.post('/lu-tout', ctrl.marquerToutLu);
+router.delete('/:id', ctrl.supprimer);
 
 module.exports = router;

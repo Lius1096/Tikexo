@@ -57,4 +57,13 @@ async function marquerToutLu(userId) {
   return { ok: true };
 }
 
-module.exports = { creerEtNotifier, lister, compterNonLues, marquerLu, marquerToutLu };
+async function supprimer(userId, notifId) {
+  const notif = await prisma.notification.findUnique({ where: { id: notifId } });
+  if (!notif || notif.user_id !== userId) {
+    const err = new Error('Notification introuvable'); err.statusCode = 404; throw err;
+  }
+  await prisma.notification.delete({ where: { id: notifId } });
+  return { ok: true };
+}
+
+module.exports = { creerEtNotifier, lister, compterNonLues, marquerLu, marquerToutLu, supprimer };

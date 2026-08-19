@@ -28,4 +28,11 @@ async function marquerToutLu(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, compterNonLues, marquerLu, marquerToutLu };
+async function supprimer(req, res, next) {
+  try {
+    const data = await service.supprimer(req.user.id, req.params.id);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+module.exports = { lister, compterNonLues, marquerLu, marquerToutLu, supprimer };
