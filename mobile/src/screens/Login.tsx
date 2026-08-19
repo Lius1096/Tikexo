@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { colors, spacing, borderRadius, fontSize } from '../design-system/tokens';
-import { Card, Button, LinkButton } from '../design-system/components';
+import { Card, Button, LinkButton, Wordmark } from '../design-system/components';
 
 type Etape = 'login' | 'forgot-email' | 'forgot-code';
 
@@ -30,7 +30,9 @@ export default function LoginScreen() {
     setErreur(''); setLoading(true);
     try {
       const u = await login(email.trim().toLowerCase(), motDePasse);
-      if (!['BENEFICIAIRE', 'COMMERCANT'].includes(u.role)) {
+      // Un admin/RH qui a inscrit son entreprise a aussi un wallet salarié
+      // personnel — voir la même bascule dans App.tsx#NavigationApresConnexion.
+      if (!['BENEFICIAIRE', 'COMMERCANT', 'ADMIN_RH', 'ADMIN_DIRECTEUR', 'GESTIONNAIRE_RH'].includes(u.role)) {
         setErreur("Ce rôle n'est pas pris en charge sur l'app mobile TIKEXO.");
       }
     } catch (e: any) {
@@ -82,9 +84,9 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <View style={styles.logo}>
-            <Ionicons name="restaurant" size={28} color={colors.white} />
+            <Ionicons name="card" size={28} color={colors.white} />
           </View>
-          <Text style={styles.marque}>TIKEXO</Text>
+          <Wordmark size={26} />
           <Text style={styles.sousTitre}>Titre-restaurant 100% digital</Text>
         </View>
 
@@ -191,7 +193,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center',
     marginBottom: spacing.md,
   },
-  marque: { color: colors.white, fontSize: fontSize.xl, fontWeight: '700', letterSpacing: 3 },
   sousTitre: { color: colors.white + 'AA', fontSize: fontSize.xs, marginTop: spacing.xs },
   carte: { width: '100%', maxWidth: 380 },
   titre: { fontSize: fontSize.md, fontWeight: '700', color: colors.dark, marginBottom: spacing.md },
