@@ -5,7 +5,7 @@ const { transfererEntreWallets, verifierPlafondJournalier } = require('../../uti
 const { evaluerTransaction } = require('../../utils/antiFraude');
 const { verifierAccesTransaction } = require('../../utils/kyc');
 const { estEligible } = require('../../utils/jours-feries-benin');
-const { envoyerNotificationPush } = require('../../config/firebase');
+const notificationService = require('../notification/notification.service');
 
 // Taux de secours si commercant.taux_commission est absent (ne devrait pas
 // arriver — le champ a un défaut en base — mais évite un crash si jamais).
@@ -160,26 +160,36 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
     return { ...txn, statut: 'VALIDEE' };
   });
 
-  // 9. Notifications push (non bloquantes)
+  // 9. Notifications in-app + push (non bloquantes) — bénéficiaire (paiement
+  // effectué) et commerçant (paiement reçu, absent avant ce correctif).
   const benef = await prisma.user.findUnique({
     where: { id: beneficiaireId },
-    select: { fcm_token: true, nom: true },
+    select: { nom: true, prenom: true },
   });
 
-  if (benef?.fcm_token) {
-    envoyerNotificationPush(
-      benef.fcm_token,
-      'Paiement TIKEXO',
-      `Paiement de ${montantTotal} XOF chez ${commercant.nom} effectué`
-    ).catch(() => {});
-  }
+  notificationService.creerEtNotifier(beneficiaireId, {
+    titre: 'Paiement TIKEXO',
+    corps: `Paiement de ${montantTotal} XOF chez ${commercant.nom} effectué`,
+    type: 'TRANSACTION',
+  }).catch(() => {});
 
-  // 10. Émettre solde live via Socket.io
-  const io = require('../../config/socket').getIo();
-  if (io) {
-    io.to(`user:${beneficiaireId}`).emit('solde:update', { userId: beneficiaireId });
-    io.to(`user:${commercant.user_id}`).emit('solde:update', { userId: commercant.user_id });
-  }
+  notificationService.creerEtNotifier(commercant.user_id, {
+    titre: 'Paiement reçu',
+    corps: `Paiement de ${montantTotal} XOF reçu de ${benef?.prenom || ''} ${benef?.nom || ''}`.trim(),
+    type: 'TRANSACTION',
+  }).catch(() => {});
+
+  // 10. Émettre solde live via Socket.io (non bloquant — la transaction est
+  // déjà commitée à l'étape 8 ; un souci socket ne doit jamais faire
+  // remonter une 500 au commerçant/bénéficiaire alors que le paiement a
+  // réussi).
+  try {
+    const io = require('../../config/socket').getIo();
+    if (io) {
+      io.to(`user:${beneficiaireId}`).emit('solde:update', { userId: beneficiaireId });
+      io.to(`user:${commercant.user_id}`).emit('solde:update', { userId: commercant.user_id });
+    }
+  } catch { /* best-effort */ }
 
   return { transaction, risqueNiveau: risque.niveau };
 }

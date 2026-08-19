@@ -268,7 +268,15 @@ async function traiterDistributionDotation(job) {
     UPDATE "Dotation" SET statut = 'DISTRIBUE', distribue_at = NOW() WHERE id = ${dotationId}
   `;
 
-  // Notifier le bénéficiaire via la queue dédiée
+  // Notification in-app (centre de notifications) — indépendante du push,
+  // pour que la dotation apparaisse dans la cloche même sans token FCM.
+  const titreNotif = 'Dotation TIKEXO reçue';
+  const corpsNotif = `Votre dotation de ${montant} XOF a été créditée sur votre wallet TIKEXO`;
+  await prisma.notification.create({
+    data: { user_id: job.data.beneficiaireId, titre: titreNotif, corps: corpsNotif, type: 'DOTATION' },
+  }).catch(() => {});
+
+  // Notifier le bénéficiaire via la queue dédiée (push FCM, best-effort)
   const user = await prisma.user.findUnique({
     where: { id: job.data.beneficiaireId },
     select: { fcm_token: true, email_perso: true, prenom: true },
@@ -277,8 +285,8 @@ async function traiterDistributionDotation(job) {
   if (user?.fcm_token) {
     await notificationQueue.add('dotation-recue', {
       fcmToken: user.fcm_token,
-      titre: 'Dotation TIKEXO reçue',
-      corps: `Votre dotation de ${montant} XOF a été créditée sur votre wallet TIKEXO`,
+      titre: titreNotif,
+      corps: corpsNotif,
     });
   }
 

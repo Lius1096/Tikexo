@@ -417,6 +417,12 @@ async function validerDocument(adminId, docId) {
       .catch((e) => logger.warn('TIKEXO — Email validation document commerçant échoué', { err: e.message, docId }));
   }
 
+  require('../notification/notification.service').creerEtNotifier(avant.commercant.user_id, {
+    titre: 'Document validé',
+    corps: `Votre document "${LABEL_TYPE_DOCUMENT[avant.type] || avant.type}" a été validé`,
+    type: 'KYC',
+  }).catch(() => {});
+
   return doc;
 }
 
@@ -444,6 +450,12 @@ async function rejeterDocument(adminId, docId, motif) {
     envoyerEmailAsync({ to: contact.email_perso, subject: 'TIKEXO — Document à renvoyer', html, text })
       .catch((e) => logger.warn('TIKEXO — Email rejet document commerçant échoué', { err: e.message, docId }));
   }
+
+  require('../notification/notification.service').creerEtNotifier(avant.commercant.user_id, {
+    titre: 'Document à renvoyer',
+    corps: `Votre document "${LABEL_TYPE_DOCUMENT[avant.type] || avant.type}" a été rejeté : ${motif.trim()}`,
+    type: 'KYC',
+  }).catch(() => {});
 
   return doc;
 }

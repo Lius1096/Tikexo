@@ -46,6 +46,7 @@ const carteRoutes = require('./modules/carte/carte.routes');
 const inscriptionRoutes = require('./modules/inscription/inscription.routes');
 const kybRoutes = require('./modules/kyb/kyb.routes');
 const landingRoutes = require('./modules/landing/landing.routes');
+const notificationRoutes = require('./modules/notification/notification.routes');
 const { obtenirObjetMedia } = require('./config/storage');
 
 const app = express();
@@ -149,6 +150,7 @@ app.use('/api/v1/fedapay', fedapayRoutes);
 app.use('/api/v1/mutations', mutationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/cartes', carteRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/landing', landingRoutes);
 app.use('/uploads/landing', express.static(require('path').join(__dirname, '../uploads/landing')));
 

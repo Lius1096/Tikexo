@@ -200,6 +200,23 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
       WHERE id = ${operation.id}
     `;
 
+    // Reversement commerçant confirmé livré — notifier (in-app + push),
+    // non bloquant : la livraison FedaPay est déjà actée ci-dessus.
+    if (operation.type === 'PAYOUT' && operation.commercant_id) {
+      const notificationService = require('../notification/notification.service');
+      prisma.commercant.findUnique({
+        where: { id: operation.commercant_id },
+        select: { user_id: true },
+      }).then((commercant) => {
+        if (!commercant) return;
+        return notificationService.creerEtNotifier(commercant.user_id, {
+          titre: 'Reversement TIKEXO effectué',
+          corps: `Votre reversement de ${Math.floor(parseFloat(operation.montant.toString()))} XOF a été transféré sur votre Mobile Money`,
+          type: 'REVERSEMENT',
+        });
+      }).catch(() => {});
+    }
+
     logger.info('TIKEXO — Virement FedaPay confirmé livré', { fedapayId, type: operation.type });
     return { transfere: true, operation_id: operation.id };
   }

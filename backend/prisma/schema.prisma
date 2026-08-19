@@ -648,6 +648,9 @@ enum TypeNotification {
   SECURITE
   SYSTEME
   MARKETING
+  DOTATION
+  REVERSEMENT
+  KYC
 }
 
 enum StatutKyb {
