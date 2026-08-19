@@ -5,6 +5,7 @@ const { logger } = require('../../middlewares/errorHandler');
 const { envoyerEmail } = require('../../utils/email');
 const { inscriptionEntrepriseConfirmee } = require('../../utils/emailTemplates');
 const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
+const { normaliserIfu, validerIfu, normaliserRccm, validerRccm } = require('../../utils/identifiants');
 
 async function creerDossierKyb(prisma, entrepriseId) {
   const deadline = new Date();
@@ -64,6 +65,27 @@ async function inscrire({ entreprise: e, admin: a }) {
   }
   const roleCompte = a.role_inscription === 'DIRECTEUR' ? 'ADMIN_DIRECTEUR' : 'ADMIN_RH';
   const niveauBeneficiaire = a.role_inscription === 'DIRECTEUR' ? 'DIRECTEUR' : 'CADRE';
+
+  // Normaliser et valider IFU (13 chiffres, DGI) — obligatoire pour une entreprise
+  e.ifu = normaliserIfu(e.ifu);
+  if (!validerIfu(e.ifu)) {
+    const err = new Error('IFU invalide — attendu : 13 chiffres (identifiant DGI)');
+    err.statusCode = 400;
+    err.code = 'IFU_INVALIDE';
+    throw err;
+  }
+
+  // Normaliser et valider RCCM si fourni (facultatif à l'inscription, requis
+  // ensuite pour le dossier KYB) — format OHADA "RB/COT/23 B 7460"
+  if (e.rccm) {
+    e.rccm = normaliserRccm(e.rccm);
+    if (!validerRccm(e.rccm)) {
+      const err = new Error('RCCM invalide — format attendu : RB/COT/23 B 7460');
+      err.statusCode = 400;
+      err.code = 'RCCM_INVALIDE';
+      throw err;
+    }
+  }
 
   // Vérifier unicité IFU
   const ifuExiste = await prisma.entreprise.findUnique({ where: { ifu: e.ifu } });
@@ -184,8 +206,17 @@ async function inscrire({ entreprise: e, admin: a }) {
     return { entreprise, user: newUser };
   });
 
-  // Créer le dossier KYB (deadline J+7)
-  await creerDossierKyb(prisma, ent.id);
+  // Créer le dossier KYB (deadline J+7) — non bloquant : l'entreprise, le
+  // wallet et le compte admin sont déjà commités ci-dessus. Sans ce garde-
+  // fou, un souci ponctuel ici (coupure DB, etc.) faisait échouer toute la
+  // requête d'inscription alors que le compte existait déjà, et un nouvel
+  // essai retombait systématiquement en 409 (IFU/email/téléphone déjà pris)
+  // sans que l'utilisateur comprenne pourquoi — impossible de retenter.
+  try {
+    await creerDossierKyb(prisma, ent.id);
+  } catch (err) {
+    logger.error('TIKEXO — Création dossier KYB échouée après inscription', { entrepriseId: ent.id, err: err.message });
+  }
 
   // Email de confirmation
   envoyerEmail({
@@ -299,6 +330,11 @@ async function inscrireCommercant({ nom, type, email: emailRaw, telephone: telRa
   }
 
   if (ifu) {
+    ifu = normaliserIfu(ifu);
+    if (!validerIfu(ifu)) {
+      const err = new Error('IFU invalide — attendu : 13 chiffres (identifiant DGI)');
+      err.statusCode = 400; err.code = 'IFU_INVALIDE'; throw err;
+    }
     const ifuExiste = await prisma.commercant.findFirst({ where: { ifu } });
     if (ifuExiste) {
       const err = new Error('Cet IFU est déjà enregistré sur TIKEXO');
