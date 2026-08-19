@@ -165,7 +165,7 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
   const benef = await prisma.user.findUnique({
     where: { id: beneficiaireId },
     select: { nom: true, prenom: true },
-  });
+  }).catch(() => null);
 
   notificationService.creerEtNotifier(beneficiaireId, {
     titre: 'Paiement TIKEXO',
