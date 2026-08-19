@@ -14,6 +14,7 @@ import Invitation from './pages/Invitation';
 import CGU from './pages/CGU';
 import MentionsLegales from './pages/MentionsLegales';
 import CommercantVitrine from './pages/public/CommercantVitrine';
+import PaiementCallback from './pages/PaiementCallback';
 
 // Pages Bénéficiaire
 import BeneficiaireDashboard from './pages/beneficiaire/Dashboard';
@@ -97,6 +98,8 @@ export default function App() {
       <Route path="/cgu" element={<CGU />} />
       <Route path="/mentions-legales" element={<MentionsLegales />} />
       <Route path="/c/:id" element={<CommercantVitrine />} />
+      <Route path="/paiement/callback" element={<PaiementCallback />} />
+      <Route path="/paiement/mock-succes" element={<PaiementCallback />} />
       <Route path="/" element={<Landing />} />
 
       <Route
