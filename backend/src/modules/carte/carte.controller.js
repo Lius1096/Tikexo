@@ -79,7 +79,7 @@ async function payerNFC(req, res, next) {
 
 async function bloquerMaCarte(req, res, next) {
   try {
-    const data = await service.bloquer(req.params.id, req.user.id);
+    const data = await service.bloquerMaCarte(req.user.id, req.params.id);
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }

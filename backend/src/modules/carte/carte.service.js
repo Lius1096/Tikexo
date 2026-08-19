@@ -286,6 +286,15 @@ async function payerParNFC(commercantUserId, tokenStr, signature, montantTotal, 
 
 // ─── Blocage / déblocage ─────────────────────────────────────────────────────
 
+// Self-service : contrairement à bloquer() (admin, aucune restriction
+// d'appartenance), vérifie que la carte appartient bien à l'appelant avant
+// de la bloquer — sans ça, n'importe quel bénéficiaire authentifié pouvait
+// bloquer la carte de n'importe qui d'autre en connaissant/devinant son id.
+async function bloquerMaCarte(userId, carteId) {
+  await _verifierPropriete(userId, carteId);
+  return bloquer(carteId, userId);
+}
+
 async function bloquer(carteId, acteurId) {
   const carte = await prisma.carteDigi.findUniqueOrThrow({ where: { id: carteId } });
   if (carte.statut === 'BLOQUEE') {
@@ -598,6 +607,6 @@ function _verifierActive(carte) {
 module.exports = {
   creerVirtuelle, getMaCarte, getCVV, getQRCode, getNFCToken, validerQR, validerNFC,
   payerParQR, payerParNFC,
-  bloquer, debloquer, demanderPhysique, demanderPhysiqueEmployeur, activerPhysique,
+  bloquer, bloquerMaCarte, debloquer, demanderPhysique, demanderPhysiqueEmployeur, activerPhysique,
   listerDemandes, validerDemande, creer, lister, listerTout,
 };

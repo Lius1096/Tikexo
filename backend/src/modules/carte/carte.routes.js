@@ -1,36 +1,36 @@
 const express  = require('express');
 const router   = express.Router();
 const ctrl     = require('./carte.controller');
-const { authentifier, autoriser } = require('../../middlewares/auth');
+const { authentifier, autoriser, ROLES_BENEFICIAIRE_OU_ADMIN } = require('../../middlewares/auth');
 const { limiterOtp } = require('../../middlewares/rateLimiter');
 
 router.use(authentifier);
 
-// ── Bénéficiaire ──────────────────────────────────────────────────────────────
+// ── Bénéficiaire (ou admin/RH consultant son propre espace salarié) ─────────
 
 // Créer sa carte virtuelle
-router.post('/virtuelle', autoriser('BENEFICIAIRE'), ctrl.creerVirtuelle);
+router.post('/virtuelle', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.creerVirtuelle);
 
 // Consulter sa carte
-router.get('/moi', autoriser('BENEFICIAIRE'), ctrl.getMaCarte);
+router.get('/moi', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.getMaCarte);
 
 // CVV dynamique (rate-limit 3/h géré côté middleware)
-router.post('/:id/cvv', autoriser('BENEFICIAIRE'), limiterOtp, ctrl.getCVV);
+router.post('/:id/cvv', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), limiterOtp, ctrl.getCVV);
 
 // QR Code dynamique
-router.get('/:id/qrcode', autoriser('BENEFICIAIRE'), ctrl.getQRCode);
+router.get('/:id/qrcode', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.getQRCode);
 
 // Token NFC dynamique (tap HCE)
-router.get('/:id/nfctoken', autoriser('BENEFICIAIRE'), ctrl.getNFCToken);
+router.get('/:id/nfctoken', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.getNFCToken);
 
 // Bloquer sa propre carte
-router.post('/:id/bloquer-moi', autoriser('BENEFICIAIRE'), ctrl.bloquerMaCarte);
+router.post('/:id/bloquer-moi', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.bloquerMaCarte);
 
 // Demande carte physique
-router.post('/physique/demande', autoriser('BENEFICIAIRE'), ctrl.demanderPhysique);
+router.post('/physique/demande', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.demanderPhysique);
 
 // Activation carte physique
-router.post('/:id/physique/activer', autoriser('BENEFICIAIRE'), ctrl.activerPhysique);
+router.post('/:id/physique/activer', autoriser(...ROLES_BENEFICIAIRE_OU_ADMIN), ctrl.activerPhysique);
 
 // ── Paiement (commerçant / terminal) ─────────────────────────────────────────
 

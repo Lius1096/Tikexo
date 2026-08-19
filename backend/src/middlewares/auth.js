@@ -4,6 +4,12 @@ const prisma = require('../config/database');
 const { redisConnection } = require('../queues/redis');
 
 const ROLES_ADMIN = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
+// Un admin/RH qui a inscrit son entreprise a aussi un wallet bénéficiaire
+// personnel (créé automatiquement à l'inscription) — ces rôles peuvent donc
+// accéder aux routes "self-service" carte/bénéficiaire (scopées par
+// req.user.id, jamais par un id arbitraire, donc sans risque d'accès aux
+// données d'un tiers même pour un admin sans lien bénéficiaire actif).
+const ROLES_BENEFICIAIRE_OU_ADMIN = ['BENEFICIAIRE', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
 const USER_CACHE_TTL = 300; // 5 minutes
 
 async function getUserCached(userId) {
@@ -160,4 +166,4 @@ async function verifierEntreprise(req, res, next) {
   next();
 }
 
-module.exports = { authentifier, autoriser, estAdmin, verifierEntreprise, invaliderCacheUser, ROLES_ADMIN };
+module.exports = { authentifier, autoriser, estAdmin, verifierEntreprise, invaliderCacheUser, ROLES_ADMIN, ROLES_BENEFICIAIRE_OU_ADMIN };
