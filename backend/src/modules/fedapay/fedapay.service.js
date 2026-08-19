@@ -173,14 +173,12 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
     }
   }
 
-  const { transaction } = payload;
-  if (!transaction) {
-    // logger.info est filtré en production (niveau "warn") — on utilise
-    // warn ici le temps de diagnostiquer la forme réelle du payload FedaPay,
-    // qui ne correspond visiblement pas à { transaction: {...} } attendu.
-    logger.warn('TIKEXO — Webhook FedaPay sans champ "transaction"', { payload });
-    return { ignore: true };
-  }
+  // Le payload réel envoyé par FedaPay place la transaction sous "entity"
+  // (avec le nom de l'événement dans "name", ex. "transaction.approved"),
+  // pas sous "transaction" comme le suggérait leur doc — vérifié via le
+  // payload brut logué en production (voir "object": "transaction").
+  const transaction = payload.entity;
+  if (!transaction || payload.object !== 'transaction') return { ignore: true };
 
   const fedapayId = transaction.id?.toString();
   const statut = transaction.status;
