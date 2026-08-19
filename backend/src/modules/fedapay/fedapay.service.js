@@ -1,7 +1,6 @@
 // Service FedaPay TIKEXO
 // Principe : FedaPay = frontière uniquement
 // Collecte wallet entreprise, payout commerçant, remboursement salarié
-const crypto = require('crypto');
 const prisma = require('../../config/database');
 const { crediterWallet, debiterWallet, verrouillerWallet } = require('../../utils/ledger');
 const { logger } = require('../../middlewares/errorHandler');
@@ -158,20 +157,16 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
   const webhookSecret = process.env.FEDAPAY_WEBHOOK_SECRET;
 
   if (webhookSecret) {
-    const hmac = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(rawBody)  // raw bytes — pas JSON.stringify() qui change l'ordre des clés
-      .digest('hex');
-
-    // timingSafeEqual pour éviter les timing attacks
-    let signaturesEgales = false;
+    // Le header X-FEDAPAY-SIGNATURE n'est PAS un hash hexadécimal brut : son
+    // format réel est "t=<timestamp>,s=<signature>", et le texte signé est
+    // "<timestamp>.<payload>" (pas le payload seul) — cf. Webhook.ts du SDK
+    // officiel fedapay-node. On délègue donc à leur vérification plutôt que
+    // de la refaire à la main (source du bug précédent : toute signature
+    // était rejetée, le header n'étant jamais un hex valide à lui seul).
+    const { Webhook } = require('fedapay');
     try {
-      const hmacBuf = Buffer.from(hmac,      'hex');
-      const sigBuf  = Buffer.from(signature, 'hex');
-      signaturesEgales = hmacBuf.length === sigBuf.length && crypto.timingSafeEqual(hmacBuf, sigBuf);
-    } catch { signaturesEgales = false; }
-
-    if (!signaturesEgales) {
+      Webhook.constructEvent(rawBody, signature, webhookSecret);
+    } catch {
       const err = new Error('TIKEXO — Signature webhook FedaPay invalide');
       err.statusCode = 401;
       throw err;
