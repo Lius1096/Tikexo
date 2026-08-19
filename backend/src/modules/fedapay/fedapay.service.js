@@ -174,7 +174,13 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
   }
 
   const { transaction } = payload;
-  if (!transaction) return { ignore: true };
+  if (!transaction) {
+    // logger.info est filtré en production (niveau "warn") — on utilise
+    // warn ici le temps de diagnostiquer la forme réelle du payload FedaPay,
+    // qui ne correspond visiblement pas à { transaction: {...} } attendu.
+    logger.warn('TIKEXO — Webhook FedaPay sans champ "transaction"', { payload });
+    return { ignore: true };
+  }
 
   const fedapayId = transaction.id?.toString();
   const statut = transaction.status;
@@ -286,7 +292,10 @@ async function traiterWebhook(prisma, { payload, rawBody, signature }) {
     return { echoue: true };
   }
 
-  logger.info('TIKEXO — Webhook FedaPay statut non géré', { fedapayId, statut, type: operation.type });
+  // warn (pas info, filtré en prod) — un statut non géré ne doit jamais
+  // passer inaperçu : c'est exactement ce qui laissait les paiements en
+  // EN_ATTENTE sans qu'on le sache.
+  logger.warn('TIKEXO — Webhook FedaPay statut non géré', { fedapayId, statut, type: operation.type, payload });
   return { statut_inconnu: statut };
 }
 
