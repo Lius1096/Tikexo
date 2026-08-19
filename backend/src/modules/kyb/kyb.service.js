@@ -197,9 +197,12 @@ async function validerDossierComplet(adminId, dossier) {
     WHERE id = ${dossier.id}
   `;
 
+  // statut passe aussi à ACTIF ici — sans ça l'entreprise reste bloquée à
+  // EN_ATTENTE indéfiniment même une fois le KYB validé, alors que les
+  // admins RH sont déjà réactivés juste en dessous et peuvent se connecter.
   await prisma.$executeRaw`
     UPDATE "Entreprise"
-    SET kyb_valide = true, "updatedAt" = NOW()
+    SET kyb_valide = true, statut = 'ACTIF', "updatedAt" = NOW()
     WHERE id = ${dossier.entreprise_id}
   `;
 
