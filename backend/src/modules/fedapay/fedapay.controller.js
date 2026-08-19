@@ -21,7 +21,9 @@ async function traiterWebhook(req, res, next) {
       rawBody,
       signature,
     }, {
-      jobId: `webhook-${req.body?.transaction?.id || Date.now()}`, // déduplique les doublons
+      // Déduplique les livraisons en double du même événement — payload.entity.id
+      // (voir la note dans traiterWebhook sur la vraie forme du payload FedaPay).
+      jobId: `webhook-${req.body?.entity?.id || Date.now()}`,
     });
     res.status(200).json({ success: true, queued: true });
   } catch (e) { next(e); }
