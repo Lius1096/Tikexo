@@ -300,6 +300,38 @@ async function traiterSortie(userId, entrepriseId, adminId, options) {
   return sortieService(userId, entrepriseId, adminId, options);
 }
 
+// Suspendre/exclure met User.statut à BLOQUE — pas juste le lien salarié —
+// et authentifier() rejette toute connexion dès que statut === 'BLOQUE'.
+// La personne qui a inscrit l'entreprise a aussi un lien bénéficiaire
+// personnel et apparaît donc dans cette même liste : sans ce garde-fou, la
+// suspendre/exclure la déconnecte de TOUT, y compris son accès RH — si
+// c'était la seule admin, l'entreprise se retrouve sans personne capable de
+// se reconnecter pour corriger la situation.
+async function _verifierPasDernierAdmin(userId, entrepriseId) {
+  const estAdmin = await prisma.entrepriseAdmin.findFirst({
+    where: { user_id: userId, entreprise_id: entrepriseId, role: { in: ['ADMIN_RH', 'ADMIN_DIRECTEUR'] } },
+  });
+  if (!estAdmin) return;
+
+  const autresAdminsActifs = await prisma.entrepriseAdmin.count({
+    where: {
+      entreprise_id: entrepriseId,
+      role: { in: ['ADMIN_RH', 'ADMIN_DIRECTEUR'] },
+      user_id: { not: userId },
+      user: { statut: 'ACTIF' },
+    },
+  });
+  if (autresAdminsActifs === 0) {
+    const err = new Error(
+      "Impossible : cette personne est la seule administratrice (RH ou Directeur) de l'entreprise. " +
+      "Nommez d'abord un autre RH ou Directeur avant de suspendre ou exclure ce compte."
+    );
+    err.statusCode = 409;
+    err.code = 'DERNIER_ADMIN_ENTREPRISE';
+    throw err;
+  }
+}
+
 async function suspendre(userId, entrepriseId, adminId) {
   const lien = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
@@ -309,6 +341,7 @@ async function suspendre(userId, entrepriseId, adminId) {
     err.statusCode = 404;
     throw err;
   }
+  await _verifierPasDernierAdmin(userId, entrepriseId);
   const user = await prisma.user.update({
     where: { id: userId },
     data: { statut: 'BLOQUE' },
@@ -347,6 +380,7 @@ async function exclure(userId, entrepriseId, adminId) {
     err.statusCode = 404;
     throw err;
   }
+  await _verifierPasDernierAdmin(userId, entrepriseId);
 
   await prisma.lienEntrepriseBeneficiaire.update({
     where: { id: lien.id },
