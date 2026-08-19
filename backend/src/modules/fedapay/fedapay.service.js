@@ -37,7 +37,7 @@ const MODE_PAYOUT_PAR_OPERATEUR = {
  * La FedapayOperation est créée en base AVANT d'appeler FedaPay (idempotence).
  * En dev (clé placeholder), simule la réponse et crédite directement le wallet.
  */
-async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur }) {
+async function creerCollecte(prisma, { entrepriseId, montant }) {
   const montantNum = parseFloat(montant.toString());
 
   if (!montantNum || montantNum <= 0) {
@@ -50,7 +50,7 @@ async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur })
   // Vérifier le plafond wallet avant tout appel FedaPay
   const [walletEntreprise, entreprise] = await Promise.all([
     prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
-    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { montant_max_wallet: true, kyb_valide: true } }),
+    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { montant_max_wallet: true, kyb_valide: true, email_rh: true } }),
   ]);
 
   if (entreprise.montant_max_wallet) {
@@ -110,11 +110,20 @@ async function creerCollecte(prisma, { entrepriseId, montant, telephonePayeur })
   const { FedaPay } = require('../../config/fedapay');
 
   try {
+    // Client identifié par email plutôt que par téléphone+pays : en imposant
+    // nous-mêmes le country "bj", FedaPay concatène l'indicatif (+229) au
+    // numéro saisi sur SA page de paiement — ce qui casse les numéros de
+    // test sandbox momo_test (64000001/66000001), reçus comme
+    // "22964000001" au lieu de "64000001" et donc jamais reconnus comme les
+    // valeurs magiques garantissant un succès. Passer par l'email laisse la
+    // page FedaPay collecter le téléphone du payeur telle quelle, sans
+    // interférence de notre côté — comportement documenté et tout aussi
+    // valide en production (le payeur saisit son vrai numéro sur leur page).
     const transaction = await FedaPay.Transaction.create({
       description: `TIKEXO — Rechargement wallet entreprise`,
       amount: montant,
       currency: { iso: 'XOF' },
-      customer: { phone_number: { number: telephonePayeur, country: 'bj' } },
+      customer: { email: entreprise.email_rh || undefined },
       callback_url: `${process.env.FRONTEND_URL}/paiement/callback`,
     });
 

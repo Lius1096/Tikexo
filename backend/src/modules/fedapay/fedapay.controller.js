@@ -5,8 +5,8 @@ const { webhookQueue, payoutQueue } = require('../../queues/index');
 
 async function creerCollecte(req, res, next) {
   try {
-    const { entrepriseId, montant, telephonePayeur } = req.body;
-    const data = await service.creerCollecte(prisma, { entrepriseId, montant, telephonePayeur });
+    const { entrepriseId, montant } = req.body;
+    const data = await service.creerCollecte(prisma, { entrepriseId, montant });
     res.json({ success: true, data });
   } catch (e) { next(e); }
 }

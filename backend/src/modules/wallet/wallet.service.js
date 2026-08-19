@@ -97,10 +97,10 @@ async function getHistorique(userId, filtres = {}) {
   return { entries, total, page, totalPages: Math.ceil(total / limit), walletId: wallet.id };
 }
 
-async function recharger(entrepriseId, montant, telephonePayeur) {
+async function recharger(entrepriseId, montant) {
   // La recharge est initiée via FedaPay — ce service crée l'opération
   const { creerCollecte } = require('../fedapay/fedapay.service');
-  return creerCollecte(prisma, { entrepriseId, montant, telephonePayeur });
+  return creerCollecte(prisma, { entrepriseId, montant });
 }
 
 async function geler(walletId, adminId) {
