@@ -782,10 +782,11 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
     staleTime: 60_000,
   });
 
+  const [voirToutesTx, setVoirToutesTx] = useState(false);
   const { data: txData } = useQuery({
-    queryKey: ['benef-transactions', u.id],
+    queryKey: ['benef-transactions', u.id, voirToutesTx],
     queryFn: () =>
-      api.get(`/transactions?beneficiaireId=${u.id}&limit=4`).then((r) => r.data.data),
+      api.get(`/transactions?beneficiaireId=${u.id}&limit=${voirToutesTx ? 50 : 4}`).then((r) => r.data.data),
     staleTime: 30_000,
   });
 
@@ -902,6 +903,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           <div className="text-[14px] font-semibold text-slate-900">{u.prenom} {u.nom}</div>
           <div className="text-[11px] text-slate-400 mt-0.5">{niveauLabel[benef.niveau] ?? benef.niveau}</div>
           {u.email_perso && <div className="text-[10px] text-slate-400 mt-0.5">{u.email_perso}</div>}
+          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">{u.telephone}</div>
 
           {/* Tags */}
           <div className="flex items-center justify-center gap-1.5 mt-3 flex-wrap">
@@ -1135,7 +1137,10 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
           <div>
             <div className="text-[10px] text-slate-400 mb-1">DOTATION / MOIS</div>
             <div className="font-semibold text-[14px] text-slate-900">
-              {benef.derniereDotation ? `${fmt(Number(benef.derniereDotation.montant_total))} FCFA` : '—'}
+              {benef.allocation_mensuelle ? `${fmt(Number(benef.allocation_mensuelle))} FCFA` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400">
+              {benef.derniereDotation ? `Versée ${tempsDepuis(benef.derniereDotation.createdAt)}` : 'Pas encore versée ce mois-ci'}
             </div>
           </div>
           <div>
@@ -1168,9 +1173,14 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-2.5">
             <div className="text-[10px] text-slate-400 tracking-[0.5px]">DERNIÈRES TRANSACTIONS</div>
-            <button className="flex items-center gap-0.5 text-[10px] text-[#4F46E5] hover:underline">
-              Tout voir <ArrowUpRight size={10} />
-            </button>
+            {transactions.length > 0 && (
+              <button
+                onClick={() => setVoirToutesTx((v) => !v)}
+                className="flex items-center gap-0.5 text-[10px] text-[#4F46E5] hover:underline"
+              >
+                {voirToutesTx ? 'Voir moins' : 'Tout voir'} <ArrowUpRight size={10} />
+              </button>
+            )}
           </div>
           {transactions.length === 0 ? (
             <div className="py-4 text-center text-[11px] text-slate-300 flex flex-col items-center gap-1.5">
