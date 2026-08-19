@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Wallet, Users, CalendarCheck, CreditCard,
-  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X, UserCog,
+  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X, UserCog, Repeat,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -111,7 +111,7 @@ export function EmployeurLayout() {
         {NAV.map(({ section, items }) => (
           <div key={section}>
             <div className="text-[10px] text-white/30 tracking-[1.5px] px-2 py-3 pb-1.5">{section}</div>
-            {items.filter((it) => !it.adminOnly || user?.role === 'ADMIN_RH').map(({ path, label, icon: Icon, exact }) => {
+            {items.filter((it) => !it.adminOnly || user?.role === 'ADMIN_RH' || user?.role === 'ADMIN_DIRECTEUR').map(({ path, label, icon: Icon, exact }) => {
               const isKybLink = path === '/employeur/kyb';
               const locked = kybBloque && !isKybLink;
               const isActive = exact
@@ -149,6 +149,19 @@ export function EmployeurLayout() {
             })}
           </div>
         ))}
+      </div>
+
+      {/* Bascule vers l'espace salarié personnel — même session, pas de
+          reconnexion. Le wallet bénéficiaire est créé automatiquement pour
+          la personne qui a inscrit l'entreprise (cf. inscription.service.js). */}
+      <div className="px-2 pb-2 flex-shrink-0">
+        <Link
+          to="/beneficiaire"
+          className="flex items-center gap-2.5 px-2.5 py-[9px] rounded-md text-[13px] text-white/55 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
+        >
+          <Repeat size={16} className="flex-shrink-0" />
+          <span className="flex-1">Mon espace salarié</span>
+        </Link>
       </div>
 
       {/* User footer */}

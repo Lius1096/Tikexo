@@ -126,4 +126,7 @@ export function useAuth() {
 }
 
 export const ROLES_ADMIN    = ['SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
-export const ROLES_EMPLOYEUR = ['ADMIN_RH', 'GESTIONNAIRE_RH'];
+// ADMIN_DIRECTEUR existe côté base depuis la migration du 17/08 mais n'avait
+// jamais été ajouté ici — un directeur inscrit ne pouvait accéder à AUCUN
+// portail (ni RH, ni salarié), son rôle ne correspondant à rien côté front.
+export const ROLES_EMPLOYEUR = ['ADMIN_RH', 'ADMIN_DIRECTEUR', 'GESTIONNAIRE_RH'];

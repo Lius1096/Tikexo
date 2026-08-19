@@ -58,7 +58,11 @@ import EmployeurKyb from './pages/employeur/KybDossier';
 import EmployeurEquipeRh from './pages/employeur/EquipeRh';
 import EmployeurImportCsv from './pages/employeur/ImportCsv';
 
-const ROLES_BENEFICIAIRE = ['BENEFICIAIRE'];
+// Un admin/RH qui a inscrit son entreprise a aussi un wallet salarié
+// personnel (créé automatiquement à l'inscription) — on le laisse accéder à
+// cette vue avec la même session, via le lien "Mon espace salarié" du
+// portail RH, sans reconnexion séparée.
+const ROLES_BENEFICIAIRE = ['BENEFICIAIRE', 'ADMIN_RH', 'ADMIN_DIRECTEUR', 'GESTIONNAIRE_RH'];
 const ROLES_COMMERCANT = ['COMMERCANT'];
 
 function RequireAuth({ roles, children }: { roles: string[]; children: ReactNode }) {
@@ -83,7 +87,7 @@ export default function App() {
         <Login allowedRoles={['BENEFICIAIRE']} portalLabel="Espace Salarié" portalSub="MON WALLET REPAS" redirectTo="/beneficiaire" />
       } />
       <Route path="/entreprise/connexion" element={
-        <Login allowedRoles={['ADMIN_RH', 'GESTIONNAIRE_RH']} portalLabel="Portail RH" portalSub="ESPACE EMPLOYEUR" redirectTo="/employeur" />
+        <Login allowedRoles={['ADMIN_RH', 'ADMIN_DIRECTEUR', 'GESTIONNAIRE_RH']} portalLabel="Portail RH" portalSub="ESPACE EMPLOYEUR" redirectTo="/employeur" />
       } />
       <Route path="/restaurant/connexion" element={
         <Login allowedRoles={['COMMERCANT']} portalLabel="Caisse TIKEXO" portalSub="ESPACE COMMERÇANT" redirectTo="/commercant" />

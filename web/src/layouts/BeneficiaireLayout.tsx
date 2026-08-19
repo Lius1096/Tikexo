@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine, CreditCard, Menu, X } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine, CreditCard, Menu, X, Repeat } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV = [
@@ -30,7 +30,7 @@ export function BeneficiaireLayout() {
 
   useEffect(() => { setSidebarOpen(false); }, [location.pathname]);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate(user?.role === 'BENEFICIAIRE' ? '/login' : '/entreprise/connexion'); };
 
   const initials = user
     ? `${user.prenom?.[0] ?? ''}${user.nom?.[0] ?? ''}`.toUpperCase() || '?'
@@ -86,6 +86,20 @@ export function BeneficiaireLayout() {
           })}
         </div>
 
+        {/* Retour au portail RH — uniquement pour un admin/RH venu consulter
+            son propre wallet salarié, pas pour un vrai BENEFICIAIRE. */}
+        {user?.role !== 'BENEFICIAIRE' && (
+          <div className="px-2 pb-2 flex-shrink-0">
+            <Link
+              to="/employeur"
+              className="flex items-center gap-2.5 px-2.5 py-[9px] rounded-md text-[13px] text-white/55 hover:bg-white/[0.08] hover:text-white/90 transition-colors"
+            >
+              <Repeat size={16} className="flex-shrink-0" />
+              <span className="flex-1">Retour au portail RH</span>
+            </Link>
+          </div>
+        )}
+
         <div className="px-2 py-3 border-t border-white/[0.08] flex-shrink-0">
           <div className="flex items-center gap-2.5 px-2.5 py-2 rounded-md">
             <div className="w-[30px] h-[30px] rounded-full bg-tikexo-success flex items-center justify-center text-[11px] font-medium text-white flex-shrink-0">
@@ -93,7 +107,7 @@ export function BeneficiaireLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs text-white/80 truncate">{displayName}</div>
-              <div className="text-[10px] text-white/35">BÉNÉFICIAIRE</div>
+              <div className="text-[10px] text-white/35">{user?.role === 'BENEFICIAIRE' ? 'BÉNÉFICIAIRE' : user?.role?.replace('_', ' ')}</div>
             </div>
             <button onClick={handleLogout} title="Déconnexion">
               <LogOut size={14} className="text-white/40 hover:text-white/80 cursor-pointer transition-colors flex-shrink-0" />
