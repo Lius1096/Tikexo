@@ -59,9 +59,13 @@ export default function InscriptionCommercant() {
   const telValide   = telDigits.length === 8 || telDigits.length === 10;
   const villeValide = form.ville && (form.ville !== 'Autre' || form.villeAutre.trim());
 
+  // IFU facultatif, mais s'il est renseigné il doit être complet (13
+  // chiffres) — sinon la soumission échouerait côté backend.
+  const ifuValide = !form.ifu || form.ifu.length === 13;
+
   const valide =
     form.nom.trim() && form.type && emailValide && pwdValide && pwdMatch &&
-    telValide && form.adresse.trim() && villeValide;
+    telValide && form.adresse.trim() && villeValide && ifuValide;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -299,18 +303,26 @@ export default function InscriptionCommercant() {
               </div>
             )}
 
-            {/* IFU optionnel */}
+            {/* IFU optionnel — 13 chiffres exactement (même règle que le
+                backend, backend/src/utils/identifiants.js) */}
             <div>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 500, color: '#475569', marginBottom: '6px', letterSpacing: '0.3px' }}>IFU <span style={{ color: '#94A3B8', fontWeight: 400 }}>(optionnel)</span></label>
               <input
                 value={form.ifu}
-                onChange={e => patch({ ifu: e.target.value.toUpperCase() })}
-                placeholder="ex : IFU-BJ-XXXXX"
+                onChange={e => patch({ ifu: e.target.value.replace(/\D/g, '').slice(0, 13) })}
+                placeholder="ex : 3202119990001"
+                inputMode="numeric"
                 style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 12px', fontSize: '13px', color: '#1E293B', background: '#F8FAFC', outline: 'none', boxSizing: 'border-box' }}
               />
-              <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Info size={11} /> Permet d'obtenir le niveau "Vérifié" plus rapidement
-              </div>
+              {form.ifu.length > 0 && form.ifu.length < 13 ? (
+                <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>
+                  Encore {13 - form.ifu.length} chiffre{13 - form.ifu.length > 1 ? 's' : ''} (13 au total)
+                </div>
+              ) : (
+                <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Info size={11} /> Permet d'obtenir le niveau "Vérifié" plus rapidement
+                </div>
+              )}
             </div>
 
             {erreur && (

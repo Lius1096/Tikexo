@@ -32,13 +32,22 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
   const pwdValide   = a.mot_de_passe.length >= 8;
   const pwdMatch    = a.mot_de_passe === a.confirmer_mot_de_passe && a.confirmer_mot_de_passe.length > 0;
 
+  // Même règle que le backend (backend/src/utils/identifiants.js) — 13
+  // chiffres exactement. Affiché en direct pour ne pas découvrir l'erreur
+  // seulement après soumission.
+  const ifuValide = e.ifu.length === 13;
+  // RCCM facultatif à ce stade — validé seulement s'il est renseigné.
+  const RCCM_REGEX = /^(RB|BJ)\/[A-Z-]{2,15}\/\d{2} [A-D] \d{3,7}$/;
+  const rccmValide = !e.rccm || RCCM_REGEX.test(e.rccm.trim().toUpperCase());
+
   const nbVal = parseInt(e.nb_salaries, 10);
   const nbValide = !isNaN(nbVal) && nbVal >= 1;
   const planInfo = nbValide ? calculerFraisGestion(e.nb_salaries) : null;
 
   const valide =
     e.nom.trim() &&
-    e.ifu.trim() &&
+    ifuValide &&
+    rccmValide &&
     e.secteur &&
     e.adresse.trim() &&
     e.ville &&
@@ -66,15 +75,36 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
       <div className="form-row">
         <div className="form-group">
           <label className="form-label">IFU <span className="form-required">*</span></label>
-          <input className="form-input" placeholder="ex : 3202119990001" value={e.ifu} onChange={(ev) => setE({ ifu: ev.target.value.toUpperCase() })} />
-          {e.ifu.length >= 5 && (
-            <div className="form-success"><CheckCircle2 size={12} /> IFU vérifié DGID Bénin</div>
+          <input
+            className="form-input"
+            placeholder="ex : 3202119990001"
+            inputMode="numeric"
+            value={e.ifu}
+            onChange={(ev) => setE({ ifu: ev.target.value.replace(/\D/g, '').slice(0, 13) })}
+          />
+          {e.ifu.length > 0 && !ifuValide && (
+            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>
+              {13 - e.ifu.length > 0 ? `Encore ${13 - e.ifu.length} chiffre${13 - e.ifu.length > 1 ? 's' : ''} (13 au total)` : 'IFU invalide'}
+            </div>
+          )}
+          {ifuValide && (
+            <div className="form-success"><CheckCircle2 size={12} /> Format IFU valide (13 chiffres)</div>
           )}
         </div>
         <div className="form-group">
           <label className="form-label">RCCM <span className="form-optional">(optionnel)</span></label>
-          <input className="form-input" placeholder="ex : RCCM-BJ-XXXXX" value={e.rccm} onChange={(ev) => setE({ rccm: ev.target.value.toUpperCase() })} />
-          <div className="form-hint"><Info size={11} /> Registre du Commerce</div>
+          <input
+            className="form-input"
+            placeholder="ex : RB/COT/24 B 15234"
+            maxLength={30}
+            value={e.rccm}
+            onChange={(ev) => setE({ rccm: ev.target.value.toUpperCase() })}
+          />
+          {e.rccm.length > 0 && !rccmValide ? (
+            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>Format attendu : RB/COT/24 B 15234</div>
+          ) : (
+            <div className="form-hint"><Info size={11} /> Registre du Commerce — format RB/[tribunal]/[année] [A-D] [n°]</div>
+          )}
         </div>
       </div>
 
@@ -242,8 +272,18 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
 
       <div className="form-group">
         <label className="form-label">Téléphone Mobile Money <span className="form-required">*</span></label>
-        <input className="form-input" type="tel" placeholder="+229 01 97 00 00 00" value={a.telephone} onChange={(ev) => setA({ telephone: ev.target.value })} />
+        <input
+          className="form-input"
+          type="tel"
+          placeholder="+229 01 97 00 00 00"
+          maxLength={17}
+          value={a.telephone}
+          onChange={(ev) => setA({ telephone: ev.target.value.replace(/[^\d+]/g, '') })}
+        />
         <div className="form-hint"><Info size={11} /> Pour les alertes de rechargement et les paiements Mobile Money</div>
+        {a.telephone.length > 0 && a.telephone.trim().length < 12 && (
+          <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>Numéro incomplet</div>
+        )}
       </div>
 
       <div className="kyb-notice">
