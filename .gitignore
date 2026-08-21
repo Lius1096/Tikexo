@@ -75,3 +75,6 @@ traefik/acme.json
 *.tsbuildinfo
 .cache/
 .parcel-cache/
+
+# ── Notes personnelles / guides de référence (pas du code projet) ────────────
+NOTES-*.md

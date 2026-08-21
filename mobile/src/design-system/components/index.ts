@@ -6,3 +6,4 @@ export * from './Badge';
 export * from './EmptyState';
 export * from './LoadingState';
 export * from './CarteVisuelle';
+export * from './Wordmark';
