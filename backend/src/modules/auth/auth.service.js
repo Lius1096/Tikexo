@@ -308,15 +308,20 @@ async function loginEmail(emailRaw, motDePasse) {
     throw err;
   }
 
-  if (user.statut === 'INACTIF') {
-    const messagesParRole = {
-      ADMIN_DIRECTEUR: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
-      ADMIN_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
-      GESTIONNAIRE_RH: 'Votre compte est en attente de validation KYB. Vous serez notifié par email dès approbation.',
-      COMMERCANT: "Votre dossier commerçant est en cours d'examen par l'équipe TIKEXO. Vous serez notifié par email dès l'activation de votre compte.",
-    };
+  // Un employeur (ADMIN_DIRECTEUR/ADMIN_RH/GESTIONNAIRE_RH) reste INACTIF tant
+  // que son KYB n'est pas validé — mais il DOIT pouvoir se connecter pour
+  // justement compléter/corriger ce dossier (EmployeurLayout le piège déjà
+  // sur /employeur/kyb tant que ce n'est pas validé, et les actions sensibles
+  // restent bloquées via dossier.fonctionnalites côté kyb.service.js). Sans
+  // ça, dès que la session expire (>7 jours, ou déconnexion volontaire) avant
+  // validation, le compte est bloqué pour toujours — impossible de se
+  // reconnecter pour terminer ce que la connexion elle-même empêchait.
+  const ROLES_EMPLOYEUR_KYB_EN_COURS = ['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
+  if (user.statut === 'INACTIF' && !ROLES_EMPLOYEUR_KYB_EN_COURS.includes(user.role)) {
     const err = new Error(
-      messagesParRole[user.role] || "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
+      user.role === 'COMMERCANT'
+        ? "Votre dossier commerçant est en cours d'examen par l'équipe TIKEXO. Vous serez notifié par email dès l'activation de votre compte."
+        : "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
     );
     err.statusCode = 403;
     err.code = 'COMPTE_INACTIF';
