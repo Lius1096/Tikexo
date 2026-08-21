@@ -133,7 +133,11 @@ async function inscrire({ entreprise: e, admin: a }) {
         adresse: e.adresse || null,
         ville: e.ville || 'Cotonou',
         telephone_rh: a.telephone,
-        email_rh: a.email_rh || null,
+        // `email` (normalisé trim+lowercase) — pas a.email_rh brut — pour rester
+        // identique à User.email_perso/email_pro ci-dessous. Un email saisi avec
+        // une casse ou des espaces différents aurait sinon fait diverger le
+        // contact entreprise de l'identifiant de connexion dès l'inscription.
+        email_rh: email,
         plan: planLabel,
         nb_employes: String(nbSalaries) || null,
         frais_mensuel: fraisMensuel,

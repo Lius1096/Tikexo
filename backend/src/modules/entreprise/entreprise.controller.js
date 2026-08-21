@@ -24,7 +24,7 @@ async function getById(req, res, next) {
 
 async function modifier(req, res, next) {
   try {
-    const data = await service.modifier(req.params.id, req.body);
+    const data = await service.modifier(req.params.id, req.body, req.user.id);
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }

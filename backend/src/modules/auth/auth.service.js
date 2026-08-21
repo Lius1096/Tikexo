@@ -384,9 +384,37 @@ async function enregistrerFcmToken(userId, fcmToken) {
 
 const MSG_OUBLIE = 'Si un compte correspond à cet email, un code de réinitialisation vous a été envoyé.';
 
+// Résout un email de réinitialisation vers un compte, avec repli sur
+// l'email entreprise. À l'inscription, l'email saisi devient à la fois
+// l'identifiant de connexion du fondateur (User.email_perso) ET le contact
+// entreprise (Entreprise.email_rh) — voir inscription.service.js. Mais les
+// deux peuvent diverger ensuite (ex. "Email RH" modifié dans Paramètres —
+// voir entreprise.service.js#modifier). Un utilisateur qui tape l'adresse
+// qu'il voit dans les paramètres de son entreprise doit quand même pouvoir
+// réinitialiser son mot de passe, même si ce n'est plus littéralement son
+// email_perso.
+async function trouverCompteParEmailReset(emailNorm) {
+  const direct = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
+  if (direct) return direct;
+
+  const entreprise = await prisma.entreprise.findFirst({
+    where: { email_rh: emailNorm },
+    select: {
+      admins: {
+        select: { role: true, user: true },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+  });
+  if (!entreprise?.admins?.length) return null;
+
+  const directeur = entreprise.admins.find((a) => a.role === 'ADMIN_DIRECTEUR');
+  return (directeur || entreprise.admins[0]).user;
+}
+
 async function motDePasseOublie(email) {
   const emailNorm = email?.trim()?.toLowerCase();
-  const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
+  const user = await trouverCompteParEmailReset(emailNorm);
   if (!user) {
     // warn (pas info, filtré en prod) — le message de retour reste volontairement
     // générique pour ne pas révéler l'existence d'un compte, mais on doit pouvoir
@@ -417,7 +445,10 @@ async function motDePasseOublie(email) {
 
 async function reinitialiserMotDePasse(email, code, nouveauMotDePasse) {
   const emailNorm = email?.trim()?.toLowerCase();
-  const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
+  // Même résolution que motDePasseOublie (email_perso ou repli Entreprise.email_rh) —
+  // sinon un compte dont l'email a divergé recevrait bien le code mais ne pourrait
+  // jamais l'utiliser, cette recherche-ci retombant sur email_perso seul.
+  const user = await trouverCompteParEmailReset(emailNorm);
   if (!user) {
     const err = new Error('Code ou email incorrect'); err.statusCode = 401; throw err;
   }

@@ -96,9 +96,50 @@ async function getById(id) {
   });
 }
 
-async function modifier(id, data) {
-  // email_perso immuable — pas de modification possible via cette API
+async function modifier(id, data, callerId) {
   const { ifu, ...updateData } = data;
+
+  // À l'inscription, l'unique email saisi devient à la fois l'identifiant de
+  // connexion du fondateur (User.email_perso) ET le contact entreprise
+  // (Entreprise.email_rh) — les deux sont créés identiques (voir
+  // inscription.service.js). Mais "Email RH" dans Paramètres ne modifie que
+  // Entreprise.email_rh : sans synchronisation, le fondateur change ce qu'il
+  // croit être "son" email, tandis que son identifiant de connexion réel
+  // (email_perso) reste l'ancienne valeur — la réinitialisation de mot de
+  // passe avec la nouvelle adresse échoue alors silencieusement. On ne
+  // resynchronise que si l'appelant EST bien ce compte fondateur (son
+  // email_perso actuel correspond à l'ancien email_rh) — un RH invité a son
+  // propre email_perso personnel, distinct par conception, qu'il ne faut pas
+  // écraser au passage.
+  if (callerId && updateData.email_rh !== undefined) {
+    const nouvelEmail = updateData.email_rh?.trim()?.toLowerCase() || null;
+    const [entrepriseAvant, caller] = await Promise.all([
+      prisma.entreprise.findUnique({ where: { id }, select: { email_rh: true } }),
+      prisma.user.findUnique({ where: { id: callerId }, select: { email_perso: true } }),
+    ]);
+
+    if (
+      nouvelEmail &&
+      caller?.email_perso &&
+      entrepriseAvant?.email_rh?.trim()?.toLowerCase() === caller.email_perso.toLowerCase()
+    ) {
+      try {
+        const [, entreprise] = await prisma.$transaction([
+          prisma.user.update({ where: { id: callerId }, data: { email_perso: nouvelEmail, email_pro: nouvelEmail } }),
+          prisma.entreprise.update({ where: { id }, data: updateData }),
+        ]);
+        return entreprise;
+      } catch (err) {
+        if (err.code === 'P2002') {
+          const e = new Error('Cette adresse email est déjà utilisée par un autre compte TIKEXO');
+          e.statusCode = 409;
+          throw e;
+        }
+        throw err;
+      }
+    }
+  }
+
   return prisma.entreprise.update({
     where: { id },
     data: updateData,
