@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { INSCRIPTION_CSS } from './inscription/styles';
 import SidePanel from './inscription/SidePanel';
@@ -9,9 +9,23 @@ import Step3Kyb, { type KybFile } from './inscription/Step3Kyb';
 import Step4Confirmation from './inscription/Step3Recharge';
 import StepSuccess from './inscription/StepSuccess';
 import { DEFAULT_DATA, type InscriptionData } from './inscription/types';
+import { sauvegarderKybDocs, chargerKybDocs, effacerKybDocs } from './inscription/kybDocsStore';
 import api from '../lib/api';
 
 type Etape = 1 | 2 | 3 | 4 | 'succes';
+type EtapeNumerique = 1 | 2 | 3 | 4;
+
+// Un slug par étape dans l'URL (/inscription/Plan, etc.) — plus pratique
+// pour partager un lien ou reprendre au bon endroit en débogage que de tout
+// masquer derrière /inscription avec un état interne invisible dans l'URL.
+const ETAPE_SLUGS: Record<EtapeNumerique, string> = {
+  1: 'Entreprise',
+  2: 'Plan',
+  3: 'Documents-KYB',
+  4: 'Confirmation',
+};
+const SLUG_VERS_ETAPE: Record<string, EtapeNumerique> = Object.entries(ETAPE_SLUGS)
+  .reduce((acc, [n, slug]) => ({ ...acc, [slug.toLowerCase()]: Number(n) as EtapeNumerique }), {});
 
 interface InscriptionResult {
   entreprise_id: string;
@@ -45,11 +59,14 @@ function loadDraft(): { etape: Etape; data: InscriptionData } {
 
 export default function Inscription() {
   const navigate = useNavigate();
+  const { etape: etapeUrl } = useParams<{ etape?: string }>();
 
   const draft = loadDraft();
-  const [etape, setEtapeRaw] = useState<Etape>(draft.etape);
+  const etapeInitiale = (etapeUrl && SLUG_VERS_ETAPE[etapeUrl.toLowerCase()]) || draft.etape;
+  const [etape, setEtapeRaw] = useState<Etape>(etapeInitiale);
   const [data, setData] = useState<InscriptionData>(draft.data);
   const [kybDocs, setKybDocs] = useState<KybFile[]>([]);
+  const [kybDocsCharges, setKybDocsCharges] = useState(false);
   const [loading, setLoading] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [result, setResult] = useState<InscriptionResult | null>(null);
@@ -64,9 +81,41 @@ export default function Inscription() {
     }
   }, [etape, data]);
 
+  // Fichiers KYB (étape 3) — IndexedDB uniquement, voir kybDocsStore.ts
+  useEffect(() => {
+    chargerKybDocs().then((docs) => {
+      setKybDocs(docs);
+      setKybDocsCharges(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    // Ne pas écraser le brouillon IndexedDB avec [] avant la fin du
+    // chargement initial (sinon un refresh viderait les fichiers déjà là)
+    if (!kybDocsCharges) return;
+    sauvegarderKybDocs(kybDocs);
+  }, [kybDocs, kybDocsCharges]);
+
+  // Garde l'URL synchronisée avec l'étape : redirige /inscription vers
+  // l'étape courante, et suit les navigations précédent/suivant du
+  // navigateur (l'utilisateur change etapeUrl sans passer par setEtape).
+  useEffect(() => {
+    if (etape === 'succes') return;
+    const slugAttendu = ETAPE_SLUGS[etape as EtapeNumerique];
+    const parsed = etapeUrl ? SLUG_VERS_ETAPE[etapeUrl.toLowerCase()] : undefined;
+    if (parsed && parsed !== etape) {
+      setEtapeRaw(parsed);
+    } else if (!parsed) {
+      navigate(`/inscription/${slugAttendu}`, { replace: true });
+    }
+  }, [etapeUrl]);
+
   function setEtape(e: Etape) {
     setEtapeRaw(e);
     setErreur(null);
+    if (e !== 'succes') {
+      navigate(`/inscription/${ETAPE_SLUGS[e as EtapeNumerique]}`);
+    }
   }
 
   function patch(p: Partial<InscriptionData>) {
@@ -116,6 +165,7 @@ export default function Inscription() {
         setUploadStatus('done');
       }
 
+      effacerKybDocs();
       setEtapeRaw('succes');
     } catch (err: any) {
       setErreur(err?.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');

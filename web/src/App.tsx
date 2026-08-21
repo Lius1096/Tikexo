@@ -96,7 +96,7 @@ export default function App() {
         <Login allowedRoles={['SUPER_ADMIN', 'ADMIN_OPS']} portalLabel="Backoffice" portalSub="ADMINISTRATION" redirectTo="/admin" />
       } />
 
-      <Route path="/inscription" element={<Inscription />} />
+      <Route path="/inscription/:etape?" element={<Inscription />} />
       <Route path="/restaurant/inscription" element={<InscriptionCommercant />} />
       <Route path="/invitation" element={<Invitation />} />
       <Route path="/cgu" element={<CGU />} />
