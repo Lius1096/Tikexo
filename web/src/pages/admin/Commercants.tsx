@@ -216,6 +216,22 @@ function CommercantDrawer({
     toastError(e?.response?.data?.error ?? 'Erreur TIKEXO');
   }
 
+  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
+  // interne non joignable depuis le navigateur. On récupère une URL de
+  // téléchargement signée juste avant l'ouverture ; la fenêtre est ouverte
+  // de façon synchrone pour éviter le blocage popup sur un window.open()
+  // différé après un await.
+  async function voirDocument(docId: string) {
+    const fenetre = window.open('', '_blank');
+    try {
+      const { data } = await api.get(`/commercants/documents/${docId}/url`);
+      if (fenetre) fenetre.location.href = data.data.url;
+    } catch {
+      fenetre?.close();
+      toastError("Impossible d'ouvrir le document");
+    }
+  }
+
   const { data: c, isLoading } = useQuery<CommercantRow>({
     queryKey: ['admin-commercant-detail', commercantId],
     queryFn: () => api.get(`/commercants/${commercantId}`).then((r) => r.data.data),
@@ -435,14 +451,12 @@ function CommercantDrawer({
                           )}
 
                           <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-100 bg-white">
-                            <a
-                              href={doc.fichier_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={() => voirDocument(doc.id)}
                               className="flex items-center gap-1 text-[10px] text-[#0EA5E9] hover:underline mr-auto"
                             >
                               <Eye size={11} /> Voir le fichier
-                            </a>
+                            </button>
                             {doc.statut === 'EN_ATTENTE' && (
                               <>
                                 <button

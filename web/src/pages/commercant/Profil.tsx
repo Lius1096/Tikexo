@@ -71,6 +71,22 @@ export default function CommercantProfil() {
     onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de l\'enregistrement'),
   });
 
+  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
+  // interne non joignable depuis le navigateur. On récupère une URL de
+  // téléchargement signée juste avant l'ouverture ; la fenêtre est ouverte
+  // de façon synchrone pour éviter le blocage popup sur un window.open()
+  // différé après un await.
+  async function voirDocument(docId: string) {
+    const fenetre = window.open('', '_blank');
+    try {
+      const { data } = await api.get(`/commercants/documents/${docId}/url`);
+      if (fenetre) fenetre.location.href = data.data.url;
+    } catch {
+      fenetre?.close();
+      toastError("Impossible d'ouvrir le document");
+    }
+  }
+
   const uploadMut = useMutation({
     mutationFn: ({ type, fichier }: { type: string; fichier: File }) => {
       const fd = new FormData();
@@ -216,9 +232,9 @@ export default function CommercantProfil() {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {st && <span className={clsx('text-[9px] px-2 py-0.5 rounded-full font-medium', st.cls)}>{st.label}</span>}
                       {doc && (
-                        <a href={doc.fichier_url} target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-tikexo-primary">
+                        <button onClick={() => voirDocument(doc.id)} className="text-slate-400 hover:text-tikexo-primary">
                           <Eye size={14} />
-                        </a>
+                        </button>
                       )}
                       <label className="flex items-center gap-1 text-[11px] font-medium text-tikexo-primary cursor-pointer hover:underline">
                         <Upload size={12} />

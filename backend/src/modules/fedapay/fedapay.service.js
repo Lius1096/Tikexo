@@ -36,7 +36,7 @@ const MODE_PAYOUT_PAR_OPERATEUR = {
  * La FedapayOperation est créée en base AVANT d'appeler FedaPay (idempotence).
  * En dev (clé placeholder), simule la réponse et crédite directement le wallet.
  */
-async function creerCollecte(prisma, { entrepriseId, montant }) {
+async function creerCollecte(prisma, { entrepriseId, montant, prenom, nom }) {
   const montantNum = parseFloat(montant.toString());
 
   if (!montantNum || montantNum <= 0) {
@@ -122,7 +122,11 @@ async function creerCollecte(prisma, { entrepriseId, montant }) {
       description: `TIKEXO — Rechargement wallet entreprise`,
       amount: montant,
       currency: { iso: 'XOF' },
-      customer: { email: entreprise.email_rh || undefined },
+      customer: {
+        email: entreprise.email_rh || undefined,
+        firstname: prenom || undefined,
+        lastname: nom || undefined,
+      },
       callback_url: `${process.env.FRONTEND_URL}/paiement/callback`,
     });
 

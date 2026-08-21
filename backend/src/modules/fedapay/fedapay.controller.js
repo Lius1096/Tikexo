@@ -6,7 +6,12 @@ const { webhookQueue, payoutQueue } = require('../../queues/index');
 async function creerCollecte(req, res, next) {
   try {
     const { entrepriseId, montant } = req.body;
-    const data = await service.creerCollecte(prisma, { entrepriseId, montant });
+    const data = await service.creerCollecte(prisma, {
+      entrepriseId,
+      montant,
+      prenom: req.user.prenom,
+      nom: req.user.nom,
+    });
     res.json({ success: true, data });
   } catch (e) { next(e); }
 }
@@ -21,9 +26,16 @@ async function traiterWebhook(req, res, next) {
       rawBody,
       signature,
     }, {
-      // Déduplique les livraisons en double du même événement — payload.entity.id
-      // (voir la note dans traiterWebhook sur la vraie forme du payload FedaPay).
-      jobId: `webhook-${req.body?.entity?.id || Date.now()}`,
+      // Déduplique les livraisons en double du MÊME événement (retry FedaPay),
+      // sans écraser les événements suivants du même cycle de vie de transaction —
+      // entity.id reste identique entre "transaction.created" et
+      // "transaction.approved" pour une même transaction. Utiliser entity.id seul
+      // comme jobId faisait que l'événement "approved" arrivant après le "created"
+      // (déjà traité et conservé par removeOnComplete) était silencieusement
+      // ignoré par BullMQ (jobId déjà vu) — le wallet n'était donc jamais crédité
+      // malgré un paiement réussi côté FedaPay. Voir payload.name dans le webhook
+      // réel (ex. "transaction.approved").
+      jobId: `webhook-${req.body?.name || 'event'}-${req.body?.entity?.id || Date.now()}`,
     });
     res.status(200).json({ success: true, queued: true });
   } catch (e) { next(e); }

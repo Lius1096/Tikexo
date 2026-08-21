@@ -108,6 +108,10 @@ async function getDocuments(req, res, next) {
   try { res.json({ success: true, data: await service.getDocuments(req.params.id) }); } catch (e) { next(e); }
 }
 
+async function getUrlDocument(req, res, next) {
+  try { res.json({ success: true, data: await service.getUrlDocument(req.params.docId, req.user) }); } catch (e) { next(e); }
+}
+
 async function validerDocument(req, res, next) {
   try { res.json({ success: true, data: await service.validerDocument(req.user.id, req.params.docId) }); } catch (e) { next(e); }
 }
@@ -127,5 +131,5 @@ async function getPayouts(req, res, next) {
 module.exports = {
   lister, creer, getById, modifier, valider, activer, suspendre, archiver, parProximite, nearby, fiche,
   fichePublique, regenererQRCode, getMoi, getMesStats, demanderPayout, uploaderDocument, getDocuments,
-  validerDocument, rejeterDocument, getTransactions, getPayouts,
+  validerDocument, rejeterDocument, getTransactions, getPayouts, getUrlDocument,
 };

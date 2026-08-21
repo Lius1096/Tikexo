@@ -62,6 +62,8 @@ router.get('/:id/fiche', ctrl.fiche);           // GET /api/v1/commercants/:id/f
 router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getById);
 router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.modifier);
 router.get('/:id/documents', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getDocuments);
+// Propriété vérifiée dans le service (docId ne correspond pas à checkCommercantProprietaire, qui attend un id commerçant).
+router.get('/documents/:docId/url', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getUrlDocument);
 router.get('/:id/transactions', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getTransactions);
 router.get('/:id/payouts', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getPayouts);
 router.post('/:id/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.valider);

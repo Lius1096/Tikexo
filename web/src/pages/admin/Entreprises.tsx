@@ -307,6 +307,22 @@ function EntrepriseDrawer({
     onSuccess: invalidateAll,
   });
 
+  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
+  // interne non joignable depuis le navigateur (voir aussi KybDossier.tsx
+  // côté employeur). On récupère une URL de téléchargement signée juste
+  // avant l'ouverture ; la fenêtre est ouverte de façon synchrone pour
+  // éviter le blocage popup sur un window.open() différé après un await.
+  async function voirDocument(docId: string) {
+    const fenetre = window.open('', '_blank');
+    try {
+      const { data } = await api.get(`/kyb/documents/${docId}/url`);
+      if (fenetre) fenetre.location.href = data.data.url;
+    } catch {
+      fenetre?.close();
+      window.alert("Impossible d'ouvrir le document");
+    }
+  }
+
   const validerDocMut = useMutation({
     mutationFn: (docId: string) => api.patch(`/kyb/admin/documents/${docId}/valider`),
     onSuccess: invalidateAll,
@@ -484,14 +500,12 @@ function EntrepriseDrawer({
 
                             {doc.statut === 'EN_ATTENTE' && (
                               <div className="flex items-center gap-2 px-3 py-2 border-t border-slate-100 bg-white">
-                                <a
-                                  href={`http://localhost:3001${doc.fichier_url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  onClick={() => voirDocument(doc.id)}
                                   className="flex items-center gap-1 text-[10px] text-[#0EA5E9] hover:underline mr-auto"
                                 >
                                   <Eye size={11} /> Voir le fichier
-                                </a>
+                                </button>
                                 <button
                                   onClick={() => validerDocMut.mutate(doc.id)}
                                   disabled={validerDocMut.isPending}
@@ -510,14 +524,12 @@ function EntrepriseDrawer({
 
                             {doc.statut === 'VALIDE' && (
                               <div className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-100 bg-white">
-                                <a
-                                  href={`http://localhost:3001${doc.fichier_url}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
+                                <button
+                                  onClick={() => voirDocument(doc.id)}
                                   className="flex items-center gap-1 text-[10px] text-[#0EA5E9] hover:underline"
                                 >
                                   <Eye size={11} /> Voir le fichier
-                                </a>
+                                </button>
                               </div>
                             )}
                           </div>

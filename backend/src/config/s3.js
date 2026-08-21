@@ -1,5 +1,6 @@
 // Client S3 compatible MinIO (dev) et Cloudflare R2 (prod)
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 let _client = null;
 
@@ -37,6 +38,31 @@ async function uploadBuffer(buffer, key, mimeType) {
   return `${base}/${key}`;
 }
 
+// Isole la clé S3 (ex. "kyb/xxx.pdf") depuis l'URL stockée en base, qui est
+// soit un chemin local ("/uploads/..."), soit l'URL brute construite par
+// uploadBuffer (`${base}/${key}`, où base pointe vers S3_ENDPOINT interne au
+// docker network en prod — jamais accessible depuis un navigateur).
+function cleDepuisUrl(fichierUrl) {
+  const bucket = process.env.S3_BUCKET;
+  if (!bucket) return null;
+  const idx = fichierUrl.indexOf(`/${bucket}/`);
+  if (idx === -1) return null;
+  return fichierUrl.slice(idx + bucket.length + 2);
+}
+
+// Génère une URL de téléchargement signée et temporaire pour un document
+// privé (KYB entreprise, pièces commerçant...). Le bucket reste privé — sans
+// signature, l'URL brute stockée en base n'est ni publique ni même
+// joignable depuis un navigateur (endpoint MinIO interne au réseau docker).
+async function getSignedDownloadUrl(fichierUrl, expiresIn = 300) {
+  const client = getClient();
+  const cle = client ? cleDepuisUrl(fichierUrl) : null;
+  if (!client || !cle) return fichierUrl; // dev local sans S3 : chemin déjà servable tel quel
+
+  const commande = new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: cle });
+  return getSignedUrl(client, commande, { expiresIn });
+}
+
 // Middleware Express : lit le fichier sauvé par multer diskStorage, l'envoie
 // sur S3, supprime la copie locale, et attache req.file.url.
 // En dev sans S3_ENDPOINT, construit simplement l'URL locale.
@@ -63,4 +89,4 @@ function s3UploadMiddleware(subfolder) {
   };
 }
 
-module.exports = { uploadBuffer, s3UploadMiddleware };
+module.exports = { uploadBuffer, s3UploadMiddleware, getSignedDownloadUrl };

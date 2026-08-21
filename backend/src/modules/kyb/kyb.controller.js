@@ -92,4 +92,11 @@ async function relancerDossier(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal, relancerDossier };
+async function getUrlDocument(req, res, next) {
+  try {
+    const data = await service.getUrlDocument(req.params.id, req.user);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal, relancerDossier, getUrlDocument };

@@ -35,6 +35,9 @@ router.use(authentifier);
 // Routes entreprise
 router.get('/dossier', ctrl.getDossier);
 router.post('/documents', upload.single('fichier'), s3UploadMiddleware('kyb'), ctrl.uploadDocument);
+// Accès ouvert à tout authentifié — l'appartenance à l'entreprise (ou le
+// rôle admin) est vérifiée dans le service, pas ici par rôle.
+router.get('/documents/:id/url', ctrl.getUrlDocument);
 
 // Routes admin
 router.get('/admin/dossiers', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.listerDossiers);

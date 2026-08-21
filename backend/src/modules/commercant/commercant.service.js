@@ -13,6 +13,9 @@ const {
   commercantDocumentValide,
   commercantDocumentRejete,
 } = require('../../utils/emailTemplates');
+const { getSignedDownloadUrl } = require('../../config/s3');
+
+const ROLES_ADMIN_COMMERCANT = ['SUPER_ADMIN', 'ADMIN_OPS'];
 const {
   calculerDistance,
   formaterDistance,
@@ -391,6 +394,25 @@ async function getDocuments(commercantId) {
   });
 }
 
+// Même principe que kyb.service.js#getUrlDocument — le bucket S3/MinIO reste
+// privé, l'URL brute stockée en base n'est ni publique ni joignable depuis un
+// navigateur en prod. On vérifie l'accès puis on signe une URL temporaire.
+async function getUrlDocument(docId, requester) {
+  const doc = await prisma.commercantDocument.findUniqueOrThrow({
+    where: { id: docId },
+    include: { commercant: { select: { user_id: true } } },
+  });
+
+  const estAdmin = ROLES_ADMIN_COMMERCANT.includes(requester.role);
+  const estProprietaire = requester.id === doc.commercant.user_id;
+  if (!estAdmin && !estProprietaire) {
+    const err = new Error('Accès refusé à ce document'); err.statusCode = 403; throw err;
+  }
+
+  const url = await getSignedDownloadUrl(doc.fichier_url);
+  return { url };
+}
+
 async function getDocumentAvecContact(docId) {
   return prisma.commercantDocument.findUniqueOrThrow({
     where: { id: docId },
@@ -533,5 +555,5 @@ module.exports = {
   lister, creer, getById, getByUserId, getStats, modifier, valider, activer, suspendre, archiver,
   rechercherCommercantsProches, getFicheCommercant, getFichePublique, parProximite,
   regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
-  getTransactions, getPayouts,
+  getTransactions, getPayouts, getUrlDocument,
 };

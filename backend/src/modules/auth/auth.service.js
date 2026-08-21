@@ -7,6 +7,7 @@ const { normaliserTelephone, validerTelephone } = require('../../utils/telephone
 const { envoyerEmail, masquerEmail } = require('../../utils/email');
 const templates = require('../../utils/emailTemplates');
 const { envoyerOtpSms } = require('../../config/sms');
+const { logger } = require('../../middlewares/errorHandler');
 
 const BCRYPT_ROUNDS = 12;
 
@@ -386,17 +387,30 @@ const MSG_OUBLIE = 'Si un compte correspond à cet email, un code de réinitiali
 async function motDePasseOublie(email) {
   const emailNorm = email?.trim()?.toLowerCase();
   const user = await prisma.user.findFirst({ where: { email_perso: emailNorm } });
-  if (!user) return { message: MSG_OUBLIE };
+  if (!user) {
+    // warn (pas info, filtré en prod) — le message de retour reste volontairement
+    // générique pour ne pas révéler l'existence d'un compte, mais on doit pouvoir
+    // distinguer en logs "email jamais associé à email_perso" (ex. utilisateur
+    // invité qui n'a pas encore complété son invitation, ou qui saisit son
+    // email_pro par erreur) d'un vrai échec de délivrance SMTP/Resend ci-dessous.
+    logger.warn('TIKEXO — Reset mot de passe : aucun compte pour cet email_perso', { emailMasque: masquerEmail(emailNorm) });
+    return { message: MSG_OUBLIE };
+  }
 
   const code = await creerOtp(prisma, user.telephone, OTP_TTL_MINUTES_EMAIL);
   const { html, text } = templates.resetMotDePasse(user.prenom, code);
-  await envoyerEmail({
-    to: emailNorm,
-    subject: 'Réinitialisation de votre mot de passe TIKEXO',
-    html,
-    text,
-    expediteur: 'hello',
-  });
+  try {
+    await envoyerEmail({
+      to: emailNorm,
+      subject: 'Réinitialisation de votre mot de passe TIKEXO',
+      html,
+      text,
+      expediteur: 'hello',
+    });
+  } catch (err) {
+    logger.error('TIKEXO — Envoi email reset mot de passe échoué', { userId: user.id, err: err.message });
+    throw err;
+  }
 
   return { message: MSG_OUBLIE };
 }

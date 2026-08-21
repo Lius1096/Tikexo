@@ -108,7 +108,7 @@ async function getById(id) {
 }
 
 async function modifier(id, data, adminId) {
-  const { role, entrepriseId, niveau, allocationMensuelle, allocation_mensuelle, ...userFields } = data;
+  const { role, entrepriseId, niveau, allocationMensuelle, allocation_mensuelle, poste, ...userFields } = data;
 
   const avant = await prisma.user.findUnique({
     where: { id },
@@ -118,10 +118,11 @@ async function modifier(id, data, adminId) {
   const user = await prisma.user.update({ where: { id }, data: userFields });
 
   let lien = null;
-  if (entrepriseId && (niveau || allocationMensuelle)) {
+  if (entrepriseId && (niveau || allocationMensuelle || poste !== undefined)) {
     const lienData = {};
     if (niveau) lienData.niveau = niveau;
     if (allocationMensuelle) lienData.allocation_mensuelle = parseFloat(allocationMensuelle);
+    if (poste !== undefined) lienData.poste = poste || null;
     await prisma.lienEntrepriseBeneficiaire.updateMany({
       where: { user_id: id, entreprise_id: entrepriseId, statut: { in: ['ACTIF', 'TERMINE'] } },
       data: lienData,
@@ -148,7 +149,7 @@ async function modifier(id, data, adminId) {
   return user;
 }
 
-async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMensuelle }, adminId) {
+async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMensuelle, poste }, adminId) {
   // Vérifier qu'il n'y a pas déjà un lien ACTIF
   const lienActif = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
@@ -202,6 +203,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
         where: { id: lienTermine.id },
         data: {
           niveau,
+          poste: poste || null,
           allocation_mensuelle: allocationMensuelle,
           statut: 'ACTIF',
           date_debut: new Date(),
@@ -227,6 +229,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
         entreprise_id: entrepriseId,
         user_id: userId,
         niveau,
+        poste: poste || null,
         allocation_mensuelle: allocationMensuelle,
         statut: 'ACTIF',
       },

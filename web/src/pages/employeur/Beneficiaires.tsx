@@ -28,6 +28,7 @@ interface DerniereDotation {
 interface BenefItem {
   id: string;
   niveau: string;
+  poste?: string | null;
   statut: string;
   allocation_mensuelle: string;
   user: {
@@ -42,7 +43,7 @@ interface BenefItem {
 
 interface AjoutForm {
   prenom: string; nom: string; telephone: string;
-  email_pro: string; niveau: string;
+  email_pro: string; niveau: string; poste: string;
   allocation_mensuelle: string;
 }
 
@@ -57,7 +58,7 @@ interface HistoriqueEntry {
 
 const FORM_VIDE: AjoutForm = {
   prenom: '', nom: '', telephone: '', email_pro: '',
-  niveau: 'EMPLOYE', allocation_mensuelle: '5000',
+  niveau: 'EMPLOYE', poste: '', allocation_mensuelle: '5000',
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -201,7 +202,7 @@ export default function EmployeurBeneficiaires() {
       });
       const userId = creerRes.data.id;
       await api.post(`/beneficiaires/${userId}/rattacher`, {
-        entrepriseId, niveau: f.niveau,
+        entrepriseId, niveau: f.niveau, poste: f.poste.trim() || undefined,
         allocationMensuelle: parseFloat(f.allocation_mensuelle) || 5000,
       });
       return userId;
@@ -771,6 +772,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
     prenom: u.prenom, nom: u.nom, telephone: u.telephone,
     email_perso: u.email_perso ?? '',
     niveau: benef.niveau,
+    poste: benef.poste ?? '',
     allocation_mensuelle: benef.allocation_mensuelle ?? '',
   });
   const patchEdit = (p: Partial<typeof editForm>) => setEditForm((f) => ({ ...f, ...p }));
@@ -901,7 +903,9 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             )} />
           </div>
           <div className="text-[14px] font-semibold text-slate-900">{u.prenom} {u.nom}</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">{niveauLabel[benef.niveau] ?? benef.niveau}</div>
+          <div className="text-[11px] text-slate-400 mt-0.5">
+            {benef.poste ? `${benef.poste} · ${niveauLabel[benef.niveau] ?? benef.niveau}` : (niveauLabel[benef.niveau] ?? benef.niveau)}
+          </div>
           {u.email_perso && <div className="text-[10px] text-slate-400 mt-0.5">{u.email_perso}</div>}
           <div className="text-[10px] text-slate-400 mt-0.5 font-mono">{u.telephone}</div>
 
@@ -1059,6 +1063,13 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-slate-400 mb-1 block">Intitulé du poste</label>
+              <input value={editForm.poste} onChange={e => patchEdit({ poste: e.target.value })}
+                placeholder="ex : Comptable, Chef de projet…"
+                className="w-full border border-slate-200 rounded-lg px-2.5 py-1.5 text-[12px] focus:outline-none focus:border-[#4F46E5]" />
             </div>
 
             <div>
@@ -1463,6 +1474,18 @@ function AjoutModal({ entrepriseId, form, patchForm, utilisateurExistant, erreur
                 </button>
               ))}
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
+              Intitulé du poste
+              <span className="text-slate-400 font-normal"> (optionnel)</span>
+            </label>
+            <input type="text" value={form.poste}
+              onChange={(e) => patchForm({ poste: e.target.value })}
+              placeholder="ex : Comptable, Chef de projet…"
+              className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
+            />
           </div>
 
           <div>

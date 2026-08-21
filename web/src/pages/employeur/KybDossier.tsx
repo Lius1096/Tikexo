@@ -149,6 +149,23 @@ function DocZone({ config, doc, onUpload, uploading }: {
     onUpload(config.type, file);
   }
 
+  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
+  // interne non joignable depuis le navigateur. On récupère une URL de
+  // téléchargement signée et temporaire juste avant l'ouverture. La fenêtre
+  // est ouverte de façon synchrone (avant l'await) pour éviter le blocage
+  // popup de certains navigateurs sur un window.open() différé.
+  async function voirDocument() {
+    if (!doc) return;
+    const fenetre = window.open('', '_blank');
+    try {
+      const { data } = await api.get(`/kyb/documents/${doc.id}/url`);
+      if (fenetre) fenetre.location.href = data.data.url;
+    } catch {
+      fenetre?.close();
+      toastError("Impossible d'ouvrir le document");
+    }
+  }
+
   const dropCls = isValid ? 'valid' : isUploaded ? 'uploaded' : isRejected ? 'rejected' : uploading ? 'uploading' : '';
   const badgeCls = isValid ? 'badge-valid' : isUploaded ? 'badge-uploaded' : isRejected ? 'badge-rejected' : config.obligatoire ? 'badge-required' : 'badge-optional';
   const badgeLabel = isValid ? '✓ Validé' : isUploaded ? '✓ Uploadé' : isRejected ? '✗ Rejeté' : config.obligatoire ? 'Obligatoire' : 'Optionnel';
@@ -188,7 +205,7 @@ function DocZone({ config, doc, onUpload, uploading }: {
               <div className="drop-icon"><ShieldCheck size={28} color="#A8B8A2" /></div>
               <div className="drop-title">{doc!.fichier_nom}</div>
               <div className="drop-sub valid">Document validé par TIKEXO</div>
-              <button className="drop-btn change" style={{ marginTop: 8 }} onClick={(e) => { e.stopPropagation(); window.open(doc!.fichier_url, '_blank'); }}>
+              <button className="drop-btn change" style={{ marginTop: 8 }} onClick={(e) => { e.stopPropagation(); voirDocument(); }}>
                 <Eye size={12} /> Visualiser
               </button>
             </>
@@ -198,7 +215,7 @@ function DocZone({ config, doc, onUpload, uploading }: {
               <div className="drop-title">{doc!.fichier_nom}</div>
               <div className="drop-sub uploaded">Document reçu · En attente de vérification</div>
               <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-                <button className="drop-btn change" onClick={(e) => { e.stopPropagation(); window.open(doc!.fichier_url, '_blank'); }}>
+                <button className="drop-btn change" onClick={(e) => { e.stopPropagation(); voirDocument(); }}>
                   <Eye size={12} /> Visualiser
                 </button>
                 <button className="drop-btn change" onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}>
@@ -212,7 +229,7 @@ function DocZone({ config, doc, onUpload, uploading }: {
               <div className="drop-title">{doc!.fichier_nom}</div>
               <div className="drop-sub rejected">Document illisible — veuillez renvoyer</div>
               <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-                <button className="drop-btn change" onClick={(e) => { e.stopPropagation(); window.open(doc!.fichier_url, '_blank'); }}>
+                <button className="drop-btn change" onClick={(e) => { e.stopPropagation(); voirDocument(); }}>
                   <Eye size={12} /> Visualiser
                 </button>
                 <button className="drop-btn" onClick={(e) => e.stopPropagation()}><Upload size={12} /> Renvoyer le document</button>
