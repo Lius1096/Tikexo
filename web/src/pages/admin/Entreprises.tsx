@@ -318,6 +318,12 @@ function EntrepriseDrawer({
     onSuccess: () => { invalidateAll(); setRejetModal(null); setMotif(''); },
   });
 
+  // Relance manuelle — en plus du rappel quotidien automatique (cron), pour
+  // qu'un admin puisse pousser un rappel immédiat sans attendre le lendemain.
+  const relancerMut = useMutation({
+    mutationFn: () => api.post(`/kyb/admin/dossiers/${entrepriseId}/relancer`),
+  });
+
   const suspendMut = useMutation({
     mutationFn: () => api.post(`/entreprises/${entrepriseId}/suspendre`),
     onSuccess: invalidateAll,
@@ -427,6 +433,17 @@ function EntrepriseDrawer({
                       </div>
                     )}
                   </div>
+
+                  {kybStatut === 'REJETE' && (
+                    <button
+                      onClick={() => relancerMut.mutate()}
+                      disabled={relancerMut.isPending}
+                      className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 mb-3 hover:bg-amber-100 transition-colors disabled:opacity-50"
+                    >
+                      <Mail size={12} />
+                      {relancerMut.isPending ? 'Envoi…' : relancerMut.isSuccess ? 'Rappel envoyé ✓' : "Relancer l'employeur par email"}
+                    </button>
+                  )}
 
                   {!kyb ? (
                     <div className="text-xs text-slate-400 py-2">Aucun dossier KYB</div>

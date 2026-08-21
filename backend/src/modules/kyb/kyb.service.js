@@ -9,6 +9,12 @@ const { creerOtp } = require('../../utils/otp');
 const { envoyerOtpSms } = require('../../config/sms');
 
 const DOCS_OBLIGATOIRES = ['CARTE_IFU', 'EXTRAIT_RCCM', 'PIECE_IDENTITE_DIRIGEANT'];
+const LABEL_TYPE_DOCUMENT = {
+  CARTE_IFU: 'Carte IFU',
+  EXTRAIT_RCCM: 'Extrait RCCM',
+  PIECE_IDENTITE_DIRIGEANT: "Pièce d'identité du dirigeant",
+  STATUTS_SOCIETE: 'Statuts de la société',
+};
 const TAILLE_MAX_DEFAUT = 10 * 1024 * 1024; // 10 Mo
 const TAILLE_MAX_STATUTS = 20 * 1024 * 1024; // 20 Mo
 const FORMATS_ACCEPTES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -310,13 +316,85 @@ async function rejeterDocument(adminId, documentId, motif) {
   if (ent?.email_rh) {
     const contact = ent.admins[0]?.user;
     const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
-    envoyerEmail({ to: ent.email_rh, subject: 'TIKEXO — Documents KYB à compléter', ...kybRejete(ent.nom, nomContact, motif) })
-      .catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
+    const nomTypeDocument = LABEL_TYPE_DOCUMENT[doc.type] || doc.type;
+    envoyerEmail({
+      to: ent.email_rh,
+      subject: 'TIKEXO — Un document a été rejeté, action requise',
+      ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument),
+    }).catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
   }
 
   logger.warn('TIKEXO — Document KYB rejeté', { documentId, motif, adminId });
 
   return getDossier(dossier.entreprise_id);
+}
+
+// Partagée entre la relance manuelle (bouton admin) et le cron quotidien —
+// un seul point d'envoi pour ne pas dupliquer la logique du mail.
+async function _envoyerRelanceRejet(dossier) {
+  const ent = await prisma.entreprise.findUnique({
+    where: { id: dossier.entreprise_id },
+    select: { nom: true, email_rh: true, admins: { select: { user: { select: { prenom: true, nom: true } } }, take: 1 } },
+  });
+  if (!ent?.email_rh) return false;
+
+  const dernierDocRejete = await prisma.kybDocument.findFirst({
+    where: { dossier_id: dossier.id, statut: 'REJETE' },
+    orderBy: { rejete_at: 'desc' },
+  });
+
+  const contact = ent.admins[0]?.user;
+  const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
+  const nomTypeDocument = dernierDocRejete ? (LABEL_TYPE_DOCUMENT[dernierDocRejete.type] || dernierDocRejete.type) : null;
+  const motif = dernierDocRejete?.motif_rejet || 'Consultez votre espace employeur pour le détail.';
+
+  await envoyerEmail({
+    to: ent.email_rh,
+    subject: 'TIKEXO — Rappel : document KYB toujours à compléter',
+    ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument),
+  }).catch((err) => logger.warn('TIKEXO — Mail relance KYB échoué', { err: err.message }));
+
+  return true;
+}
+
+// Relance manuelle déclenchée par un admin TIKEXO (bouton "Relancer").
+async function relancerDossierRejete(entrepriseId, adminId) {
+  const dossier = await prisma.kybDossier.findUnique({ where: { entreprise_id: entrepriseId } });
+  if (!dossier) {
+    const err = new Error('Dossier KYB introuvable'); err.statusCode = 404; throw err;
+  }
+  if (dossier.statut !== 'REJETE') {
+    const err = new Error('Ce dossier n\'est pas en attente de correction — rien à relancer');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  const envoye = await _envoyerRelanceRejet(dossier);
+  if (!envoye) {
+    const err = new Error("Aucun email RH renseigné pour cette entreprise — relance impossible");
+    err.statusCode = 422;
+    throw err;
+  }
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'KYB_RELANCE_MANUELLE', entite: 'KybDossier', entite_id: dossier.id },
+  });
+
+  logger.info('TIKEXO — Relance KYB manuelle envoyée', { entrepriseId, adminId });
+  return { relance: true };
+}
+
+// Relance automatique quotidienne (cron) — tous les dossiers encore REJETE.
+async function relancerTousLesDossiersRejetes() {
+  const dossiersRejetes = await prisma.kybDossier.findMany({ where: { statut: 'REJETE' } });
+
+  let relances = 0;
+  for (const dossier of dossiersRejetes) {
+    if (await _envoyerRelanceRejet(dossier)) relances++;
+  }
+
+  logger.info('[QUEUE:CRON] Relance documents KYB rejetés', { relances });
+  return { relances };
 }
 
 async function listerDossiers(filtres = {}) {
@@ -382,9 +460,12 @@ module.exports = {
   enregistrerDocument,
   validerDocument,
   rejeterDocument,
+  relancerDossierRejete,
+  relancerTousLesDossiersRejetes,
   listerDossiers,
   validerGlobal,
   DOCS_OBLIGATOIRES,
+  LABEL_TYPE_DOCUMENT,
   TAILLE_MAX_DEFAUT,
   TAILLE_MAX_STATUTS,
   FORMATS_ACCEPTES,

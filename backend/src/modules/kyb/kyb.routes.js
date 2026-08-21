@@ -42,5 +42,6 @@ router.get('/admin/dossiers/:entrepriseId', autoriser('SUPER_ADMIN', 'ADMIN_OPS'
 router.patch('/admin/documents/:id/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerDocument);
 router.patch('/admin/documents/:id/rejeter', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.rejeterDocument);
 router.patch('/admin/dossiers/:id/valider-global', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerGlobal);
+router.post('/admin/dossiers/:entrepriseId/relancer', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.relancerDossier);
 
 module.exports = router;

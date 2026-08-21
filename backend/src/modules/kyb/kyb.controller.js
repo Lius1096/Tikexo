@@ -85,4 +85,11 @@ async function validerGlobal(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal };
+async function relancerDossier(req, res, next) {
+  try {
+    const data = await service.relancerDossierRejete(req.params.entrepriseId, req.user.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal, relancerDossier };

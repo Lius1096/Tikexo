@@ -271,28 +271,46 @@ function kybApprouve(nomEntreprise, nomContact, telephone) {
 /**
  * KYB rejeté — documents insuffisants
  */
-function kybRejete(nomEntreprise, nomContact, raison) {
+// nomTypeDocument est facultatif (le rappel cron n'a pas de document précis
+// en tête, seulement un dossier resté en attente) — le libellé lisible
+// ("Carte IFU", "Extrait RCCM"...) est résolu côté appelant.
+function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument) {
+  // Autrefois : "envoyez les documents à kyb@tikexo.bj" — faux, le seul
+  // moyen réel de renvoyer un document est de le re-uploader depuis le
+  // portail employeur, jamais par email.
+  const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.bj'}/employeur/kyb`;
+
   const html = layout({
-    titre: 'Documents KYB à compléter',
+    titre: 'Document KYB rejeté — action requise',
     corps: `
       <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
       <p style="color:#555;margin:0 0 16px">
-        Nous avons examiné le dossier de <strong>${nomEntreprise}</strong> et des informations complémentaires sont nécessaires.
+        Un ou plusieurs documents du dossier KYB de <strong>${nomEntreprise}</strong> ont été rejetés par l'équipe TIKEXO. Merci de consulter le motif ci-dessous et de compléter le bon document depuis votre espace employeur.
       </p>
+      ${nomTypeDocument ? `<p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase">Document concerné</p><p style="margin:0 0 16px;color:#333;font-weight:600">${nomTypeDocument}</p>` : ''}
       <div style="background:#fff5f5;border-left:4px solid ${COULEUR_ALERTE};border-radius:6px;padding:16px;margin:0 0 20px">
-        <p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase">Motif</p>
+        <p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase">Motif du rejet</p>
         <p style="margin:0;color:${COULEUR_ALERTE}">${raison}</p>
       </div>
-      <p style="color:#555;margin:0 0 16px">
-        Veuillez nous faire parvenir les documents manquants à l'adresse suivante :
+      <p style="margin:0 0 20px">
+        <a href="${lienKyb}" style="background:${COULEUR_ACCENT};color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Compléter mon dossier KYB</a>
       </p>
-      <p style="margin:0">
-        <a href="mailto:kyb@tikexo.bj" style="color:${COULEUR_ACCENT};font-weight:600">kyb@tikexo.bj</a>
-      </p>
+      <p style="color:#888;font-size:12px;margin:0">Une question ? Écrivez-nous à <a href="mailto:kyb@tikexo.bj" style="color:${COULEUR_ACCENT}">kyb@tikexo.bj</a></p>
     `,
   });
 
-  const text = `Bonjour ${nomContact},\n\nDossier KYB de ${nomEntreprise} — documents complémentaires requis.\n\nMotif : ${raison}\n\nEnvoyez les documents manquants à kyb@tikexo.bj`;
+  const text = [
+    `Bonjour ${nomContact},`,
+    ``,
+    `Un ou plusieurs documents du dossier KYB de ${nomEntreprise} ont été rejetés par TIKEXO.`,
+    nomTypeDocument ? `Document concerné : ${nomTypeDocument}` : null,
+    ``,
+    `Motif : ${raison}`,
+    ``,
+    `Rendez-vous sur ${lienKyb} pour consulter et compléter le bon document.`,
+    ``,
+    `Question ? kyb@tikexo.bj`,
+  ].filter((l) => l !== null).join('\n');
 
   return { html, text };
 }

@@ -4,6 +4,7 @@ const { archiverExpirees } = require('../../modules/mutation/mutation.service');
 const { jobBatchingPayouts } = require('../../modules/fedapay/fedapay.service');
 const { debiterWallet } = require('../../utils/ledger');
 const { envoyerEmailAsync } = require('../../utils/email');
+const { relancerTousLesDossiersRejetes } = require('../../modules/kyb/kyb.service');
 const prisma = require('../../config/database');
 const { logger } = require('../../middlewares/errorHandler');
 
@@ -52,6 +53,13 @@ const worker = new Worker('cron', async (job) => {
       }
 
       return { alertes: dossiersCritiques.length };
+    }
+
+    // Relance quotidienne tant qu'un dossier KYB reste REJETE — sans ça,
+    // l'employeur ne reçoit qu'un seul email au moment du rejet et peut
+    // facilement l'oublier, laissant son compte bloqué indéfiniment.
+    case 'kyb-documents-rejetes-relance': {
+      return relancerTousLesDossiersRejetes();
     }
 
     case 'facturation-mensuelle': {

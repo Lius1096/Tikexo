@@ -32,6 +32,11 @@ function startWorkers() {
     jobId: 'cron-kyb-deadline',
   });
 
+  cronQueue.add('kyb-documents-rejetes-relance', {}, {
+    repeat: { pattern: '30 8 * * *' },
+    jobId: 'cron-kyb-documents-rejetes-relance',
+  });
+
   cronQueue.add('facturation-mensuelle', {}, {
     repeat: { pattern: '0 9 1 * *' }, // 1er de chaque mois à 9h
     jobId: 'cron-facturation-mensuelle',
