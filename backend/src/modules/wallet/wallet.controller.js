@@ -13,7 +13,7 @@ async function getHistorique(req, res, next) {
 async function recharger(req, res, next) {
   try {
     const { entrepriseId, montant } = req.body;
-    res.json({ success: true, data: await service.recharger(entrepriseId, montant) });
+    res.json({ success: true, data: await service.recharger(entrepriseId, montant, req.user.prenom, req.user.nom) });
   } catch (e) { next(e); }
 }
 async function geler(req, res, next) {
