@@ -53,12 +53,28 @@ async function creer(data) {
 
   // Chercher d'abord par téléphone — transparent pour B (il ne sait pas si l'employé existe déjà)
   const existantTel = await prisma.user.findUnique({ where: { telephone } });
-  if (existantTel) return existantTel;
+  if (existantTel) {
+    if (existantTel.role !== 'BENEFICIAIRE') {
+      const err = new Error('Ce numéro de téléphone est déjà associé à un compte TIKEXO d\'un autre type (commerçant, employeur...)');
+      err.statusCode = 409;
+      err.code = 'TELEPHONE_DEJA_EXISTANT_AUTRE_ROLE';
+      throw err;
+    }
+    return existantTel;
+  }
 
   // Puis par email_pro si fourni
   if (data.email_pro) {
     const existantEmail = await prisma.user.findUnique({ where: { email_pro: data.email_pro } });
-    if (existantEmail) return existantEmail;
+    if (existantEmail) {
+      if (existantEmail.role !== 'BENEFICIAIRE') {
+        const err = new Error('Cette adresse email est déjà associée à un compte TIKEXO d\'un autre type (commerçant, employeur...)');
+        err.statusCode = 409;
+        err.code = 'EMAIL_DEJA_EXISTANT_AUTRE_ROLE';
+        throw err;
+      }
+      return existantEmail;
+    }
   }
 
   // Email obligatoire pour tout nouveau bénéficiaire — c'est le seul canal
@@ -150,6 +166,18 @@ async function modifier(id, data, adminId) {
 }
 
 async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMensuelle, poste }, adminId) {
+  // rechercherParTelephone (front) peut renvoyer n'importe quel User par
+  // téléphone, pas seulement des bénéficiaires — sans ce garde-fou, un
+  // commerçant ou un admin repéré par son numéro serait rattaché à
+  // l'entreprise comme salarié.
+  const utilisateur = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true } });
+  if (utilisateur.role !== 'BENEFICIAIRE') {
+    const err = new Error('Ce compte n\'est pas un compte bénéficiaire — impossible de le rattacher comme salarié');
+    err.statusCode = 409;
+    err.code = 'COMPTE_PAS_BENEFICIAIRE';
+    throw err;
+  }
+
   // Vérifier qu'il n'y a pas déjà un lien ACTIF
   const lienActif = await prisma.lienEntrepriseBeneficiaire.findFirst({
     where: { user_id: userId, entreprise_id: entrepriseId, statut: 'ACTIF' },
