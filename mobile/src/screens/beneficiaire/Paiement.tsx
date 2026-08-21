@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Card, Button, LinkButton } from '../../design-system/components';
 
-type Etape = 'scan' | 'confirm';
+type Etape = 'scan' | 'confirm' | 'succes';
 
 interface QRPayload {
   app: string;
@@ -55,12 +55,14 @@ function decodeQR(raw: string): QRPayload | null {
 
 export default function Paiement() {
   const navigation = useNavigation();
+  const isFocused = useIsFocused();
   const qc = useQueryClient();
   const [permission, requestPermission] = useCameraPermissions();
   const [etape, setEtape] = useState<Etape>('scan');
   const [payload, setPayload] = useState<QRPayload | null>(null);
   const [montant, setMontant] = useState('');
   const [scanned, setScanned] = useState(false);
+  const [resultat, setResultat] = useState<{ montant: number; commercantNom: string } | null>(null);
 
   // Bug connu expo-camera (iOS) : onBarcodeScanned ne se déclenche jamais si la
   // CameraView est montée dans le même cycle que l'octroi de la permission —
@@ -75,6 +77,15 @@ export default function Paiement() {
     }
     permissionEtaitAccordee.current = permission?.granted ?? false;
   }, [permission?.granted]);
+
+  // Cet écran reste monté en permanence dans le tab navigator (pas de bouton
+  // ouvrir/fermer comme côté commerçant) — sans ça, quitter l'onglet Payer
+  // puis y revenir laisse une CameraView figée/noire au lieu de relancer une
+  // vraie session caméra. On démonte la caméra hors focus (voir rendu plus
+  // bas) et on force un nouveau montage à chaque reprise de focus.
+  useEffect(() => {
+    if (isFocused) setCameraKey((k) => k + 1);
+  }, [isFocused]);
 
   const { data: commercant } = useQuery({
     queryKey: ['commercant-fiche', payload?.commercant_id],
@@ -96,8 +107,11 @@ export default function Paiement() {
       qc.invalidateQueries({ queryKey: ['wallet-solde'] });
       qc.invalidateQueries({ queryKey: ['wallet-segmente'] });
       qc.invalidateQueries({ queryKey: ['beneficiaire-historique'] });
-      Alert.alert('TIKEXO', 'Paiement effectué avec succès !');
-      reset();
+      // UI de confirmation dédiée plutôt qu'une alerte + retour direct à
+      // l'écran de saisie — l'action est déjà faite, on ne doit plus jamais
+      // revoir le champ "montant à payer" pour ce paiement.
+      setResultat({ montant: parseFloat(montant), commercantNom: commercant?.nom ?? '' });
+      setEtape('succes');
     },
     onError: (err: any) => {
       Alert.alert('TIKEXO — Erreur', err.response?.data?.error || 'Paiement impossible');
@@ -109,6 +123,10 @@ export default function Paiement() {
     setPayload(null);
     setMontant('');
     setScanned(false);
+    setResultat(null);
+    // Remonter la CameraView à chaque retour au scan — même bug expo-camera
+    // que ScannerCarte.tsx (aperçu noir si on réutilise la même instance).
+    setCameraKey((k) => k + 1);
   }
 
   function handleScan({ data }: { data: string }) {
@@ -119,6 +137,28 @@ export default function Paiement() {
     setPayload(p);
     if (p.montant && p.montant > 0) setMontant(String(p.montant));
     setEtape('confirm');
+  }
+
+  if (etape === 'succes' && resultat) {
+    return (
+      <View style={styles.container}>
+        <Card style={styles.card}>
+          <View style={styles.iconeSucces}>
+            <Ionicons name="checkmark" size={32} color={colors.white} />
+          </View>
+          <Text style={styles.titre}>Paiement effectué</Text>
+          <Text style={styles.montantSucces}>{resultat.montant.toLocaleString('fr-FR')} XOF</Text>
+          {!!resultat.commercantNom && <Text style={styles.commercantSucces}>chez {resultat.commercantNom}</Text>}
+
+          <Button title="Nouveau paiement" onPress={reset} style={{ marginTop: spacing.lg }} />
+          <LinkButton
+            title="Retour à l'accueil"
+            onPress={() => { reset(); navigation.navigate('Accueil' as never); }}
+            style={styles.rescannerWrap}
+          />
+        </Card>
+      </View>
+    );
   }
 
   if (etape === 'confirm') {
@@ -175,13 +215,15 @@ export default function Paiement() {
 
   return (
     <View style={styles.scanContainer}>
-      <CameraView
-        key={cameraKey}
-        style={styles.camera}
-        facing="back"
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={scanned ? undefined : handleScan}
-      />
+      {isFocused && (
+        <CameraView
+          key={cameraKey}
+          style={styles.camera}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={scanned ? undefined : handleScan}
+        />
+      )}
       <TouchableOpacity style={styles.btnFermer} onPress={() => navigation.navigate('Accueil' as never)}>
         <Ionicons name="close" size={22} color={colors.white} />
       </TouchableOpacity>
@@ -205,6 +247,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center',
     alignSelf: 'center', marginBottom: spacing.md,
   },
+  iconeSucces: {
+    width: 64, height: 64, borderRadius: borderRadius.full,
+    backgroundColor: colors.success, alignItems: 'center', justifyContent: 'center',
+    alignSelf: 'center', marginBottom: spacing.md,
+  },
+  montantSucces: { fontSize: fontSize.xxl, fontWeight: '700', color: colors.dark, textAlign: 'center' },
+  commercantSucces: { fontSize: fontSize.base, color: colors.dark + 'AA', textAlign: 'center', marginTop: spacing.xs },
   titre: { fontSize: fontSize.lg, fontWeight: '700', color: colors.primary, marginBottom: spacing.lg, textAlign: 'center' },
   label: { fontSize: fontSize.sm, color: colors.dark + 'AA', marginBottom: spacing.xs },
   nomCommercant: { fontSize: fontSize.md, fontWeight: '600', color: colors.dark, marginBottom: spacing.md },

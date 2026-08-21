@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useIsFocused } from '@react-navigation/native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../lib/api';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
@@ -29,10 +30,12 @@ const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLR', '0', 'DEL'];
 
 export default function ScannerCarte() {
   const qc = useQueryClient();
+  const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [montantSaisi, setMontantSaisi] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [resultat, setResultat] = useState<{ succes: boolean; montant: number; message: string } | null>(null);
 
   // Même correctif que beneficiaire/Paiement.tsx (bug expo-camera iOS #28758).
   const [cameraKey, setCameraKey] = useState(0);
@@ -46,19 +49,32 @@ export default function ScannerCarte() {
     permissionEtaitAccordee.current = permission?.granted ?? false;
   }, [permission?.granted]);
 
+  // Si le commerçant quitte l'onglet Encaisser pendant un scan puis y
+  // revient, la CameraView reste sinon figée/noire — on force une nouvelle
+  // session caméra à chaque reprise de focus (voir aussi le rendu, qui
+  // démonte la caméra quand l'écran n'est pas focus).
+  useEffect(() => {
+    if (isFocused && scanning) setCameraKey((k) => k + 1);
+  }, [isFocused]);
+
   const montant = parseInt(montantSaisi, 10) || 0;
 
   const payerCarte = useMutation({
     mutationFn: (body: { payload: string; signature: string; montantTotal: number }) =>
       api.post('/cartes/paiement/qr/payer', body).then((r) => r.data.data),
     onSuccess: () => {
+      // L'action est déjà faite : on vide le montant et on montre un résultat
+      // clair (modale), plus jamais le clavier "montant à encaisser" pour ce
+      // paiement — remplace l'ancienne Alert système.
+      setResultat({ succes: true, montant, message: 'Paiement reçu avec succès' });
       setMontantSaisi('');
       setScanning(false);
       qc.invalidateQueries({ queryKey: ['transactions-jour'] });
       qc.invalidateQueries({ queryKey: ['wallet-solde'] });
     },
     onError: (err: any) => {
-      Alert.alert('TIKEXO — Erreur', err.response?.data?.error || 'Paiement refusé, réessayez.');
+      setResultat({ succes: false, montant, message: err.response?.data?.error || 'Paiement refusé, réessayez.' });
+      setScanning(false);
     },
   });
 
@@ -79,6 +95,11 @@ export default function ScannerCarte() {
 
   function ouvrirScan() {
     setScanned(false);
+    // Remonter la CameraView à chaque ouverture (pas seulement au premier
+    // octroi de permission) — sans ça, fermer puis rouvrir le scanner laisse
+    // un aperçu caméra noir (même bug expo-camera #28758, mais déclenché ici
+    // par le montage/démontage répété du composant, pas par la permission).
+    setCameraKey((k) => k + 1);
     setScanning(true);
   }
 
@@ -106,13 +127,15 @@ export default function ScannerCarte() {
     }
     return (
       <View style={styles.scanContainer}>
-        <CameraView
-          key={cameraKey}
-          style={styles.camera}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          onBarcodeScanned={scanned ? undefined : handleScan}
-        />
+        {isFocused && (
+          <CameraView
+            key={cameraKey}
+            style={styles.camera}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={scanned ? undefined : handleScan}
+          />
+        )}
         <TouchableOpacity style={styles.btnFermer} onPress={() => setScanning(false)}>
           <Ionicons name="close" size={22} color={colors.white} />
         </TouchableOpacity>
@@ -181,6 +204,22 @@ export default function ScannerCarte() {
           />
         )}
       />
+
+      <Modal visible={!!resultat} transparent animationType="fade" onRequestClose={() => setResultat(null)}>
+        <View style={styles.modalFond}>
+          <Card style={styles.modalCarte}>
+            <View style={[styles.modalIcone, resultat?.succes ? styles.modalIconeSucces : styles.modalIconeEchec]}>
+              <Ionicons name={resultat?.succes ? 'checkmark' : 'close'} size={32} color={colors.white} />
+            </View>
+            <Text style={styles.modalTitre}>{resultat?.succes ? 'Paiement réussi' : 'Paiement échoué'}</Text>
+            {!!resultat?.succes && (
+              <Text style={styles.modalMontant}>{resultat.montant.toLocaleString('fr-FR')} XOF</Text>
+            )}
+            <Text style={styles.modalMessage}>{resultat?.message}</Text>
+            <Button title="Fermer" onPress={() => setResultat(null)} style={{ marginTop: spacing.md }} />
+          </Card>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -216,4 +255,12 @@ const styles = StyleSheet.create({
   scanFallback: { flex: 1, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md },
   scanFallbackTexte: { color: colors.white, fontSize: fontSize.base, textAlign: 'center' },
   btnAnnulerLight: { borderColor: colors.white },
+  modalFond: { flex: 1, backgroundColor: '#00000080', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  modalCarte: { width: '100%', alignItems: 'center' },
+  modalIcone: { width: 64, height: 64, borderRadius: borderRadius.full, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
+  modalIconeSucces: { backgroundColor: colors.success },
+  modalIconeEchec: { backgroundColor: colors.danger },
+  modalTitre: { fontSize: fontSize.lg, fontWeight: '700', color: colors.dark, textAlign: 'center' },
+  modalMontant: { fontSize: fontSize.xxl, fontWeight: '700', color: colors.dark, marginTop: spacing.xs },
+  modalMessage: { fontSize: fontSize.sm, color: colors.dark + 'AA', textAlign: 'center', marginTop: spacing.xs },
 });
