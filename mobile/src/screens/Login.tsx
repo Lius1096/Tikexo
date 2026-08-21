@@ -108,6 +108,8 @@ export default function LoginScreen() {
                 style={styles.input}
                 placeholder="••••••••"
                 secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
                 value={motDePasse}
                 onChangeText={(t) => { setMotDePasse(t); setErreur(''); }}
               />
@@ -169,6 +171,8 @@ export default function LoginScreen() {
                     style={styles.input}
                     placeholder="••••••••"
                     secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
                     value={nouveauMdp}
                     onChangeText={(t) => { setNouveauMdp(t); setErreur(''); }}
                   />
