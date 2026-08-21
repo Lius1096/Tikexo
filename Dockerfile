@@ -49,4 +49,8 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["node", "src/index.js"]
+# npx télécharge le CLI Prisma à la volée (absent des deps de prod, voir plus
+# haut) pour appliquer les migrations en attente avant de démarrer le serveur
+# — sans ça, un déploiement peut faire tourner du code qui suppose un schéma
+# que la base n'a pas encore (vécu en prod : colonnes/enum manquants -> 500).
+CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
