@@ -308,20 +308,23 @@ async function loginEmail(emailRaw, motDePasse) {
     throw err;
   }
 
-  // Un employeur (ADMIN_DIRECTEUR/ADMIN_RH/GESTIONNAIRE_RH) reste INACTIF tant
-  // que son KYB n'est pas validé — mais il DOIT pouvoir se connecter pour
-  // justement compléter/corriger ce dossier (EmployeurLayout le piège déjà
-  // sur /employeur/kyb tant que ce n'est pas validé, et les actions sensibles
-  // restent bloquées via dossier.fonctionnalites côté kyb.service.js). Sans
-  // ça, dès que la session expire (>7 jours, ou déconnexion volontaire) avant
-  // validation, le compte est bloqué pour toujours — impossible de se
-  // reconnecter pour terminer ce que la connexion elle-même empêchait.
-  const ROLES_EMPLOYEUR_KYB_EN_COURS = ['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'];
-  if (user.statut === 'INACTIF' && !ROLES_EMPLOYEUR_KYB_EN_COURS.includes(user.role)) {
+  // Un employeur (ADMIN_DIRECTEUR/ADMIN_RH/GESTIONNAIRE_RH) ou un commerçant
+  // reste INACTIF tant que son KYB/dossier n'est pas validé — mais il DOIT
+  // pouvoir se connecter pour justement compléter/corriger ce dossier
+  // (EmployeurLayout piège déjà les employeurs sur /employeur/kyb ; côté
+  // commerçant, le Profil mobile permet de reuploader un document rejeté).
+  // Les vraies actions sensibles restent bloquées ailleurs par des contrôles
+  // dédiés (dossier.fonctionnalites côté employeur, Commercant.statut !==
+  // 'ACTIF' qui bloque tout encaissement côté transaction.service.js) — la
+  // connexion elle-même n'a donc pas besoin d'être bloquée. Sans ce
+  // correctif, dès que la session expire (>7 jours, ou déconnexion
+  // volontaire) avant validation, le compte est bloqué pour toujours :
+  // impossible de se reconnecter pour terminer ce que la connexion
+  // elle-même empêchait.
+  const ROLES_KYB_EN_COURS = ['ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH', 'COMMERCANT'];
+  if (user.statut === 'INACTIF' && !ROLES_KYB_EN_COURS.includes(user.role)) {
     const err = new Error(
-      user.role === 'COMMERCANT'
-        ? "Votre dossier commerçant est en cours d'examen par l'équipe TIKEXO. Vous serez notifié par email dès l'activation de votre compte."
-        : "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
+      "Votre compte est en attente d'activation. Contactez votre employeur ou le support TIKEXO."
     );
     err.statusCode = 403;
     err.code = 'COMPTE_INACTIF';
