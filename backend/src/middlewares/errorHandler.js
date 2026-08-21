@@ -108,14 +108,19 @@ function errorHandler(err, req, res, next) {
     });
   }
 
-  // Erreur générique
-  const message = process.env.NODE_ENV === 'production'
-    ? 'Erreur interne TIKEXO'
-    : err.message;
+  // Erreur générique — un statusCode 4xx explicite signifie que le code
+  // métier a volontairement levé une erreur avec un message destiné au
+  // client (ex. EMAIL_DEJA_EXISTANT) : on le laisse passer même en
+  // production. Seules les erreurs sans statusCode connu (bugs, 500) sont
+  // masquées pour ne pas fuiter de détails internes.
+  const messageClient = statusCode >= 400 && statusCode < 500
+    ? err.message
+    : (process.env.NODE_ENV === 'production' ? 'Erreur interne TIKEXO' : err.message);
 
   return res.status(statusCode).json({
     success: false,
-    error: message,
+    error: messageClient,
+    code: err.code,
   });
 }
 

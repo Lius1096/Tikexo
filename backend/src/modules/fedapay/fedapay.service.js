@@ -55,9 +55,10 @@ async function creerCollecte(prisma, { entrepriseId, montant, prenom, nom }) {
   if (entreprise.montant_max_wallet) {
     const soldeActuel = parseFloat(walletEntreprise.solde.toString());
     const plafond = parseFloat(entreprise.montant_max_wallet.toString());
+    const margeDisponible = Math.max(plafond - soldeActuel, 0);
     if (soldeActuel + montantNum > plafond) {
       const err = new Error(
-        `Plafond wallet dépassé — max ${Math.floor(plafond).toLocaleString('fr-FR')} XOF, solde actuel ${Math.floor(soldeActuel).toLocaleString('fr-FR')} XOF`
+        `Le montant à recharger (${Math.floor(montantNum).toLocaleString('fr-FR')} XOF) dépasse le plafond de votre wallet entreprise fixé lors de l'inscription (${Math.floor(plafond).toLocaleString('fr-FR')} XOF). Solde actuel : ${Math.floor(soldeActuel).toLocaleString('fr-FR')} XOF — marge disponible : ${Math.floor(margeDisponible).toLocaleString('fr-FR')} XOF. Contactez le support TIKEXO pour relever ce plafond.`
       );
       err.statusCode = 400;
       err.code = 'PLAFOND_WALLET_ATTEINT';

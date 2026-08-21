@@ -118,7 +118,7 @@ export default function Inscription() {
 
       setEtapeRaw('succes');
     } catch (err: any) {
-      setErreur(err?.response?.data?.message || 'Une erreur est survenue. Veuillez réessayer.');
+      setErreur(err?.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setLoading(false);
     }

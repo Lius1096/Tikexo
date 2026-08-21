@@ -1001,7 +1001,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                 </button>
               ))}
             </div>
-            {rechargeMut.isError && <div className="text-[10px] text-red-500">{(rechargeMut.error as any)?.response?.data?.message || 'Erreur'}</div>}
+            {rechargeMut.isError && <div className="text-[10px] text-red-500">{(rechargeMut.error as any)?.response?.data?.error || 'Erreur'}</div>}
             <div className="flex gap-2">
               <button onClick={() => rechargeMut.mutate()}
                 disabled={rechargeMut.isPending || !montantRecharge || parseInt(montantRecharge) < 100}
@@ -1080,7 +1080,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
 
             {modifierMut.isError && (
-              <div className="text-[10px] text-red-500">{(modifierMut.error as any)?.response?.data?.message || 'Erreur'}</div>
+              <div className="text-[10px] text-red-500">{(modifierMut.error as any)?.response?.data?.error || 'Erreur'}</div>
             )}
 
             <div className="flex gap-2">
@@ -1269,7 +1269,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
             {sortieMut.isError && (
               <div className="text-[11px] text-red-500 text-center">
-                {(sortieMut.error as any)?.response?.data?.message || 'Erreur'}
+                {(sortieMut.error as any)?.response?.data?.error || 'Erreur'}
               </div>
             )}
             <div className="flex gap-2">

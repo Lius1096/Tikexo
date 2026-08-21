@@ -121,7 +121,7 @@ export default function EmployeurWallet() {
       queryClient.invalidateQueries({ queryKey: ['wallet-entreprise', entrepriseId] });
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.message || 'Erreur lors de la création du lien de paiement.';
+      const msg = err?.response?.data?.error || 'Erreur lors de la création du lien de paiement.';
       setModal((m) => ({ ...m, erreur: msg }));
     },
   });
@@ -376,7 +376,7 @@ export default function EmployeurWallet() {
                       </button>
                     </div>
                     {groupeMutation.isError && (
-                      <div className="text-[11px] text-red-500">{(groupeMutation.error as any)?.response?.data?.message || 'Erreur'}</div>
+                      <div className="text-[11px] text-red-500">{(groupeMutation.error as any)?.response?.data?.error || 'Erreur'}</div>
                     )}
                   </div>
                 )}
