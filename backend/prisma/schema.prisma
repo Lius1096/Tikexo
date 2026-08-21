@@ -547,6 +547,7 @@ enum TypeLedger {
   REMBOURSEMENT
   COMPLEMENT
   FRAIS_PAYOUT_MANUEL
+  FRAIS_GESTION
 }
 
 enum StatutTransaction {
