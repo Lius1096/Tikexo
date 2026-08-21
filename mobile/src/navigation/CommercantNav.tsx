@@ -1,9 +1,10 @@
 import React from 'react';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../design-system/tokens';
+import { HeaderCloche } from './HeaderCloche';
 
 import Dashboard from '../screens/commercant/Dashboard';
 import QrCode from '../screens/commercant/QrCode';
@@ -11,6 +12,7 @@ import ScannerCarte from '../screens/commercant/ScannerCarte';
 import Historique from '../screens/commercant/Historique';
 import Reversements from '../screens/commercant/Reversements';
 import Profil from '../screens/commercant/Profil';
+import Notifications from '../screens/Notifications';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -35,9 +37,12 @@ function Tabs() {
         headerTintColor: colors.white,
         headerTitleStyle: { fontWeight: '700' },
         headerRight: () => (
-          <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Profil')} style={{ marginRight: 16 }}>
-            <Ionicons name="person-circle-outline" size={26} color={colors.white} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <HeaderCloche onPress={() => navigation.getParent()?.navigate('Notifications')} />
+            <TouchableOpacity onPress={() => navigation.getParent()?.navigate('Profil')} style={{ marginRight: 16 }}>
+              <Ionicons name="person-circle-outline" size={26} color={colors.white} />
+            </TouchableOpacity>
+          </View>
         ),
         tabBarIcon: ({ color, size, focused }) => (
           <Ionicons name={focused ? ICONS[route.name] : (`${ICONS[route.name]}-outline` as keyof typeof Ionicons.glyphMap)} size={size} color={color} />
@@ -63,6 +68,17 @@ export function CommercantNav() {
         options={{
           headerShown: true,
           title: 'Mon profil',
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: colors.white,
+          headerTitleStyle: { fontWeight: '700' },
+        }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={Notifications}
+        options={{
+          headerShown: true,
+          title: 'Notifications',
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: colors.white,
           headerTitleStyle: { fontWeight: '700' },
