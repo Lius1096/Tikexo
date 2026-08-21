@@ -51,4 +51,20 @@ async function acquitterAlerteFraude(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { getDashboard, getAuditLogs, getUtilisateurs, bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets, getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude };
+async function listerDemandesPlafond(req, res, next) {
+  try {
+    const entrepriseService = require('../entreprise/entreprise.service');
+    const data = await entrepriseService.listerDemandesPlafond(req.query);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function traiterDemandePlafond(req, res, next) {
+  try {
+    const entrepriseService = require('../entreprise/entreprise.service');
+    const data = await entrepriseService.traiterDemandePlafond(req.params.id, req.body, req.user.id);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+module.exports = { getDashboard, getAuditLogs, getUtilisateurs, bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets, getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude, listerDemandesPlafond, traiterDemandePlafond };

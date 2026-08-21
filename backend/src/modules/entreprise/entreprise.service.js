@@ -96,8 +96,30 @@ async function getById(id) {
   });
 }
 
-async function modifier(id, data, callerId) {
-  const { ifu, ...updateData } = data;
+// Un employeur (ADMIN_DIRECTEUR/ADMIN_RH) ne peut modifier que ces champs de
+// contact — tout le reste (plafonds wallet, dotation_max, kyb_valide, taux de
+// commission, statut...) passait tel quel jusqu'ici (data.entreprise → Prisma
+// sans filtre), donc un employeur pouvait s'auto-approuver un plafond
+// illimité ou même valider son propre KYB via un simple PUT /entreprises/:id
+// avec des champs en plus. Les plafonds ne se relèvent désormais que via une
+// DemandePlafond validée par un admin TIKEXO (voir plus bas).
+const CHAMPS_MODIFIABLES_EMPLOYEUR = ['nom', 'secteur', 'adresse', 'ville', 'telephone_rh', 'email_rh'];
+
+async function modifier(id, data, callerId, callerRole) {
+  const { ifu, ...rest } = data;
+
+  const estAdminTikexo = ['SUPER_ADMIN', 'ADMIN_OPS'].includes(callerRole);
+  if (!estAdminTikexo) {
+    const champsInterdits = Object.keys(rest).filter((k) => !CHAMPS_MODIFIABLES_EMPLOYEUR.includes(k));
+    if (champsInterdits.length > 0) {
+      const err = new Error(`Modification non autorisée sur : ${champsInterdits.join(', ')}`);
+      err.statusCode = 403;
+      err.code = 'CHAMPS_NON_AUTORISES';
+      throw err;
+    }
+  }
+
+  const updateData = rest;
 
   // À l'inscription, l'unique email saisi devient à la fois l'identifiant de
   // connexion du fondateur (User.email_perso) ET le contact entreprise
@@ -547,4 +569,97 @@ async function getFacturation(entrepriseId) {
   return { items, total: items.length };
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };
+const CHAMP_PAR_TYPE_PLAFOND = {
+  SOLDE_WALLET: 'montant_max_wallet',
+  RECHARGE_MENSUEL: 'plafond_recharge_mensuel',
+};
+
+async function demanderRevisionPlafond(entrepriseId, { type, montant_demande, justification }, userId) {
+  if (!CHAMP_PAR_TYPE_PLAFOND[type]) {
+    const err = new Error('Type de plafond invalide — SOLDE_WALLET ou RECHARGE_MENSUEL attendu');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const montantNum = parseFloat(montant_demande);
+  if (!montantNum || montantNum <= 0) {
+    const err = new Error('Montant demandé invalide');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  const dejaEnAttente = await prisma.demandePlafond.findFirst({
+    where: { entreprise_id: entrepriseId, type, statut: 'EN_ATTENTE' },
+  });
+  if (dejaEnAttente) {
+    const err = new Error('Une demande est déjà en attente de traitement pour ce plafond');
+    err.statusCode = 409;
+    err.code = 'DEMANDE_DEJA_EN_ATTENTE';
+    throw err;
+  }
+
+  const champ = CHAMP_PAR_TYPE_PLAFOND[type];
+  const entreprise = await prisma.entreprise.findUniqueOrThrow({
+    where: { id: entrepriseId },
+    select: { [champ]: true },
+  });
+  const montantActuel = entreprise[champ] ? parseFloat(entreprise[champ].toString()) : null;
+
+  if (montantActuel && montantNum <= montantActuel) {
+    const err = new Error('Le montant demandé doit être supérieur au plafond actuel');
+    err.statusCode = 400;
+    throw err;
+  }
+
+  return prisma.demandePlafond.create({
+    data: {
+      entreprise_id: entrepriseId,
+      type,
+      montant_actuel: montantActuel,
+      montant_demande: montantNum,
+      justification: justification?.trim() || null,
+      demande_par: userId,
+    },
+  });
+}
+
+async function listerDemandesPlafond(filtres = {}) {
+  const { statut, entrepriseId } = filtres;
+  return prisma.demandePlafond.findMany({
+    where: {
+      ...(statut ? { statut } : {}),
+      ...(entrepriseId ? { entreprise_id: entrepriseId } : {}),
+    },
+    include: { entreprise: { select: { id: true, nom: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+async function traiterDemandePlafond(demandeId, { approuver, note }, adminId) {
+  const demande = await prisma.demandePlafond.findUniqueOrThrow({ where: { id: demandeId } });
+  if (demande.statut !== 'EN_ATTENTE') {
+    const err = new Error('Cette demande a déjà été traitée');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  if (approuver) {
+    const champ = CHAMP_PAR_TYPE_PLAFOND[demande.type];
+    await prisma.$transaction([
+      prisma.entreprise.update({ where: { id: demande.entreprise_id }, data: { [champ]: demande.montant_demande } }),
+      prisma.demandePlafond.update({
+        where: { id: demandeId },
+        data: { statut: 'APPROUVEE', traite_par: adminId, traite_at: new Date(), note_admin: note?.trim() || null },
+      }),
+    ]);
+  } else {
+    await prisma.demandePlafond.update({
+      where: { id: demandeId },
+      data: { statut: 'REJETEE', traite_par: adminId, traite_at: new Date(), note_admin: note?.trim() || null },
+    });
+  }
+
+  return prisma.demandePlafond.findUnique({ where: { id: demandeId } });
+}
+
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getBeneficiairesComplet, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation, demanderRevisionPlafond, listerDemandesPlafond, traiterDemandePlafond };

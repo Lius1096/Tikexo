@@ -49,7 +49,10 @@ async function creerCollecte(prisma, { entrepriseId, montant, prenom, nom }) {
   // Vérifier le plafond wallet avant tout appel FedaPay
   const [walletEntreprise, entreprise] = await Promise.all([
     prisma.wallet.findUniqueOrThrow({ where: { entreprise_id: entrepriseId } }),
-    prisma.entreprise.findUniqueOrThrow({ where: { id: entrepriseId }, select: { montant_max_wallet: true, kyb_valide: true, email_rh: true } }),
+    prisma.entreprise.findUniqueOrThrow({
+      where: { id: entrepriseId },
+      select: { montant_max_wallet: true, plafond_recharge_mensuel: true, kyb_valide: true, email_rh: true },
+    }),
   ]);
 
   if (entreprise.montant_max_wallet) {
@@ -58,10 +61,35 @@ async function creerCollecte(prisma, { entrepriseId, montant, prenom, nom }) {
     const margeDisponible = Math.max(plafond - soldeActuel, 0);
     if (soldeActuel + montantNum > plafond) {
       const err = new Error(
-        `Le montant à recharger (${Math.floor(montantNum).toLocaleString('fr-FR')} XOF) dépasse le plafond de votre wallet entreprise fixé lors de l'inscription (${Math.floor(plafond).toLocaleString('fr-FR')} XOF). Solde actuel : ${Math.floor(soldeActuel).toLocaleString('fr-FR')} XOF — marge disponible : ${Math.floor(margeDisponible).toLocaleString('fr-FR')} XOF. Contactez le support TIKEXO pour relever ce plafond.`
+        `Le montant à recharger (${Math.floor(montantNum).toLocaleString('fr-FR')} XOF) dépasse le plafond de votre wallet entreprise fixé lors de l'inscription (${Math.floor(plafond).toLocaleString('fr-FR')} XOF). Solde actuel : ${Math.floor(soldeActuel).toLocaleString('fr-FR')} XOF — marge disponible : ${Math.floor(margeDisponible).toLocaleString('fr-FR')} XOF. Demandez une augmentation de plafond depuis Paramètres.`
       );
       err.statusCode = 400;
       err.code = 'PLAFOND_WALLET_ATTEINT';
+      throw err;
+    }
+  }
+
+  // Plafond de FLUX cumulé sur le mois calendaire en cours — distinct du
+  // plafond de solde ci-dessus : dépenser (créditer des bénéficiaires) puis
+  // recharger de nouveau ne doit pas permettre de dépasser ce total.
+  if (entreprise.plafond_recharge_mensuel) {
+    const debutMois = new Date();
+    debutMois.setDate(1);
+    debutMois.setHours(0, 0, 0, 0);
+
+    const { _sum } = await prisma.fedapayOperation.aggregate({
+      where: { entreprise_id: entrepriseId, type: 'COLLECTE', statut: 'APPROUVE', createdAt: { gte: debutMois } },
+      _sum: { montant: true },
+    });
+    const dejaRechargeCeMois = parseFloat((_sum.montant ?? 0).toString());
+    const plafondMensuel = parseFloat(entreprise.plafond_recharge_mensuel.toString());
+    const margeMensuelle = Math.max(plafondMensuel - dejaRechargeCeMois, 0);
+    if (dejaRechargeCeMois + montantNum > plafondMensuel) {
+      const err = new Error(
+        `Le montant à recharger (${Math.floor(montantNum).toLocaleString('fr-FR')} XOF) dépasse le plafond de recharge mensuel de votre entreprise (${Math.floor(plafondMensuel).toLocaleString('fr-FR')} XOF). Déjà rechargé ce mois-ci : ${Math.floor(dejaRechargeCeMois).toLocaleString('fr-FR')} XOF — marge restante : ${Math.floor(margeMensuelle).toLocaleString('fr-FR')} XOF. Ce plafond se réinitialise au début du mois prochain ; vous pouvez aussi demander une augmentation depuis Paramètres.`
+      );
+      err.statusCode = 400;
+      err.code = 'PLAFOND_RECHARGE_MENSUEL_ATTEINT';
       throw err;
     }
   }

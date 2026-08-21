@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Building2, Pencil, Save, X, Loader2 } from 'lucide-react';
+import { Building2, Pencil, Save, X, Loader2, TrendingUp, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
+
+const TYPES_PLAFOND: { key: 'SOLDE_WALLET' | 'RECHARGE_MENSUEL'; label: string; champ: 'montant_max_wallet' | 'plafond_recharge_mensuel' }[] = [
+  { key: 'SOLDE_WALLET', label: 'Plafond de solde wallet', champ: 'montant_max_wallet' },
+  { key: 'RECHARGE_MENSUEL', label: 'Plafond de recharge mensuel', champ: 'plafond_recharge_mensuel' },
+];
 
 const CHAMPS_EDITABLES = [
   { key: 'secteur',       label: 'Secteur',       type: 'text' },
@@ -62,6 +67,40 @@ export default function EmployeurParametres() {
     { label: 'KYB', value: data?.kyb_valide ? 'Validé' : 'En attente' },
   ];
 
+  // Plafonds — solde wallet et flux de recharge mensuel. Modifiables
+  // uniquement via une demande soumise ici et validée par un admin TIKEXO
+  // (voir entreprise.service.js#modifier, qui bloque ces champs pour les
+  // rôles employeur).
+  const { data: demandes } = useQuery({
+    queryKey: ['demandes-plafond', entrepriseId],
+    queryFn: () => api.get(`/entreprises/${entrepriseId}/demandes-plafond`).then((r) => r.data.data),
+    enabled: !!entrepriseId,
+  });
+
+  const [demandeOuverte, setDemandeOuverte] = useState<null | 'SOLDE_WALLET' | 'RECHARGE_MENSUEL'>(null);
+  const [montantDemande, setMontantDemande] = useState('');
+  const [justification, setJustification] = useState('');
+  const [erreurDemande, setErreurDemande] = useState<string | null>(null);
+
+  const demandeMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/entreprises/${entrepriseId}/demandes-plafond`, {
+        type: demandeOuverte,
+        montant_demande: montantDemande,
+        justification,
+      }).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['demandes-plafond', entrepriseId] });
+      setDemandeOuverte(null);
+      setMontantDemande('');
+      setJustification('');
+      setErreurDemande(null);
+    },
+    onError: (err: any) => {
+      setErreurDemande(err?.response?.data?.error ?? 'Erreur lors de la demande.');
+    },
+  });
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-1">
@@ -91,6 +130,7 @@ export default function EmployeurParametres() {
           Profil non rattaché à une entreprise.
         </div>
       ) : (
+        <>
         <div className="bg-white border border-slate-100 rounded-lg">
           <div className="flex items-center gap-1.5 px-4 py-3.5 border-b border-slate-100">
             <Building2 size={14} className="text-slate-400" />
@@ -148,6 +188,99 @@ export default function EmployeurParametres() {
             </div>
           ) : null}
         </div>
+
+        <div className="bg-white border border-slate-100 rounded-lg mt-4">
+          <div className="flex items-center gap-1.5 px-4 py-3.5 border-b border-slate-100">
+            <TrendingUp size={14} className="text-slate-400" />
+            <span className="text-[13px] font-medium text-slate-900">Plafonds</span>
+          </div>
+          <div className="text-[11px] text-slate-500 px-4 pt-3">
+            Modifiables uniquement sur validation d'un admin TIKEXO — soumettez une demande ci-dessous.
+          </div>
+
+          {erreurDemande && (
+            <div className="mx-4 mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreurDemande}</div>
+          )}
+
+          <div className="px-4 py-2">
+            {TYPES_PLAFOND.map(({ key, label, champ }) => {
+              const valeurActuelle = data?.[champ];
+              const derniereDemande = (demandes ?? []).find((d: any) => d.type === key);
+              const enAttente = derniereDemande?.statut === 'EN_ATTENTE';
+
+              return (
+                <div key={key} className="py-3 border-b border-slate-50 last:border-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-[11px] text-slate-500">{label}</div>
+                      <div className="text-xs text-slate-900 font-medium mt-0.5">
+                        {valeurActuelle ? `${Number(valeurActuelle).toLocaleString('fr-FR')} XOF` : 'Non défini'}
+                      </div>
+                      {derniereDemande && (
+                        <div className="mt-1.5 flex items-center gap-1 text-[10px]">
+                          {derniereDemande.statut === 'EN_ATTENTE' && (
+                            <span className="flex items-center gap-1 text-amber-600"><Clock size={11} /> Demande en attente — {Number(derniereDemande.montant_demande).toLocaleString('fr-FR')} XOF demandés</span>
+                          )}
+                          {derniereDemande.statut === 'APPROUVEE' && (
+                            <span className="flex items-center gap-1 text-green-600"><CheckCircle2 size={11} /> Dernière demande approuvée</span>
+                          )}
+                          {derniereDemande.statut === 'REJETEE' && (
+                            <span className="flex items-center gap-1 text-red-500"><XCircle size={11} /> Demande refusée{derniereDemande.note_admin ? ` — ${derniereDemande.note_admin}` : ''}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {!enAttente && demandeOuverte !== key && (
+                      <button
+                        onClick={() => { setDemandeOuverte(key); setMontantDemande(''); setJustification(''); setErreurDemande(null); }}
+                        className="flex-shrink-0 text-[11px] text-tikexo-primary border border-tikexo-primary/30 rounded-lg px-3 py-1.5 hover:bg-tikexo-primary/5 transition-colors"
+                      >
+                        Demander une augmentation
+                      </button>
+                    )}
+                  </div>
+
+                  {demandeOuverte === key && (
+                    <div className="mt-2.5 space-y-2 bg-slate-50 rounded-lg p-3">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Nouveau montant souhaité (XOF)"
+                        value={montantDemande}
+                        onChange={(e) => setMontantDemande(e.target.value)}
+                        className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-tikexo-primary"
+                      />
+                      <textarea
+                        placeholder="Justification (optionnel)"
+                        value={justification}
+                        onChange={(e) => setJustification(e.target.value)}
+                        rows={2}
+                        className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 focus:outline-none focus:border-tikexo-primary resize-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => demandeMutation.mutate()}
+                          disabled={!montantDemande || demandeMutation.isPending}
+                          className="flex items-center gap-1.5 bg-tikexo-primary text-white text-[11px] font-medium px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+                        >
+                          {demandeMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : null}
+                          Envoyer la demande
+                        </button>
+                        <button
+                          onClick={() => { setDemandeOuverte(null); setErreurDemande(null); }}
+                          className="text-[11px] text-slate-500 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        </>
       )}
     </div>
   );

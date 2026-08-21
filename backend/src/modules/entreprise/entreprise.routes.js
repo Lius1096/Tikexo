@@ -28,6 +28,8 @@ router.get('/:id/beneficiaires', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DI
 router.get('/:id/wallet', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getWallet);
 router.get('/:id/stats', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getStats);
 router.get('/:id/facturation', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getFacturation);
+router.post('/:id/demandes-plafond', autoriser('ADMIN_DIRECTEUR', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.demanderRevisionPlafond);
+router.get('/:id/demandes-plafond', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.listerMesDemandesPlafond);
 
 router.get('/:id/equipe-rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH', 'GESTIONNAIRE_RH'), checkEntrepriseProprietaire, ctrl.getEquipeRH);
 router.post('/:id/rh', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'ADMIN_DIRECTEUR', 'ADMIN_RH'), checkEntrepriseProprietaire, ctrl.inviterRh);

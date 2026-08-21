@@ -17,5 +17,7 @@ router.get('/alertes-fraude', ctrl.getAlertesFraude);
 router.post('/alertes-fraude/:alerteId/acquitter', ctrl.acquitterAlerteFraude);
 router.get('/configuration', ctrl.getConfiguration);
 router.put('/configuration', ctrl.majConfiguration);
+router.get('/demandes-plafond', ctrl.listerDemandesPlafond);
+router.post('/demandes-plafond/:id/traiter', ctrl.traiterDemandePlafond);
 
 module.exports = router;

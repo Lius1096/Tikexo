@@ -39,6 +39,7 @@ import AdminBeneficiaires from './pages/admin/Beneficiaires';
 import AdminMutations from './pages/admin/Mutations';
 import AdminCartes from './pages/admin/Cartes';
 import AdminFedaPay from './pages/admin/FedaPay';
+import AdminPlafondDemandes from './pages/admin/PlafondDemandes';
 import AdminAntiFraude from './pages/admin/AntiFraude';
 import AdminAuditLog from './pages/admin/AuditLog';
 import AdminStatistiques from './pages/admin/Statistiques';
@@ -158,6 +159,7 @@ export default function App() {
         <Route path="mutations" element={<AdminMutations />} />
         <Route path="cartes" element={<AdminCartes />} />
         <Route path="fedapay" element={<AdminFedaPay />} />
+        <Route path="plafonds" element={<AdminPlafondDemandes />} />
         <Route path="antifraude" element={<AdminAntiFraude />} />
         <Route path="audit" element={<AdminAuditLog />} />
         <Route path="statistiques" element={<AdminStatistiques />} />

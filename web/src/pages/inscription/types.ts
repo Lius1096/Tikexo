@@ -9,6 +9,7 @@ export interface InscriptionData {
     nb_salaries: string;
     dotation_max: string;
     montant_max_wallet: string;
+    plafond_recharge_mensuel: string;
   };
   admin: {
     prenom: string;
@@ -25,7 +26,7 @@ export interface InscriptionData {
 export const DEFAULT_DATA: InscriptionData = {
   entreprise: {
     nom: '', ifu: '', rccm: '', secteur: '', adresse: '', ville: '',
-    nb_salaries: '', dotation_max: '', montant_max_wallet: '',
+    nb_salaries: '', dotation_max: '', montant_max_wallet: '', plafond_recharge_mensuel: '',
   },
   admin: { prenom: '', nom: '', telephone: '', email_rh: '', mot_de_passe: '', confirmer_mot_de_passe: '', role_inscription: '' },
   cgu: false,

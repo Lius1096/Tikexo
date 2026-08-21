@@ -121,6 +121,7 @@ async function inscrire({ entreprise: e, admin: a }) {
 
   const dotationMax = e.dotation_max ? parseFloat(e.dotation_max) : null;
   const montantMaxWallet = e.montant_max_wallet ? parseFloat(e.montant_max_wallet) : null;
+  const plafondRechargeMensuel = e.plafond_recharge_mensuel ? parseFloat(e.plafond_recharge_mensuel) : null;
 
   // Transaction : entreprise + wallet + user + lien
   const { entreprise: ent, user } = await prisma.$transaction(async (tx) => {
@@ -143,6 +144,7 @@ async function inscrire({ entreprise: e, admin: a }) {
         frais_mensuel: fraisMensuel,
         dotation_max: dotationMax,
         montant_max_wallet: montantMaxWallet,
+        plafond_recharge_mensuel: plafondRechargeMensuel,
         taux_commission_defaut: TAUX_COMMISSION_TRANSACTION,
         statut: 'EN_ATTENTE',
       },

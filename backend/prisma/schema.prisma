@@ -62,6 +62,10 @@ model Entreprise {
   frais_mensuel           Decimal?         @db.Decimal(10,2)
   dotation_max            Decimal?         @db.Decimal(10,2)
   montant_max_wallet      Decimal?         @db.Decimal(12,2)
+  // Plafond de FLUX cumulé (somme des recharges FedaPay réussies) sur le mois
+  // calendaire en cours — distinct de montant_max_wallet qui ne borne que le
+  // solde instantané et se contourne en dépensant puis rechargeant en boucle.
+  plafond_recharge_mensuel Decimal?        @db.Decimal(12,2)
   kyb_valide              Boolean          @default(false)
   taux_commission_defaut  Decimal          @db.Decimal(5,2) @default(5.00)
   createdAt               DateTime         @default(now())
@@ -75,6 +79,7 @@ model Entreprise {
   mutationsEntree         Mutation[]  @relation("MutationEntrepriseB")
   fedapayOperations       FedapayOperation[]
   kyb_dossier             KybDossier?
+  demandesPlafond         DemandePlafond[]
 
   @@index([statut])
   @@index([kyb_valide])
@@ -333,6 +338,31 @@ model Dotation {
 
   @@unique([lien_id, mois_concerne])
   @@index([entreprise_id, mois_concerne])
+  @@index([statut])
+}
+
+// Demande employeur de relever un plafond (solde wallet ou flux mensuel) —
+// jamais modifiable directement par l'entreprise elle-même (voir
+// entreprise.service.js#modifier, qui bloque ces champs pour les rôles
+// employeur) : seul un admin TIKEXO peut approuver et appliquer le nouveau
+// montant.
+model DemandePlafond {
+  id               String               @id @default(cuid())
+  entreprise_id    String
+  type             TypePlafond
+  montant_actuel   Decimal?             @db.Decimal(12,2)
+  montant_demande  Decimal              @db.Decimal(12,2)
+  justification    String?
+  statut           StatutDemandePlafond @default(EN_ATTENTE)
+  demande_par      String
+  traite_par       String?
+  note_admin       String?
+  createdAt        DateTime             @default(now())
+  traite_at        DateTime?
+
+  entreprise       Entreprise           @relation(fields: [entreprise_id], references: [id])
+
+  @@index([entreprise_id, statut])
   @@index([statut])
 }
 
@@ -607,6 +637,17 @@ enum StatutFedapay {
   EN_ATTENTE
   APPROUVE
   ECHOUE
+}
+
+enum TypePlafond {
+  SOLDE_WALLET
+  RECHARGE_MENSUEL
+}
+
+enum StatutDemandePlafond {
+  EN_ATTENTE
+  APPROUVEE
+  REJETEE
 }
 
 enum StatutDotation {

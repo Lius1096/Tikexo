@@ -177,6 +177,18 @@ export default function Step1Entreprise({ data, onChange, onNext }: Props) {
           />
           <div className="form-hint"><Info size={11} /> Montant max que le wallet peut conserver</div>
         </div>
+        <div className="form-group">
+          <label className="form-label">Plafond de recharge mensuel <span className="form-optional">(XOF)</span></label>
+          <input
+            className="form-input"
+            type="number"
+            min="0"
+            placeholder="ex : 10 000 000"
+            value={e.plafond_recharge_mensuel}
+            onChange={(ev) => setE({ plafond_recharge_mensuel: ev.target.value })}
+          />
+          <div className="form-hint"><Info size={11} /> Total des recharges wallet autorisé par mois calendaire</div>
+        </div>
       </div>
 
       <div className="section-label" style={{ marginTop: '16px' }}>CONTACT ADMINISTRATEUR RH</div>

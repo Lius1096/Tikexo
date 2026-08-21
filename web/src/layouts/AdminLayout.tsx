@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
   CreditCard, Banknote, ShieldAlert, FileText, BarChart2, Settings,
-  Bell, LogOut, Globe, Menu, X,
+  Bell, LogOut, Globe, Menu, X, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,6 +24,7 @@ const NAV = [
       { path: '/admin/mutations', label: 'Mutations', icon: ArrowLeftRight },
       { path: '/admin/cartes', label: 'Cartes', icon: CreditCard },
       { path: '/admin/fedapay', label: 'FedaPay', icon: Banknote },
+      { path: '/admin/plafonds', label: 'Demandes plafond', icon: TrendingUp, dot: true },
     ],
   },
   {

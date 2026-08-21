@@ -24,7 +24,21 @@ async function getById(req, res, next) {
 
 async function modifier(req, res, next) {
   try {
-    const data = await service.modifier(req.params.id, req.body, req.user.id);
+    const data = await service.modifier(req.params.id, req.body, req.user.id, req.user.role);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function demanderRevisionPlafond(req, res, next) {
+  try {
+    const data = await service.demanderRevisionPlafond(req.params.id, req.body, req.user.id);
+    res.status(201).json({ success: true, data });
+  } catch (err) { next(err); }
+}
+
+async function listerMesDemandesPlafond(req, res, next) {
+  try {
+    const data = await service.listerDemandesPlafond({ entrepriseId: req.params.id });
     res.json({ success: true, data });
   } catch (err) { next(err); }
 }
@@ -106,4 +120,4 @@ async function getFacturation(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation };
+module.exports = { lister, creer, getById, modifier, validerKYB, suspendre, archiver, getBeneficiaires, getWallet, getEquipeRH, inviterRh, retirerRh, toggleStatutUser, getStats, getFacturation, demanderRevisionPlafond, listerMesDemandesPlafond };
