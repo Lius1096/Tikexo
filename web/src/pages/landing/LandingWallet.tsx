@@ -47,7 +47,7 @@ export default function LandingWallet() {
           </h2>
           <p className="section-sub" style={{ marginBottom: '16px' }}>
             TIKEXO ne déclenche un appel FedaPay que quand l'argent entre ou sort
-            du système. Tout le reste — dotations, paiements, commissions — est un
+            du système. Tout le reste (dotations, paiements, commissions) est un
             mouvement interne gratuit et instantané.
           </p>
           <p className="section-sub">
@@ -59,7 +59,7 @@ export default function LandingWallet() {
 
         <div className="wallet-right">
           <div className="wallet-example-title">
-            MOUVEMENTS D'ARGENT — EXEMPLE 10 SALARIÉS
+            MOUVEMENTS D'ARGENT : EXEMPLE 10 SALARIÉS
           </div>
 
           {ROWS.map((r) => (

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { RGPD } from '../../utils/rgpd';
+import { RGPD, texteRetentionFinancieres } from '../../utils/rgpd';
 
 const LINKS = [
   { label: 'CGU',              href: '/cgu',                      external: false },
@@ -37,7 +37,7 @@ export default function LandingFooter() {
         <div className="text-[11px] text-white/[0.14]">© 2026 TIKEXO · tikexo.kete.fr</div>
       </div>
       <div className="mt-5 pt-5 border-t border-white/[0.06] text-[10px] text-white/[0.12] leading-relaxed">
-        Données financières conservées {RGPD.retention_donnees_financieres_ans} ans — {RGPD.reglementation_financiere}. Contact DPO : {RGPD.contact_dpo}
+        Données financières conservées {texteRetentionFinancieres}. Contact DPO : {RGPD.contact_dpo}
       </div>
     </footer>
   );

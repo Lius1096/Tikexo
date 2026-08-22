@@ -14,7 +14,7 @@ const DEFAULT_STEPS = [
   {
     num: '02',
     title: 'TIKEXO dote les salariés',
-    desc: 'En un clic, les dotations sont réparties selon les niveaux hiérarchiques. Chaque salarié reçoit son solde mensuel — sans aucun frais interne.',
+    desc: 'En un clic, les dotations sont réparties selon les niveaux hiérarchiques. Chaque salarié reçoit son solde mensuel, sans aucun frais interne.',
     highlight: true,
   },
   {

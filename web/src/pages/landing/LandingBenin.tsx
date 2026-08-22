@@ -26,7 +26,7 @@ export default function LandingBenin() {
           </h2>
           <p className="benin-sub">
             TIKEXO n'est pas une plateforme européenne traduite. C'est une solution
-            pensée dès le départ pour le marché béninois — MTN, Moov et Celtis
+            pensée dès le départ pour le marché béninois : MTN, Moov et Celtis
             intégrés nativement, jours fériés béninois automatiques, interface
             en français, localisation Cotonou.
           </p>
