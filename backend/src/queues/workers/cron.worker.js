@@ -42,11 +42,12 @@ const worker = new Worker('cron', async (job) => {
         });
         if (dossier.entreprise.email_rh) {
           const deadline = new Date(dossier.kyb_deadline).toLocaleDateString('fr-FR');
+          const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/employeur/kyb`;
           envoyerEmailAsync({
             to: dossier.entreprise.email_rh,
-            subject: `[TIKEXO] Deadline KYB — action requise avant le ${deadline}`,
-            html: `<p>Bonjour,</p><p>Le dossier KYB de <strong>${dossier.entreprise.nom}</strong> doit être complété avant le <strong>${deadline}</strong>.</p><p>Rendez-vous dans votre espace employeur pour soumettre les documents manquants.</p><p>Support : <a href="mailto:kyb@tikexo.bj">kyb@tikexo.bj</a></p>`,
-            text: `[TIKEXO] Le dossier KYB de ${dossier.entreprise.nom} doit être complété avant le ${deadline}.\n\nkyb@tikexo.bj`,
+            subject: `[TIKEXO] Deadline KYB - action requise avant le ${deadline}`,
+            html: `<p>Bonjour,</p><p>Le dossier KYB de <strong>${dossier.entreprise.nom}</strong> doit être complété avant le <strong>${deadline}</strong>.</p><p><a href="${lienKyb}">Rendez-vous dans votre espace employeur</a> pour soumettre les documents manquants.</p><p>Support : <a href="mailto:support@tikexo.kete.fr">support@tikexo.kete.fr</a></p>`,
+            text: `[TIKEXO] Le dossier KYB de ${dossier.entreprise.nom} doit être complété avant le ${deadline}.\n\n${lienKyb}\n\nSupport : support@tikexo.kete.fr`,
             expediteur: 'noreply',
           }).catch(() => {});
         }

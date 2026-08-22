@@ -348,9 +348,9 @@ export function CarteVersо({ cvv }: { cvv?: string }) {
       }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 8 }}>
           <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.28)', lineHeight: 1.7 }}>
-            Propriété de TIKEXO · tikexo.bj<br />
+            Propriété de TIKEXO · tikexo.kete.fr<br />
             Utilisation : restaurants partenaires uniquement<br />
-            Perte ou vol : support@tikexo.bj
+            Perte ou vol : support@tikexo.kete.fr
           </div>
           <LogoTikexo size={22} />
         </div>

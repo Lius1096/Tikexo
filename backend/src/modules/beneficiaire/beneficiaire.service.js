@@ -311,7 +311,7 @@ async function rattacherEntreprise(userId, { entrepriseId, niveau, allocationMen
     if (emailDest) {
       const token = crypto.randomBytes(32).toString('hex');
       await prisma.user.update({ where: { id: userId }, data: { invitation_token: token } });
-      const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+      const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.kete.fr';
       const lienInvitation = `${frontendUrl}/invitation?token=${token}`;
       const { html, text } = bienvenueBeneficiaire(userInfo.prenom, entreprise.nom, lienInvitation);
       envoyerEmail({

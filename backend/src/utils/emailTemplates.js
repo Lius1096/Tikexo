@@ -27,7 +27,7 @@ function layout({ titre, corps, bouton, frontendUrl }) {
         <tr>
           <td style="background:${COULEUR_PRIMAIRE};padding:28px 32px">
             <span style="color:#fff;font-size:22px;font-weight:700;letter-spacing:1px">TIKEXO</span>
-            <span style="color:rgba(255,255,255,.5);font-size:12px;margin-left:10px">tikexo.bj</span>
+            <span style="color:rgba(255,255,255,.5);font-size:12px;margin-left:10px">tikexo.kete.fr</span>
           </td>
         </tr>
 
@@ -46,7 +46,7 @@ function layout({ titre, corps, bouton, frontendUrl }) {
             <p style="margin:0;color:#aaa;font-size:12px;line-height:1.6">
               TIKEXO — Plateforme de titres-repas, Bénin.<br>
               Cet email a été envoyé automatiquement, ne répondez pas directement.<br>
-              Pour toute aide : <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT};text-decoration:none">support@tikexo.bj</a>
+              Pour toute aide : <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT};text-decoration:none">support@tikexo.kete.fr</a>
             </p>
           </td>
         </tr>
@@ -86,7 +86,7 @@ function pinReset(code) {
  * Bienvenue — invitation bénéficiaire (lien pour compléter le profil)
  */
 function bienvenueBeneficiaire(prenom, entreprise, lienInvitation) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.kete.fr';
   const url = lienInvitation || `${frontendUrl}/login`;
 
   const html = layout({
@@ -106,13 +106,13 @@ function bienvenueBeneficiaire(prenom, entreprise, lienInvitation) {
         <li>Suivez vos transactions en temps réel</li>
       </ul>
       <p style="color:#888;font-size:12px;margin:0">
-        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
     bouton: { url, label: 'Compléter mon profil' },
   });
 
-  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.bj`;
+  const text = `Bienvenue sur TIKEXO, ${prenom} !\n\n${entreprise} vous a enregistré(e).\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -121,7 +121,7 @@ function bienvenueBeneficiaire(prenom, entreprise, lienInvitation) {
  * Invitation d'un RH additionnel (GESTIONNAIRE_RH) par l'ADMIN_RH d'une entreprise
  */
 function invitationRh(prenom, entreprise, lienInvitation) {
-  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.kete.fr';
   const url = lienInvitation || `${frontendUrl}/entreprise/connexion`;
 
   const html = layout({
@@ -140,13 +140,13 @@ function invitationRh(prenom, entreprise, lienInvitation) {
         <li>Toutes vos actions sont tracées et attribuées à votre compte</li>
       </ul>
       <p style="color:#888;font-size:12px;margin:0">
-        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Ce lien est valable 7 jours. Des questions ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
     bouton: { url, label: 'Compléter mon profil' },
   });
 
-  const text = `Vous avez été invité(e) sur TIKEXO, ${prenom} !\n\n${entreprise} vous invite à rejoindre son espace RH.\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.bj`;
+  const text = `Vous avez été invité(e) sur TIKEXO, ${prenom} !\n\n${entreprise} vous invite à rejoindre son espace RH.\n\nComplétez votre profil en cliquant sur ce lien :\n${url}\n\nCe lien est valable 7 jours.\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -219,12 +219,12 @@ function inscriptionEntrepriseConfirmee(nomEntreprise, nomContact) {
         <li>Effectuez votre premier rechargement de wallet</li>
       </ol>
       <p style="color:#888;font-size:13px;margin:0">
-        Besoin d'aide pour démarrer ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Besoin d'aide pour démarrer ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
   });
 
-  const text = `Bonjour ${nomContact},\n\nLe compte ${nomEntreprise} est prêt sur TIKEXO.\n\nProchaines étapes :\n1. Soumettre vos documents KYB\n2. Enregistrer vos employés\n3. Effectuer votre premier rechargement\n\nSupport : support@tikexo.bj`;
+  const text = `Bonjour ${nomContact},\n\nLe compte ${nomEntreprise} est prêt sur TIKEXO.\n\nProchaines étapes :\n1. Soumettre vos documents KYB\n2. Enregistrer vos employés\n3. Effectuer votre premier rechargement\n\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -234,6 +234,7 @@ function inscriptionEntrepriseConfirmee(nomEntreprise, nomContact) {
  */
 function kybApprouve(nomEntreprise, nomContact, telephone) {
   const telAffiche = telephone || 'votre numéro enregistré';
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/entreprise/connexion`;
   const html = layout({
     titre: 'Votre KYB est approuvé — Activez votre accès RH',
     corps: `
@@ -248,7 +249,7 @@ function kybApprouve(nomEntreprise, nomContact, telephone) {
       </p>
       <p style="color:#555;margin:0 0 8px;font-weight:600">Pour vous connecter :</p>
       <ol style="color:#555;padding-left:20px;margin:0 0 20px">
-        <li style="margin-bottom:8px">Rendez-vous sur <a href="https://tikexo.bj/entreprise/connexion" style="color:${COULEUR_ACCENT}">tikexo.bj/entreprise/connexion</a></li>
+        <li style="margin-bottom:8px">Rendez-vous sur <a href="${lienConnexion}" style="color:${COULEUR_ACCENT}">${lienConnexion}</a></li>
         <li style="margin-bottom:8px">Entrez votre numéro : <strong>${telAffiche}</strong></li>
         <li style="margin-bottom:8px">Utilisez le code OTP reçu par SMS</li>
         <li>Définissez votre code PIN pour les prochaines connexions</li>
@@ -257,13 +258,13 @@ function kybApprouve(nomEntreprise, nomContact, telephone) {
         Vous pouvez maintenant recharger votre wallet et distribuer des dotations à vos salariés.
       </p>
       <p style="color:#888;font-size:13px;margin:0">
-        Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Des questions ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
-    bouton: { label: 'Accéder au portail RH', url: 'https://tikexo.bj/entreprise/connexion' },
+    bouton: { label: 'Accéder au portail RH', url: lienConnexion },
   });
 
-  const text = `Bonjour ${nomContact},\n\n${nomEntreprise} est maintenant vérifiée sur TIKEXO.\n\nUn code OTP a été envoyé par SMS au ${telAffiche}.\n\nConnectez-vous sur tikexo.bj/entreprise/connexion et définissez votre PIN.\n\nSupport : support@tikexo.bj`;
+  const text = `Bonjour ${nomContact},\n\n${nomEntreprise} est maintenant vérifiée sur TIKEXO.\n\nUn code OTP a été envoyé par SMS au ${telAffiche}.\n\nConnectez-vous sur ${lienConnexion} et définissez votre PIN.\n\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -275,10 +276,10 @@ function kybApprouve(nomEntreprise, nomContact, telephone) {
 // en tête, seulement un dossier resté en attente) — le libellé lisible
 // ("Carte IFU", "Extrait RCCM"...) est résolu côté appelant.
 function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument) {
-  // Autrefois : "envoyez les documents à kyb@tikexo.bj" — faux, le seul
+  // Autrefois : "envoyez les documents à support@tikexo.kete.fr" — faux, le seul
   // moyen réel de renvoyer un document est de le re-uploader depuis le
   // portail employeur, jamais par email.
-  const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.bj'}/employeur/kyb`;
+  const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/employeur/kyb`;
 
   const html = layout({
     titre: 'Document KYB rejeté — action requise',
@@ -295,7 +296,7 @@ function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument) {
       <p style="margin:0 0 20px">
         <a href="${lienKyb}" style="background:${COULEUR_ACCENT};color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Compléter mon dossier KYB</a>
       </p>
-      <p style="color:#888;font-size:12px;margin:0">Une question ? Écrivez-nous à <a href="mailto:kyb@tikexo.bj" style="color:${COULEUR_ACCENT}">kyb@tikexo.bj</a></p>
+      <p style="color:#888;font-size:12px;margin:0">Une question ? Écrivez-nous à <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a></p>
     `,
   });
 
@@ -309,7 +310,7 @@ function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument) {
     ``,
     `Rendez-vous sur ${lienKyb} pour consulter et compléter le bon document.`,
     ``,
-    `Question ? kyb@tikexo.bj`,
+    `Question ? support@tikexo.kete.fr`,
   ].filter((l) => l !== null).join('\n');
 
   return { html, text };
@@ -366,18 +367,18 @@ function rechargeConfirmee(nomEntreprise, montant, referenceTransaction, devise 
         </tr>
       </table>
       <p style="color:#888;font-size:13px;margin:0">
-        Pour toute question : <a href="mailto:facturation@tikexo.bj" style="color:${COULEUR_ACCENT}">facturation@tikexo.bj</a>
+        Pour toute question : <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
   });
 
-  const text = `Rechargement confirmé — ${nomEntreprise}\nMontant : ${montantFmt} ${devise}\nRéférence : ${referenceTransaction}\n\nQuestions : facturation@tikexo.bj`;
+  const text = `Rechargement confirmé — ${nomEntreprise}\nMontant : ${montantFmt} ${devise}\nRéférence : ${referenceTransaction}\n\nQuestions : support@tikexo.kete.fr`;
 
   return { html, text };
 }
 
 /**
- * Alerte interne — mutation détectée ou incident (destinataire : ops@tikexo.bj)
+ * Alerte interne — mutation détectée ou incident (destinataire : support@tikexo.kete.fr)
  */
 function alerteInterne(type, details) {
   const html = layout({
@@ -399,6 +400,7 @@ function alerteInterne(type, details) {
  * Réactivation de compte bénéficiaire
  */
 function reactivationCompte(prenom, entreprise, motDePasse) {
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/login`;
   const html = layout({
     titre: 'Votre compte TIKEXO est réactivé',
     corps: `
@@ -414,13 +416,13 @@ function reactivationCompte(prenom, entreprise, motDePasse) {
         <p style="color:#888;font-size:11px;margin:10px 0 0">Modifiez ce mot de passe dès votre première connexion.</p>
       </div>
       <p style="color:#888;font-size:13px;margin:0">
-        Des questions ? Contactez <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Des questions ? Contactez <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
-    bouton: { url: 'https://tikexo.vercel.app/login', label: 'Se connecter' },
+    bouton: { url: lienConnexion, label: 'Se connecter' },
   });
 
-  const text = `Votre compte TIKEXO est réactivé, ${prenom} !\n\n${entreprise} a rétabli votre accès.\n\nNouveau mot de passe : ${motDePasse}\n(Modifiez-le dès votre première connexion)\n\nConnectez-vous sur : https://tikexo.vercel.app/login\n\nSupport : support@tikexo.bj`;
+  const text = `Votre compte TIKEXO est réactivé, ${prenom} !\n\n${entreprise} a rétabli votre accès.\n\nNouveau mot de passe : ${motDePasse}\n(Modifiez-le dès votre première connexion)\n\nConnectez-vous sur : ${lienConnexion}\n\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -429,6 +431,7 @@ function reactivationCompte(prenom, entreprise, motDePasse) {
  * Compte commerçant activé — le marchand peut se connecter et encaisser.
  */
 function commercantActive(nomCommercant, nomContact) {
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/restaurant/connexion`;
   const html = layout({
     titre: 'Votre compte commerçant TIKEXO est actif',
     corps: `
@@ -442,13 +445,13 @@ function commercantActive(nomCommercant, nomContact) {
         Vous pouvez dès maintenant vous connecter avec l'email et le mot de passe utilisés lors de votre inscription, encaisser vos clients et suivre vos reversements.
       </p>
       <p style="color:#888;font-size:13px;margin:0">
-        Des questions ? <a href="mailto:support@tikexo.bj" style="color:${COULEUR_ACCENT}">support@tikexo.bj</a>
+        Des questions ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
-    bouton: { label: 'Accéder à mon espace commerçant', url: 'https://tikexo.bj/restaurant/connexion' },
+    bouton: { label: 'Accéder à mon espace commerçant', url: lienConnexion },
   });
 
-  const text = `Bonjour ${nomContact},\n\n${nomCommercant} est maintenant actif sur TIKEXO.\n\nConnectez-vous sur tikexo.bj/restaurant/connexion avec vos identifiants d'inscription.\n\nSupport : support@tikexo.bj`;
+  const text = `Bonjour ${nomContact},\n\n${nomCommercant} est maintenant actif sur TIKEXO.\n\nConnectez-vous sur ${lienConnexion} avec vos identifiants d'inscription.\n\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -476,6 +479,7 @@ function commercantDocumentValide(nomContact, typeDocument) {
  * Document KYC commerçant rejeté.
  */
 function commercantDocumentRejete(nomContact, typeDocument, motif) {
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/restaurant/connexion`;
   const html = layout({
     titre: 'Document à renvoyer',
     corps: `
@@ -491,10 +495,10 @@ function commercantDocumentRejete(nomContact, typeDocument, motif) {
         Merci de renvoyer un nouveau document depuis votre espace commerçant.
       </p>
     `,
-    bouton: { label: 'Renvoyer un document', url: 'https://tikexo.bj/restaurant/connexion' },
+    bouton: { label: 'Renvoyer un document', url: lienConnexion },
   });
 
-  const text = `Bonjour ${nomContact},\n\nVotre document « ${typeDocument} » n'a pas pu être validé.\n\nMotif : ${motif}\n\nRenvoyez un nouveau document depuis votre espace commerçant : tikexo.bj/restaurant/connexion`;
+  const text = `Bonjour ${nomContact},\n\nVotre document « ${typeDocument} » n'a pas pu être validé.\n\nMotif : ${motif}\n\nRenvoyez un nouveau document depuis votre espace commerçant : ${lienConnexion}`;
 
   return { html, text };
 }

@@ -69,7 +69,7 @@ const allowedOrigins = [
   ...(process.env.FRONTEND_URL
     ? process.env.FRONTEND_URL.split(',').map((u) => u.trim())
     : ['http://localhost:5173']),
-  'https://tikexo.bj',
+  'https://tikexo.kete.fr',
 ];
 
 // Socket.io — solde live

@@ -384,12 +384,12 @@ async function demanderPhysique(userId, adresseLivraison) {
     data: { user_id: userId, action: 'CARTE_PHYSIQUE_DEMANDEE', entite: 'CarteDigi', entite_id: carte.id },
   });
 
-  // En prod : notifier ops@tikexo.bj
+  // En prod : notifier support@tikexo.kete.fr (seule boîte Ionos surveillée)
   if (process.env.NODE_ENV === 'production') {
     const { html, text } = templates.alerteInterne('CARTE_PHYSIQUE_DEMANDEE', {
       user_id: userId, nom: `${user.prenom} ${user.nom}`, adresse: adresseLivraison, carte_id: carte.id,
     });
-    await envoyerEmail({ to: 'ops@tikexo.bj', subject: '[TIKEXO] Nouvelle demande carte physique', html, text, expediteur: 'ops' });
+    await envoyerEmail({ to: 'support@tikexo.kete.fr', subject: '[TIKEXO] Nouvelle demande carte physique', html, text, expediteur: 'ops' });
   } else {
     console.log(`[CARTE PHYSIQUE] Code activation (DEV) : ${code} — userId: ${userId}`);
   }

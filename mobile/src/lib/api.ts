@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as authStorage from './authStorage';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.tikexo.bj/api/v1';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://tikexo.kete.fr/api/v1';
 
 const api = axios.create({
   baseURL: BASE_URL,

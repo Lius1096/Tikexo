@@ -110,9 +110,9 @@ export function CarteVerso({ cvv }: { cvv?: string }) {
       </View>
       <View style={styles.versoBas}>
         <Text style={styles.versoTexte}>
-          Propriété de TIKEXO · tikexo.bj{'\n'}
+          Propriété de TIKEXO · tikexo.kete.fr{'\n'}
           Utilisation : restaurants partenaires uniquement{'\n'}
-          Perte ou vol : support@tikexo.bj
+          Perte ou vol : support@tikexo.kete.fr
         </Text>
       </View>
       <View style={[styles.barreBas, { backgroundColor: ACCENT }]} />

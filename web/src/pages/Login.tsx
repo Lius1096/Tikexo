@@ -438,7 +438,7 @@ export default function Login({ allowedRoles, portalLabel, portalSub, redirectTo
       </div>
 
       <div className="text-[10px] text-white/30 mt-6 text-center">
-        TIKEXO · tikexo.bj
+        TIKEXO · tikexo.kete.fr
       </div>
     </div>
   );

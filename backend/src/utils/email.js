@@ -61,7 +61,7 @@ function getTransport() {
 function getFromAddress(expediteur) {
   const resend = getResend();
   if (resend) {
-    // RESEND_FROM permet de surcharger quand le domaine tikexo.bj est vérifié
+    // RESEND_FROM permet de surcharger quand le domaine tikexo.kete.fr est vérifié
     return process.env.RESEND_FROM || 'onboarding@resend.dev';
   }
   const gmailUser = process.env.SMTP_USER || process.env.EMAIL;

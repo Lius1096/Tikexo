@@ -139,7 +139,7 @@ export default function AdminDashboard() {
     <div className="p-[18px_20px]">
       <div className="text-[15px] font-medium text-slate-900 mb-0.5">Vue globale</div>
       <div className="text-xs text-slate-500 mb-4">
-        Plateforme TIKEXO · {moisAnnee} · tikexo.bj
+        Plateforme TIKEXO · {moisAnnee} · tikexo.kete.fr
       </div>
 
       {/* KPIs */}

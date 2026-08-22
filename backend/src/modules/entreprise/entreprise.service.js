@@ -398,7 +398,7 @@ async function inviterRh(entrepriseId, data, adminId) {
     },
   });
 
-  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.vercel.app';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.kete.fr';
   const lienInvitation = `${frontendUrl}/invitation?token=${token}`;
   const { html, text } = invitationRh(data.prenom, entreprise.nom, lienInvitation);
   envoyerEmail({
