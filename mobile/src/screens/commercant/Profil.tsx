@@ -80,7 +80,7 @@ export default function CommercantProfil() {
   const modifierMut = useMutation({
     mutationFn: () => api.put(`/commercants/${fiche!.id}`, form),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['commercant-moi'] }); setEditMode(false); },
-    onError: (e: any) => Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? "Erreur lors de l'enregistrement"),
+    onError: (e: any) => Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? "Échec de l'enregistrement du profil - réessayez."),
   });
 
   const uploadMut = useMutation({
@@ -92,7 +92,7 @@ export default function CommercantProfil() {
       return api.post('/commercants/moi/documents', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['commercant-documents', fiche?.id] }),
-    onError: (e: any) => Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? "Erreur lors de l'envoi du document"),
+    onError: (e: any) => Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? "Échec de l'envoi du document - réessayez."),
     onSettled: () => setUploadingType(null),
   });
 

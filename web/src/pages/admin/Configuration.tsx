@@ -44,7 +44,7 @@ export default function AdminConfiguration() {
       setTimeout(() => setSucces(false), 3000);
     },
     onError: (err: any) => {
-      setErreur(err?.response?.data?.error ?? 'Erreur lors de la mise à jour.');
+      setErreur(err?.response?.data?.error ?? 'Échec de la mise à jour de la configuration — réessayez.');
     },
   });
 

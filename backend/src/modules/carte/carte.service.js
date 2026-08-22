@@ -171,8 +171,11 @@ async function validerQR(payloadStr, signature) {
     select: { id: true, solde: true, statut: true },
   });
 
-  if (!wallet || wallet.statut !== 'ACTIF') {
-    const err = new Error('Wallet non disponible'); err.statusCode = 403; throw err;
+  if (!wallet) {
+    const err = new Error('Wallet introuvable'); err.statusCode = 404; throw err;
+  }
+  if (wallet.statut !== 'ACTIF') {
+    const err = new Error(`Wallet ${wallet.statut.toLowerCase()}, paiement impossible`); err.statusCode = 403; throw err;
   }
 
   return { autorise: true, wallet_id, montant_max_disponible: Number(wallet.solde) };
@@ -232,8 +235,11 @@ async function payerParQR(commercantUserId, payloadStr, signature, montantTotal,
     where: { id: wallet_id },
     select: { id: true, user_id: true, statut: true },
   });
-  if (!wallet || wallet.statut !== 'ACTIF') {
-    const err = new Error('Wallet non disponible'); err.statusCode = 403; throw err;
+  if (!wallet) {
+    const err = new Error('Wallet introuvable'); err.statusCode = 404; throw err;
+  }
+  if (wallet.statut !== 'ACTIF') {
+    const err = new Error(`Wallet ${wallet.statut.toLowerCase()}, paiement impossible`); err.statusCode = 403; throw err;
   }
 
   const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: commercantUserId } });
@@ -267,8 +273,11 @@ async function payerParNFC(commercantUserId, tokenStr, signature, montantTotal, 
     where: { id: wallet_id },
     select: { id: true, user_id: true, statut: true },
   });
-  if (!wallet || wallet.statut !== 'ACTIF') {
-    const err = new Error('Wallet non disponible'); err.statusCode = 403; throw err;
+  if (!wallet) {
+    const err = new Error('Wallet introuvable'); err.statusCode = 404; throw err;
+  }
+  if (wallet.statut !== 'ACTIF') {
+    const err = new Error(`Wallet ${wallet.statut.toLowerCase()}, paiement impossible`); err.statusCode = 403; throw err;
   }
 
   const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: commercantUserId } });

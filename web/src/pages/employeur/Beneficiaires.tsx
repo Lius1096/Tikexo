@@ -1001,7 +1001,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
                 </button>
               ))}
             </div>
-            {rechargeMut.isError && <div className="text-[10px] text-red-500">{(rechargeMut.error as any)?.response?.data?.error || 'Erreur'}</div>}
+            {rechargeMut.isError && <div className="text-[10px] text-red-500">{(rechargeMut.error as any)?.response?.data?.error || 'Échec du rechargement — réessayez.'}</div>}
             <div className="flex gap-2">
               <button onClick={() => rechargeMut.mutate()}
                 disabled={rechargeMut.isPending || !montantRecharge || parseInt(montantRecharge) < 100}
@@ -1080,7 +1080,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
 
             {modifierMut.isError && (
-              <div className="text-[10px] text-red-500">{(modifierMut.error as any)?.response?.data?.error || 'Erreur'}</div>
+              <div className="text-[10px] text-red-500">{(modifierMut.error as any)?.response?.data?.error || 'Échec de la modification du bénéficiaire — réessayez.'}</div>
             )}
 
             <div className="flex gap-2">
@@ -1269,7 +1269,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
             {sortieMut.isError && (
               <div className="text-[11px] text-red-500 text-center">
-                {(sortieMut.error as any)?.response?.data?.error || 'Erreur'}
+                {(sortieMut.error as any)?.response?.data?.error || 'Échec de l\'enregistrement de la sortie — réessayez.'}
               </div>
             )}
             <div className="flex gap-2">
@@ -1316,7 +1316,7 @@ function BenefPanel({ benef, entrepriseId, onClose, onRefresh }: {
             </div>
             {exclureMut.isError && (
               <div className="text-[11px] text-red-500 text-center">
-                {(exclureMut.error as any)?.response?.data?.error || 'Erreur'}
+                {(exclureMut.error as any)?.response?.data?.error || 'Échec de l\'exclusion — réessayez.'}
               </div>
             )}
             <div className="flex gap-2">

@@ -53,7 +53,7 @@ export default function EquipeRh() {
       setModalOpen(false); setForm(FORM_VIDE); setErreur(null);
     },
     onError: (err: any) => {
-      setErreur(err?.response?.data?.error || 'Une erreur est survenue.');
+      setErreur(err?.response?.data?.error || 'Échec de l\'invitation — réessayez.');
     },
   });
 

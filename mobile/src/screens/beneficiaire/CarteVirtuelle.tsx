@@ -80,13 +80,13 @@ export default function CarteVirtuelle() {
   const creerMut = useMutation({
     mutationFn: () => api.post('/cartes/virtuelle'),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['ma-carte'] }),
-    onError: (e: any) => Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? 'Erreur création carte'),
+    onError: (e: any) => Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec de la création de la carte virtuelle - réessayez.'),
   });
 
   const bloquerMut = useMutation({
     mutationFn: () => api.post(`/cartes/${carte?.id}/bloquer-moi`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['ma-carte'] }); setConfirmBloquer(false); },
-    onError: (e: any) => Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? 'Erreur blocage carte'),
+    onError: (e: any) => Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec du blocage de la carte - réessayez.'),
   });
 
   const demanderPhysiqueMut = useMutation({
@@ -97,7 +97,7 @@ export default function CarteVirtuelle() {
       setAdresseLivraison('');
       Alert.alert('TIKEXO', 'Demande envoyée');
     },
-    onError: (e: any) => Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? 'Erreur lors de la demande'),
+    onError: (e: any) => Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec de la demande de carte physique - réessayez.'),
   });
 
   const getCVV = useCallback(async () => {
@@ -108,7 +108,7 @@ export default function CarteVirtuelle() {
       setCvvSecondes(30);
       setShowCVV(true);
     } catch (e: any) {
-      Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? 'Erreur CVV');
+      Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Impossible d\'afficher le CVV pour le moment - réessayez.');
     }
   }, [carte?.id]);
 

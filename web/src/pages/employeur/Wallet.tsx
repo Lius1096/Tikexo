@@ -376,7 +376,7 @@ export default function EmployeurWallet() {
                       </button>
                     </div>
                     {groupeMutation.isError && (
-                      <div className="text-[11px] text-red-500">{(groupeMutation.error as any)?.response?.data?.error || 'Erreur'}</div>
+                      <div className="text-[11px] text-red-500">{(groupeMutation.error as any)?.response?.data?.error || 'Échec du rechargement groupé — réessayez.'}</div>
                     )}
                   </div>
                 )}

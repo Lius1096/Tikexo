@@ -51,13 +51,13 @@ export default function EmployeurCartes() {
   const bloquer = useMutation({
     mutationFn: (carteId: string) => api.post(`/cartes/${carteId}/bloquer`),
     onSuccess : () => { setActionError(null); invalidate(); },
-    onError   : (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur blocage.'),
+    onError   : (e: any) => setActionError(e?.response?.data?.error ?? 'Échec du blocage de la carte — réessayez.'),
   });
 
   const debloquer = useMutation({
     mutationFn: (carteId: string) => api.post(`/cartes/${carteId}/debloquer`),
     onSuccess : () => { setActionError(null); invalidate(); },
-    onError   : (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur déblocage.'),
+    onError   : (e: any) => setActionError(e?.response?.data?.error ?? 'Échec du déblocage de la carte — réessayez.'),
   });
 
   const isPending = bloquer.isPending || debloquer.isPending;
@@ -333,7 +333,7 @@ function CarteDrawer({ benef, onClose, onBloquer, onDebloquer, isPending }: {
                   />
                   {demanderPhysiqueMut.isError && (
                     <p className="text-[11px] text-red-500">
-                      {(demanderPhysiqueMut.error as any)?.response?.data?.error ?? 'Erreur lors de la demande'}
+                      {(demanderPhysiqueMut.error as any)?.response?.data?.error ?? 'Échec de la demande de carte physique — réessayez.'}
                     </p>
                   )}
                   <div className="flex gap-2">

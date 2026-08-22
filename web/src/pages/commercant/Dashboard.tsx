@@ -15,11 +15,11 @@ export default function CommercantDashboard() {
   const payoutMutation = useMutation({
     mutationFn: () => api.post('/commercants/moi/payout').then((r) => r.data),
     onSuccess: () => {
-      setPayoutMsg('Reversement initié — vous recevrez les fonds sur votre Mobile Money.');
+      setPayoutMsg('Reversement initié, vous recevrez les fonds sur votre Mobile Money.');
       queryClient.invalidateQueries({ queryKey: ['commercant-moi'] });
     },
     onError: (err: any) => {
-      setPayoutMsg(err?.response?.data?.error ?? 'Erreur lors de la demande de reversement.');
+      setPayoutMsg(err?.response?.data?.error ?? 'Échec de la demande de reversement — réessayez.');
     },
   });
 

@@ -67,11 +67,11 @@ export default function CommercantDashboard() {
       setConfirmationOuverte(false);
       qc.invalidateQueries({ queryKey: ['commercant-moi'] });
       const montant = Number(r.data?.data?.montant ?? 0);
-      Alert.alert('TIKEXO', `Reversement envoyé — ${montant.toLocaleString('fr-FR')} XOF en route vers votre Mobile Money.`);
+      Alert.alert('TIKEXO', `Reversement envoyé, ${montant.toLocaleString('fr-FR')} XOF en route vers votre Mobile Money.`);
     },
     onError: (e: any) => {
       setConfirmationOuverte(false);
-      Alert.alert('TIKEXO — Erreur', e?.response?.data?.error ?? 'Erreur lors de la demande de reversement.');
+      Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec de la demande de reversement - réessayez.');
     },
   });
 

@@ -48,7 +48,7 @@ export default function BeneficiaireProfil() {
       await api.post('/auth/cloturer-compte');
       logout();
     } catch (err: any) {
-      setCloturerErr(err.response?.data?.error || 'Une erreur est survenue.');
+      setCloturerErr(err.response?.data?.error || 'Échec de la clôture du compte — réessayez.');
     } finally {
       setCloturerLoading(false);
     }

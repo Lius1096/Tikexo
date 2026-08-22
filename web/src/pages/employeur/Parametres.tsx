@@ -55,7 +55,7 @@ export default function EmployeurParametres() {
       setTimeout(() => setSucces(false), 3000);
     },
     onError: (err: any) => {
-      setErreur(err?.response?.data?.error ?? 'Erreur lors de la mise à jour.');
+      setErreur(err?.response?.data?.error ?? 'Échec de la mise à jour des informations entreprise — réessayez.');
     },
   });
 
@@ -97,7 +97,7 @@ export default function EmployeurParametres() {
       setErreurDemande(null);
     },
     onError: (err: any) => {
-      setErreurDemande(err?.response?.data?.error ?? 'Erreur lors de la demande.');
+      setErreurDemande(err?.response?.data?.error ?? 'Échec de l\'envoi de la demande de plafond — réessayez.');
     },
   });
 

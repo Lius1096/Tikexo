@@ -85,7 +85,7 @@ export default function InscriptionCommercant() {
       });
       setSucces(true);
     } catch (err: any) {
-      setErreur(err?.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');
+      setErreur(err?.response?.data?.error || 'Échec de l\'envoi de votre inscription — réessayez.');
     } finally {
       setLoading(false);
     }

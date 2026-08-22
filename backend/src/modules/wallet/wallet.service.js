@@ -203,7 +203,7 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
   ]);
 
   if (!ent.kyb_valide) {
-    const err = new Error('KYB requis'); err.statusCode = 403; err.code = 'KYB_REQUIS'; throw err;
+    const err = new Error('KYB requis avant tout transfert'); err.statusCode = 403; err.code = 'KYB_REQUIS'; throw err;
   }
   const tauxCommission = parseFloat(ent.taux_commission_defaut.toString());
 

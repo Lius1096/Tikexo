@@ -116,19 +116,19 @@ export default function BeneficiaireCarte() {
   const creerMut = useMutation({
     mutationFn: () => api.post('/cartes/virtuelle'),
     onSuccess : () => { qc.invalidateQueries({ queryKey: ['ma-carte'] }); toastSuccess('Carte virtuelle activée'); },
-    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Erreur création carte'),
+    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Échec de la création de la carte virtuelle — réessayez.'),
   });
 
   const bloquerMut = useMutation({
     mutationFn: () => api.post(`/cartes/${carte?.id}/bloquer-moi`),
     onSuccess : () => { qc.invalidateQueries({ queryKey: ['ma-carte'] }); setConfirmBloquer(false); toastSuccess('Carte bloquée'); },
-    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Erreur blocage carte'),
+    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Échec du blocage de la carte — réessayez.'),
   });
 
   const demanderPhysiqueMut = useMutation({
     mutationFn: () => api.post('/cartes/physique/demande', { adresse_livraison: adresseLivraison }),
     onSuccess : () => { qc.invalidateQueries({ queryKey: ['ma-carte'] }); setShowDemandePhysique(false); setAdresseLivraison(''); toastSuccess('Demande envoyée'); },
-    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de la demande'),
+    onError   : (e: any) => toastError(e?.response?.data?.error ?? 'Échec de la demande de carte physique — réessayez.'),
   });
 
   const getCVV = useCallback(async () => {
@@ -140,7 +140,7 @@ export default function BeneficiaireCarte() {
       setCvvSecondes(30);
       setShowCVV(true);
     } catch (e: any) {
-      toastError(e?.response?.data?.error ?? 'Erreur CVV');
+      toastError(e?.response?.data?.error ?? 'Impossible d\'afficher le CVV pour le moment — réessayez.');
     }
   }, [carte?.id]);
 

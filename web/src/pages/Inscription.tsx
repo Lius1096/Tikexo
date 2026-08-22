@@ -168,7 +168,7 @@ export default function Inscription() {
       effacerKybDocs();
       setEtapeRaw('succes');
     } catch (err: any) {
-      setErreur(err?.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');
+      setErreur(err?.response?.data?.error || 'Échec de la création de votre compte entreprise — réessayez.');
     } finally {
       setLoading(false);
     }

@@ -68,7 +68,7 @@ export default function CommercantProfil() {
   const modifierMut = useMutation({
     mutationFn: () => api.put(`/commercants/${fiche!.id}`, form),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['commercant-moi'] }); setEditMode(false); },
-    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de l\'enregistrement'),
+    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Échec de l\'enregistrement du profil — réessayez.'),
   });
 
   // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
@@ -95,7 +95,7 @@ export default function CommercantProfil() {
       return api.post('/commercants/moi/documents', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['commercant-documents', fiche?.id] }),
-    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Erreur lors de l\'envoi du document'),
+    onError: (e: any) => toastError(e?.response?.data?.error ?? 'Échec de l\'envoi du document — réessayez.'),
   });
 
   function startEdit() {

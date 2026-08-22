@@ -213,7 +213,7 @@ function CommercantDrawer({
   const [ifuEdit, setIfuEdit] = useState<string | null>(null);
 
   function onMutError(e: any) {
-    toastError(e?.response?.data?.error ?? 'Erreur TIKEXO');
+    toastError(e?.response?.data?.error ?? 'Échec de l\'action — réessayez.');
   }
 
   // Le bucket de stockage est privé — fichier_url pointe vers un endpoint

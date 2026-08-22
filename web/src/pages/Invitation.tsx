@@ -66,7 +66,7 @@ export default function Invitation() {
       setStep('success');
       setTimeout(() => navigate(isRh ? '/employeur' : '/beneficiaire'), 2000);
     } catch (err: any) {
-      setFormErr(err.response?.data?.error || 'Une erreur est survenue. Veuillez réessayer.');
+      setFormErr(err.response?.data?.error || 'Échec de la validation de l\'invitation — réessayez.');
     } finally {
       setSubmitting(false);
     }

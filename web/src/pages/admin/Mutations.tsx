@@ -378,7 +378,7 @@ function MutationDrawer({ mutation: m, queryKey, onClose }: {
               </div>
               {traiterMut.isError && (
                 <div className="text-[11px] text-red-600">
-                  {(traiterMut.error as any)?.response?.data?.error || 'Erreur'}
+                  {(traiterMut.error as any)?.response?.data?.error || 'Échec du traitement de la mutation — réessayez.'}
                 </div>
               )}
               <button

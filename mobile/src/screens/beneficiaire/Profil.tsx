@@ -60,7 +60,7 @@ export default function BeneficiaireProfil() {
         Alert.alert('TIKEXO', `Fichier enregistré : ${file.uri}`);
       }
     } catch {
-      Alert.alert('TIKEXO — Erreur', "Impossible d'exporter vos données pour le moment.");
+      Alert.alert('TIKEXO - Erreur', "Impossible d'exporter vos données pour le moment.");
     } finally {
       setExportLoading(false);
     }
@@ -74,7 +74,7 @@ export default function BeneficiaireProfil() {
       await api.post('/auth/cloturer-compte');
       logout();
     } catch (err: any) {
-      setCloturerErr(err.response?.data?.error || 'Une erreur est survenue.');
+      setCloturerErr(err.response?.data?.error || 'Échec de la clôture du compte - réessayez.');
     } finally {
       setCloturerLoading(false);
     }

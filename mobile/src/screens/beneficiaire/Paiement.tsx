@@ -114,7 +114,7 @@ export default function Paiement() {
       setEtape('succes');
     },
     onError: (err: any) => {
-      Alert.alert('TIKEXO — Erreur', err.response?.data?.error || 'Paiement impossible');
+      Alert.alert('TIKEXO - Erreur', err.response?.data?.error || 'Paiement impossible');
     },
   });
 

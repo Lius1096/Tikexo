@@ -70,19 +70,19 @@ export default function EmployeurDotations() {
   const valider = useMutation({
     mutationFn: (ids: string[]) => api.post('/dotations/valider', { dotationIds: ids }),
     onSuccess: () => { setActionError(null); invalidate(); },
-    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur lors de la validation.'),
+    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Échec de la validation des dotations — réessayez.'),
   });
 
   const distribuer = useMutation({
     mutationFn: (ids: string[]) => api.post('/dotations/distribuer', { dotationIds: ids }),
     onSuccess: () => { setActionError(null); invalidate(); },
-    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur lors de la distribution.'),
+    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Échec de la distribution des dotations — réessayez.'),
   });
 
   const ignorer = useMutation({
     mutationFn: (ids: string[]) => api.post('/dotations/ignorer', { dotationIds: ids }),
     onSuccess: () => { setActionError(null); setDrawerDotationId(null); invalidate(); },
-    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Erreur lors de l\'opération.'),
+    onError: (e: any) => setActionError(e?.response?.data?.error ?? 'Échec du marquage de la dotation comme ignorée — réessayez.'),
   });
 
   const items: DotationItem[] = data?.items || [];
