@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // Playwright ne matche par défaut que *.spec.ts / *.test.ts — nos fichiers
+  // sont nommés *.e2e.ts, il faut donc l'expliciter sinon "No tests found".
+  testMatch: '**/*.e2e.ts',
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: false,
