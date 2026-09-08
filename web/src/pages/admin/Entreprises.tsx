@@ -307,20 +307,11 @@ function EntrepriseDrawer({
     onSuccess: invalidateAll,
   });
 
-  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
-  // interne non joignable depuis le navigateur (voir aussi KybDossier.tsx
-  // côté employeur). On récupère une URL de téléchargement signée juste
-  // avant l'ouverture ; la fenêtre est ouverte de façon synchrone pour
-  // éviter le blocage popup sur un window.open() différé après un await.
-  async function voirDocument(docId: string) {
-    const fenetre = window.open('', '_blank');
-    try {
-      const { data } = await api.get(`/kyb/documents/${docId}/url`);
-      if (fenetre) fenetre.location.href = data.data.url;
-    } catch {
-      fenetre?.close();
-      window.alert("Impossible d'ouvrir le document");
-    }
+  // Le backend relaie le fichier en flux après vérification des droits
+  // (jamais d'URL présignée ni de bucket public) — l'authentification passe
+  // par le cookie de session, envoyé automatiquement sur cette navigation.
+  function voirDocument(docId: string) {
+    window.open(`${api.defaults.baseURL}/kyb/documents/${docId}/fichier`, '_blank');
   }
 
   const validerDocMut = useMutation({

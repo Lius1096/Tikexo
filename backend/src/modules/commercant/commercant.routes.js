@@ -64,7 +64,7 @@ router.get('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCom
 router.put('/:id', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.modifier);
 router.get('/:id/documents', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getDocuments);
 // Propriété vérifiée dans le service (docId ne correspond pas à checkCommercantProprietaire, qui attend un id commerçant).
-router.get('/documents/:docId/url', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getUrlDocument);
+router.get('/documents/:docId/fichier', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getFichierDocument);
 router.get('/:id/transactions', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getTransactions);
 router.get('/:id/payouts', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.getPayouts);
 router.post('/:id/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.valider);
@@ -77,7 +77,7 @@ router.patch('/documents/:docId/rejeter', autoriser('SUPER_ADMIN', 'ADMIN_OPS'),
 
 // Tickets de retrait manuel (admin) — voir commercant.service.js#validerTicketRetrait.
 router.get('/tickets-retrait', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.getTicketsRetrait);
-router.get('/tickets-retrait/:id/preuve-url', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getUrlPreuveTicketRetrait);
+router.get('/tickets-retrait/:id/preuve-fichier', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getFichierPreuveTicketRetrait);
 router.patch(
   '/tickets-retrait/:id/valider',
   autoriser('SUPER_ADMIN', 'ADMIN_OPS'),

@@ -1,6 +1,7 @@
 // Contrôleur KYB TIKEXO
 const service = require('./kyb.service');
 const prisma = require('../../config/database');
+const { envoyerFichier } = require('../../config/s3');
 
 async function getDossier(req, res, next) {
   try {
@@ -92,11 +93,11 @@ async function relancerDossier(req, res, next) {
   } catch (e) { next(e); }
 }
 
-async function getUrlDocument(req, res, next) {
+async function getFichierDocument(req, res, next) {
   try {
-    const data = await service.getUrlDocument(req.params.id, req.user);
-    res.json({ success: true, data });
+    const doc = await service.getDocumentAutorise(req.params.id, req.user);
+    await envoyerFichier(res, doc.fichier_url);
   } catch (e) { next(e); }
 }
 
-module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal, relancerDossier, getUrlDocument };
+module.exports = { getDossier, uploadDocument, listerDossiers, getDossierAdmin, validerDocument, rejeterDocument, validerGlobal, relancerDossier, getFichierDocument };

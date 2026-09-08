@@ -15,7 +15,6 @@ const {
   ticketRetraitTraite,
   ticketRetraitRejete,
 } = require('../../utils/emailTemplates');
-const { getSignedDownloadUrl } = require('../../config/s3');
 
 // Seuil de solde disponible à partir duquel un commerçant peut ouvrir une
 // demande de retrait manuel (ticket) — cf. TicketRetrait dans schema.prisma.
@@ -400,10 +399,10 @@ async function getDocuments(commercantId) {
   });
 }
 
-// Même principe que kyb.service.js#getUrlDocument — le bucket S3/MinIO reste
-// privé, l'URL brute stockée en base n'est ni publique ni joignable depuis un
-// navigateur en prod. On vérifie l'accès puis on signe une URL temporaire.
-async function getUrlDocument(docId, requester) {
+// Même principe que kyb.service.js#getDocumentAutorise — le bucket S3/MinIO
+// reste privé. On vérifie l'accès puis le contrôleur relaie le fichier en
+// flux (envoyerFichier) — jamais d'URL présignée distribuée.
+async function getDocumentAutorise(docId, requester) {
   const doc = await prisma.commercantDocument.findUniqueOrThrow({
     where: { id: docId },
     include: { commercant: { select: { user_id: true } } },
@@ -415,8 +414,7 @@ async function getUrlDocument(docId, requester) {
     const err = new Error('Accès refusé à ce document'); err.statusCode = 403; throw err;
   }
 
-  const url = await getSignedDownloadUrl(doc.fichier_url);
-  return { url };
+  return doc;
 }
 
 async function getDocumentAvecContact(docId) {
@@ -658,7 +656,7 @@ async function getTicketRetraitAvecContact(ticketId) {
   });
 }
 
-async function getUrlPreuveTicketRetrait(ticketId, requester) {
+async function getTicketRetraitAutorise(ticketId, requester) {
   const ticket = await prisma.ticketRetrait.findUniqueOrThrow({
     where: { id: ticketId },
     include: { commercant: { select: { user_id: true } } },
@@ -671,8 +669,7 @@ async function getUrlPreuveTicketRetrait(ticketId, requester) {
   if (!ticket.preuve_url) {
     const err = new Error('Aucune preuve disponible pour ce ticket'); err.statusCode = 404; throw err;
   }
-  const url = await getSignedDownloadUrl(ticket.preuve_url);
-  return { url };
+  return ticket;
 }
 
 async function validerTicketRetrait(adminId, ticketId, preuveUrl) {
@@ -775,7 +772,7 @@ module.exports = {
   lister, creer, getById, getByUserId, getStats, modifier, valider, activer, suspendre, archiver,
   rechercherCommercantsProches, getFicheCommercant, getFichePublique, parProximite,
   regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
-  getTransactions, getPayouts, getUrlDocument,
+  getTransactions, getPayouts, getDocumentAutorise,
   creerTicketRetrait, listerMesTicketsRetrait, listerTicketsRetrait,
-  getUrlPreuveTicketRetrait, validerTicketRetrait, rejeterTicketRetrait,
+  getTicketRetraitAutorise, validerTicketRetrait, rejeterTicketRetrait,
 };

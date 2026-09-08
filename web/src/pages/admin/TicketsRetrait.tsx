@@ -63,15 +63,8 @@ export default function AdminTicketsRetrait() {
     onSuccess: invalidate,
   });
 
-  async function voirPreuve(ticketId: string) {
-    const fenetre = window.open('', '_blank');
-    try {
-      const { data } = await api.get(`/commercants/tickets-retrait/${ticketId}/preuve-url`);
-      if (fenetre) fenetre.location.href = data.data.url;
-    } catch {
-      fenetre?.close();
-      window.alert("Impossible d'ouvrir la preuve");
-    }
+  function voirPreuve(ticketId: string) {
+    window.open(`${api.defaults.baseURL}/commercants/tickets-retrait/${ticketId}/preuve-fichier`, '_blank');
   }
 
   const tickets = data ?? [];

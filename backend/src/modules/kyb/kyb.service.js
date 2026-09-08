@@ -7,7 +7,6 @@ const { envoyerEmail } = require('../../utils/email');
 const { kybApprouve, kybRejete } = require('../../utils/emailTemplates');
 const { creerOtp } = require('../../utils/otp');
 const { envoyerOtpSms } = require('../../config/sms');
-const { getSignedDownloadUrl } = require('../../config/s3');
 
 const ROLES_ADMIN_KYB = ['SUPER_ADMIN', 'ADMIN_OPS'];
 
@@ -428,10 +427,10 @@ async function listerDossiers(filtres = {}) {
 
 // Le bucket S3/MinIO reste privé (voir s3.js) — un document KYB ne peut être
 // consulté qu'après vérification que le demandeur est soit un admin TIKEXO,
-// soit membre de l'entreprise propriétaire du dossier, puis signature d'une
-// URL temporaire. `fichier_url` brut (stocké en base) n'est plus exposé
-// directement au frontend.
-async function getUrlDocument(documentId, requester) {
+// soit membre de l'entreprise propriétaire du dossier. Le fichier est ensuite
+// relayé en flux par le contrôleur (envoyerFichier) : jamais d'URL signée
+// distribuée, jamais de bucket exposé publiquement.
+async function getDocumentAutorise(documentId, requester) {
   const doc = await prisma.kybDocument.findUniqueOrThrow({
     where: { id: documentId },
     include: { dossier: { select: { entreprise_id: true } } },
@@ -443,8 +442,7 @@ async function getUrlDocument(documentId, requester) {
     const err = new Error('Accès refusé à ce document'); err.statusCode = 403; throw err;
   }
 
-  const url = await getSignedDownloadUrl(doc.fichier_url);
-  return { url };
+  return doc;
 }
 
 async function validerGlobal(adminId, dossierId) {
@@ -488,7 +486,7 @@ module.exports = {
   relancerTousLesDossiersRejetes,
   listerDossiers,
   validerGlobal,
-  getUrlDocument,
+  getDocumentAutorise,
   DOCS_OBLIGATOIRES,
   LABEL_TYPE_DOCUMENT,
   TAILLE_MAX_DEFAUT,

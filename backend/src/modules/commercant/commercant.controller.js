@@ -1,5 +1,6 @@
 // Contrôleur commerçant TIKEXO — zéro logique métier
 const service = require('./commercant.service');
+const { envoyerFichier } = require('../../config/s3');
 
 async function nearby(req, res, next) {
   try {
@@ -107,8 +108,11 @@ async function getTicketsRetrait(req, res, next) {
   try { res.json({ success: true, data: await service.listerTicketsRetrait(req.query) }); } catch (e) { next(e); }
 }
 
-async function getUrlPreuveTicketRetrait(req, res, next) {
-  try { res.json({ success: true, data: await service.getUrlPreuveTicketRetrait(req.params.id, req.user) }); } catch (e) { next(e); }
+async function getFichierPreuveTicketRetrait(req, res, next) {
+  try {
+    const ticket = await service.getTicketRetraitAutorise(req.params.id, req.user);
+    await envoyerFichier(res, ticket.preuve_url);
+  } catch (e) { next(e); }
 }
 
 async function validerTicketRetrait(req, res, next) {
@@ -137,8 +141,11 @@ async function getDocuments(req, res, next) {
   try { res.json({ success: true, data: await service.getDocuments(req.params.id) }); } catch (e) { next(e); }
 }
 
-async function getUrlDocument(req, res, next) {
-  try { res.json({ success: true, data: await service.getUrlDocument(req.params.docId, req.user) }); } catch (e) { next(e); }
+async function getFichierDocument(req, res, next) {
+  try {
+    const doc = await service.getDocumentAutorise(req.params.docId, req.user);
+    await envoyerFichier(res, doc.fichier_url);
+  } catch (e) { next(e); }
 }
 
 async function validerDocument(req, res, next) {
@@ -160,7 +167,7 @@ async function getPayouts(req, res, next) {
 module.exports = {
   lister, creer, getById, modifier, valider, activer, suspendre, archiver, parProximite, nearby, fiche,
   fichePublique, regenererQRCode, getMoi, getMesStats, uploaderDocument, getDocuments,
-  validerDocument, rejeterDocument, getTransactions, getPayouts, getUrlDocument,
-  creerTicketRetrait, getMesTicketsRetrait, getTicketsRetrait, getUrlPreuveTicketRetrait,
+  validerDocument, rejeterDocument, getTransactions, getPayouts, getFichierDocument,
+  creerTicketRetrait, getMesTicketsRetrait, getTicketsRetrait, getFichierPreuveTicketRetrait,
   validerTicketRetrait, rejeterTicketRetrait,
 };

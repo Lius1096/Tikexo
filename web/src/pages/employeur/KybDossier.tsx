@@ -149,21 +149,12 @@ function DocZone({ config, doc, onUpload, uploading }: {
     onUpload(config.type, file);
   }
 
-  // Le bucket de stockage est privé — fichier_url pointe vers un endpoint
-  // interne non joignable depuis le navigateur. On récupère une URL de
-  // téléchargement signée et temporaire juste avant l'ouverture. La fenêtre
-  // est ouverte de façon synchrone (avant l'await) pour éviter le blocage
-  // popup de certains navigateurs sur un window.open() différé.
-  async function voirDocument() {
+  // Le backend relaie le fichier en flux après vérification des droits
+  // (jamais d'URL présignée ni de bucket public) — l'authentification passe
+  // par le cookie de session, envoyé automatiquement sur cette navigation.
+  function voirDocument() {
     if (!doc) return;
-    const fenetre = window.open('', '_blank');
-    try {
-      const { data } = await api.get(`/kyb/documents/${doc.id}/url`);
-      if (fenetre) fenetre.location.href = data.data.url;
-    } catch {
-      fenetre?.close();
-      toastError("Impossible d'ouvrir le document");
-    }
+    window.open(`${api.defaults.baseURL}/kyb/documents/${doc.id}/fichier`, '_blank');
   }
 
   const dropCls = isValid ? 'valid' : isUploaded ? 'uploaded' : isRejected ? 'rejected' : uploading ? 'uploading' : '';

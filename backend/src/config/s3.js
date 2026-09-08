@@ -1,9 +1,7 @@
 // Client S3 compatible MinIO (dev) et Cloudflare R2 (prod)
 const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 let _client = null;
-let _clientPresign = null;
 
 function getClient() {
   if (!_client && process.env.S3_ENDPOINT) {
@@ -18,30 +16,6 @@ function getClient() {
     });
   }
   return _client;
-}
-
-// Client dédié à la génération d'URLs présignées, construit avec l'endpoint
-// PUBLIC (S3_PUBLIC_URL) plutôt que l'endpoint interne (S3_ENDPOINT, ex.
-// "http://minio:9000" — un nom de service Docker injoignable depuis un
-// navigateur). Signer avec le bon host dès le départ est nécessaire : le host
-// fait partie des en-têtes signés SigV4, réécrire l'URL après signature
-// invaliderait la signature. En dev, S3_PUBLIC_URL est vide donc on retombe
-// sur S3_ENDPOINT (déjà "http://localhost:9000", joignable depuis le
-// navigateur de l'admin).
-function getPresignClient() {
-  const endpoint = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
-  if (!_clientPresign && endpoint) {
-    _clientPresign = new S3Client({
-      region: process.env.S3_REGION || 'auto',
-      endpoint,
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY,
-        secretAccessKey: process.env.S3_SECRET_KEY,
-      },
-      forcePathStyle: true,
-    });
-  }
-  return _clientPresign;
 }
 
 async function uploadBuffer(buffer, key, mimeType) {
@@ -75,17 +49,39 @@ function cleDepuisUrl(fichierUrl) {
   return fichierUrl.slice(idx + bucket.length + 2);
 }
 
-// Génère une URL de téléchargement signée et temporaire pour un document
-// privé (KYB entreprise, pièces commerçant...). Le bucket reste privé — sans
-// signature, l'URL brute stockée en base n'est ni publique ni même
-// joignable depuis un navigateur (endpoint MinIO interne au réseau docker).
-async function getSignedDownloadUrl(fichierUrl, expiresIn = 300) {
-  const client = getPresignClient();
+// Récupère un document privé (KYB, pièce commerçant, preuve de retrait...)
+// en flux directement depuis S3/MinIO. Le bucket reste strictement privé et
+// n'est jamais exposé publiquement — pas d'URL présignée à distribuer, pas de
+// nom de domaine/certificat dédié à gérer : c'est le backend (déjà public)
+// qui relaie l'objet après avoir vérifié les droits d'accès côté appelant.
+async function getObjectStream(fichierUrl) {
+  const client = getClient();
   const cle = client ? cleDepuisUrl(fichierUrl) : null;
-  if (!client || !cle) return fichierUrl; // dev local sans S3 : chemin déjà servable tel quel
+  if (!client || !cle) return null; // dev local sans S3 : chemin déjà servable tel quel
 
-  const commande = new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: cle });
-  return getSignedUrl(client, commande, { expiresIn });
+  const objet = await client.send(new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: cle }));
+  return { body: objet.Body, contentType: objet.ContentType, contentLength: objet.ContentLength };
+}
+
+// Envoie un document privé en réponse HTTP — flux S3/R2, ou redirection vers
+// le chemin local si S3 n'est pas configuré (dev sans MinIO). Centralise la
+// logique commune aux routes /fichier (KYB, documents commerçant, preuves de
+// retrait) : l'appelant a déjà vérifié les droits d'accès avant d'appeler ceci.
+async function envoyerFichier(res, fichierUrl) {
+  let objet;
+  try {
+    objet = await getObjectStream(fichierUrl);
+  } catch (err) {
+    if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+      return res.status(404).json({ success: false, error: 'Fichier introuvable' });
+    }
+    throw err;
+  }
+  if (!objet) return res.redirect(fichierUrl);
+
+  res.set('Content-Type', objet.contentType || 'application/octet-stream');
+  if (objet.contentLength) res.set('Content-Length', String(objet.contentLength));
+  objet.body.pipe(res);
 }
 
 // Middleware Express : lit le fichier sauvé par multer diskStorage, l'envoie
@@ -114,4 +110,4 @@ function s3UploadMiddleware(subfolder) {
   };
 }
 
-module.exports = { uploadBuffer, s3UploadMiddleware, getSignedDownloadUrl };
+module.exports = { uploadBuffer, s3UploadMiddleware, envoyerFichier };
