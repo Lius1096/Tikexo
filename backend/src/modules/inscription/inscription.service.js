@@ -6,6 +6,7 @@ const { envoyerEmail } = require('../../utils/email');
 const { inscriptionEntrepriseConfirmee } = require('../../utils/emailTemplates');
 const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
 const { normaliserIfu, validerIfu, normaliserRccm, validerRccm } = require('../../utils/identifiants');
+const { getPlatformConfig } = require('../../utils/platformConfig');
 
 async function creerDossierKyb(prisma, entrepriseId) {
   const deadline = new Date();
@@ -16,7 +17,6 @@ async function creerDossierKyb(prisma, entrepriseId) {
 }
 
 // Grille de frais de gestion mensuel selon le nombre de salariés couverts
-// La commission sur transactions est fixe : 5 % côté bénéficiaire + 5 % côté commerçant
 function calculerFraisGestion(nbEmployes) {
   const n = parseInt(nbEmployes, 10) || 0;
   if (n <= 50)  return { frais: 5000,      plan: 'PME_S', label: 'PME · S' };
@@ -25,9 +25,11 @@ function calculerFraisGestion(nbEmployes) {
   return              { frais: 350 * n,   plan: 'GE',    label: 'Grandes Entreprises' };
 }
 
-const TAUX_COMMISSION_TRANSACTION = 5.00; // appliqué côté benef ET côté commercant
-
 async function inscrire({ entreprise: e, admin: a }) {
+  // Taux de commission côté bénéficiaire pour cette nouvelle entreprise,
+  // réglable depuis /admin/configuration (n'affecte que les nouvelles
+  // inscriptions, jamais les entreprises déjà créées).
+  const { taux_frais_benef_defaut } = await getPlatformConfig();
   // Normaliser et valider le téléphone
   a.telephone = normaliserTelephone(a.telephone);
   if (!validerTelephone(a.telephone)) {
@@ -145,7 +147,7 @@ async function inscrire({ entreprise: e, admin: a }) {
         dotation_max: dotationMax,
         montant_max_wallet: montantMaxWallet,
         plafond_recharge_mensuel: plafondRechargeMensuel,
-        taux_commission_defaut: TAUX_COMMISSION_TRANSACTION,
+        taux_commission_defaut: taux_frais_benef_defaut,
         statut: 'EN_ATTENTE',
       },
     });
@@ -301,6 +303,10 @@ async function uploadDocumentInscription({ entreprise_id, type, fichier }) {
 }
 
 async function inscrireCommercant({ nom, type, email: emailRaw, telephone: telRaw, mobile_money_operateur, adresse, ville, ifu, mot_de_passe }) {
+  // Taux de commission côté commerçant pour ce nouveau compte, réglable
+  // depuis /admin/configuration (n'affecte que les nouvelles inscriptions).
+  const { taux_frais_commercant_defaut } = await getPlatformConfig();
+
   const email = emailRaw?.trim()?.toLowerCase();
   if (!email || !email.includes('@')) {
     const err = new Error("Adresse email invalide — elle servira d'identifiant de connexion");
@@ -380,6 +386,7 @@ async function inscrireCommercant({ nom, type, email: emailRaw, telephone: telRa
         adresse: adresse || null,
         ville: ville || 'Cotonou',
         statut: 'SOUMIS',
+        taux_commission: taux_frais_commercant_defaut,
       },
     });
 

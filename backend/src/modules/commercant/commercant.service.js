@@ -16,9 +16,7 @@ const {
   ticketRetraitRejete,
 } = require('../../utils/emailTemplates');
 
-// Seuil de solde disponible à partir duquel un commerçant peut ouvrir une
-// demande de retrait manuel (ticket) — cf. TicketRetrait dans schema.prisma.
-const SEUIL_TICKET_RETRAIT = parseFloat(process.env.TIKEXO_SEUIL_TICKET_RETRAIT || '50000');
+const { getPlatformConfig } = require('../../utils/platformConfig');
 
 const ROLES_ADMIN_COMMERCANT = ['SUPER_ADMIN', 'ADMIN_OPS'];
 const {
@@ -90,6 +88,10 @@ async function creer(data, creePar) {
     throw err;
   }
 
+  // Taux de commission par défaut, réglable depuis /admin/configuration
+  // (n'affecte que les nouvelles créations, jamais les comptes existants).
+  const { taux_frais_commercant_defaut } = await getPlatformConfig();
+
   // Transaction : user + commercant + wallet — évite un compte orphelin si
   // une des créations échoue après que les précédentes ont réussi (même
   // pattern que inscrireCommercant côté self-service).
@@ -118,6 +120,7 @@ async function creer(data, creePar) {
         adresse: data.adresse,
         ville: data.ville || 'Cotonou',
         statut: 'SOUMIS',
+        taux_commission: taux_frais_commercant_defaut,
       },
     });
 
@@ -552,11 +555,12 @@ async function getByUserId(userId) {
   });
   if (!result) return null;
   const { user, ...rest } = result;
+  const { seuil_ticket_retrait } = await getPlatformConfig();
   return {
     ...rest,
     wallet: user?.wallet ?? null,
     frais_payout_manuel_taux: TAUX_FRAIS_PAYOUT_MANUEL,
-    seuil_ticket_retrait: SEUIL_TICKET_RETRAIT,
+    seuil_ticket_retrait,
   };
 }
 
@@ -570,6 +574,7 @@ async function getByUserId(userId) {
 // voir queues/startWorkers.js).
 async function creerTicketRetrait(commercantId) {
   const { verrouillerWallet } = require('../../utils/ledger');
+  const { seuil_ticket_retrait: seuilTicketRetrait } = await getPlatformConfig();
 
   const { ticket, userId } = await prisma.$transaction(async (tx) => {
     const commercant = await tx.commercant.findUniqueOrThrow({
@@ -602,9 +607,9 @@ async function creerTicketRetrait(commercantId) {
       parseFloat(walletVerrouille.solde.toString()) - parseFloat(walletVerrouille.solde_reserve.toString())
     );
 
-    if (soldeDisponible < SEUIL_TICKET_RETRAIT) {
+    if (soldeDisponible < seuilTicketRetrait) {
       const err = new Error(
-        `Solde disponible insuffisant pour un retrait. Minimum requis : ${SEUIL_TICKET_RETRAIT.toLocaleString('fr-FR')} XOF, disponible : ${Math.max(soldeDisponible, 0).toLocaleString('fr-FR')} XOF.`
+        `Solde disponible insuffisant pour un retrait. Minimum requis : ${seuilTicketRetrait.toLocaleString('fr-FR')} XOF, disponible : ${Math.max(soldeDisponible, 0).toLocaleString('fr-FR')} XOF.`
       );
       err.statusCode = 422; err.code = 'SOLDE_INSUFFISANT_TICKET'; throw err;
     }

@@ -4,19 +4,17 @@ import { Settings, Save, Loader2, Info } from 'lucide-react';
 import api from '../../lib/api';
 
 interface Config {
-  taux_frais_benef:      number;
-  taux_frais_commercant: number;
-  plafond_journalier:    number;
-  seuil_payout_minimum:  number;
-  seuil_anti_fraude:     number;
+  taux_frais_benef_defaut:      number;
+  taux_frais_commercant_defaut: number;
+  plafond_journalier:           number;
+  seuil_ticket_retrait:         number;
 }
 
 const CHAMPS: { key: keyof Config; label: string; unite: string; desc: string; min: number; max: number; step: number }[] = [
-  { key: 'taux_frais_benef',      label: 'Frais bénéficiaire',     unite: '%',   desc: 'Prélevé sur chaque transaction côté bénéficiaire',     min: 0, max: 20,     step: 0.5  },
-  { key: 'taux_frais_commercant', label: 'Frais commerçant',       unite: '%',   desc: 'Déduit du montant reçu par le commerçant',             min: 0, max: 20,     step: 0.5  },
-  { key: 'plafond_journalier',    label: 'Plafond journalier',     unite: 'XOF', desc: 'Montant max qu\'un bénéficiaire peut dépenser par jour', min: 1000, max: 100000, step: 500  },
-  { key: 'seuil_payout_minimum',  label: 'Seuil payout minimum',  unite: 'XOF', desc: 'Solde minimum d\'un commerçant pour déclencher un payout', min: 500, max: 50000,  step: 100  },
-  { key: 'seuil_anti_fraude',     label: 'Seuil anti-fraude',     unite: '/5',  desc: 'Score de risque à partir duquel une transaction est bloquée', min: 1, max: 5,  step: 1    },
+  { key: 'taux_frais_benef_defaut',      label: 'Frais bénéficiaire (nouvelles entreprises)', unite: '%',   desc: 'Appliqué aux entreprises inscrites à partir de maintenant, sans effet sur celles déjà créées', min: 0, max: 20, step: 0.5 },
+  { key: 'taux_frais_commercant_defaut', label: 'Frais commerçant (nouveaux comptes)',        unite: '%',   desc: 'Appliqué aux commerçants inscrits à partir de maintenant, sans effet sur les comptes existants', min: 0, max: 20, step: 0.5 },
+  { key: 'plafond_journalier',           label: 'Plafond journalier',                         unite: 'XOF', desc: 'Montant max qu\'un bénéficiaire peut dépenser par jour, effet immédiat sur toutes les transactions', min: 1000, max: 100000, step: 500 },
+  { key: 'seuil_ticket_retrait',         label: 'Seuil de retrait commerçant',                unite: 'XOF', desc: 'Solde disponible minimum pour qu\'un commerçant puisse ouvrir une demande de retrait, effet immédiat', min: 5000, max: 200000, step: 5000 },
 ];
 
 export default function AdminConfiguration() {
@@ -48,17 +46,6 @@ export default function AdminConfiguration() {
     },
   });
 
-  function afficher(key: keyof Config, val: number) {
-    if (key === 'taux_frais_benef' || key === 'taux_frais_commercant') return (val * 100).toFixed(1);
-    return val;
-  }
-
-  function parseSaisie(key: keyof Config, raw: string): number {
-    const n = parseFloat(raw);
-    if (key === 'taux_frais_benef' || key === 'taux_frais_commercant') return n / 100;
-    return n;
-  }
-
   return (
     <div className="p-[18px_20px]">
       <div className="text-[15px] font-medium text-slate-900 mb-0.5">Configuration</div>
@@ -85,7 +72,6 @@ export default function AdminConfiguration() {
           <div className="divide-y divide-slate-50">
             {CHAMPS.map(({ key, label, unite, desc, min, max, step }) => {
               const val = form[key] ?? 0;
-              const affichage = afficher(key, val as number);
               return (
                 <div key={key} className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center gap-3">
                   <div className="flex-1 min-w-0">
@@ -101,9 +87,9 @@ export default function AdminConfiguration() {
                       min={min}
                       max={max}
                       step={step}
-                      value={affichage}
+                      value={val}
                       onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: parseSaisie(key, e.target.value) }))
+                        setForm((f) => ({ ...f, [key]: parseFloat(e.target.value) }))
                       }
                       className="w-28 text-xs text-right border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-tikexo-primary"
                     />
@@ -125,7 +111,7 @@ export default function AdminConfiguration() {
             Enregistrer la configuration
           </button>
           <div className="text-[11px] text-slate-400">
-            Les modifications prennent effet immédiatement pour toutes les nouvelles transactions.
+            Voir le détail sous chaque champ : certains réglages s'appliquent immédiatement, d'autres seulement aux prochaines inscriptions.
           </div>
         </div>
       </div>

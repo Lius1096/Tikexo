@@ -757,3 +757,18 @@ model LandingConfig {
 
   @@map("landing_config")
 }
+
+// Réglages globaux de la plateforme, modifiables depuis /admin/configuration.
+// Ligne singleton (id fixe "singleton"), stockée en base pour survivre aux
+// redéploiements, contrairement à l'ancien fichier platform-config.json qui
+// vivait dans le système de fichiers éphémère du conteneur et était donc
+// remis à zéro à chaque déploiement, sans jamais réellement piloter le
+// comportement de l'application (voir utils/platformConfig.js).
+model PlatformConfig {
+  id                            String   @id @default("singleton")
+  taux_frais_benef_defaut       Decimal  @db.Decimal(5,2)  @default(5.00)
+  taux_frais_commercant_defaut  Decimal  @db.Decimal(5,2)  @default(5.00)
+  plafond_journalier            Decimal  @db.Decimal(12,2) @default(10000)
+  seuil_ticket_retrait          Decimal  @db.Decimal(12,2) @default(50000)
+  updatedAt                     DateTime @updatedAt
+}

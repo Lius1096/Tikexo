@@ -5,12 +5,12 @@ const { transfererEntreWallets, verifierPlafondJournalier } = require('../../uti
 const { evaluerTransaction } = require('../../utils/antiFraude');
 const { verifierAccesTransaction } = require('../../utils/kyc');
 const { estEligible } = require('../../utils/jours-feries-benin');
+const { getPlatformConfig } = require('../../utils/platformConfig');
 const notificationService = require('../notification/notification.service');
 
 // Taux de secours si commercant.taux_commission est absent (ne devrait pas
 // arriver — le champ a un défaut en base — mais évite un crash si jamais).
 const TAUX_COMMISSION_DEFAUT = parseFloat(process.env.TIKEXO_COMMISSION_DEFAULT || '5.00');
-const PLAFOND_JOURNALIER = parseFloat(process.env.TIKEXO_PLAFOND_JOURNALIER_DEFAULT || '10000');
 
 async function creer(beneficiaireId, { commercantId, montantTotal, localisation }) {
   // Le XOF n'a pas de centime — un montant non entier ferait dériver tous les
@@ -49,8 +49,9 @@ async function creer(beneficiaireId, { commercantId, montantTotal, localisation 
     throw err;
   }
 
-  // 4. Vérifier le plafond journalier
-  const plafond = await verifierPlafondJournalier(prisma, beneficiaireId, montantTotal, PLAFOND_JOURNALIER);
+  // 4. Vérifier le plafond journalier (réglage admin, /admin/configuration)
+  const { plafond_journalier } = await getPlatformConfig();
+  const plafond = await verifierPlafondJournalier(prisma, beneficiaireId, montantTotal, plafond_journalier);
   if (!plafond.autorise) {
     const err = new Error(`Plafond journalier TIKEXO atteint — reste : ${plafond.reste} XOF`);
     err.statusCode = 400;

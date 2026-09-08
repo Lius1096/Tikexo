@@ -6,6 +6,7 @@ const { normaliserTelephone } = require('../../utils/telephone');
 const { envoyerEmail } = require('../../utils/email');
 const { invitationRh } = require('../../utils/emailTemplates');
 const { invaliderCacheUser } = require('../../middlewares/auth');
+const { getPlatformConfig } = require('../../utils/platformConfig');
 
 async function lister(filtres = {}) {
   const { statut, q } = filtres;
@@ -60,6 +61,10 @@ async function lister(filtres = {}) {
 }
 
 async function creer(data) {
+  // Réglable depuis /admin/configuration si data.taux_commission_defaut
+  // n'est pas fourni explicitement pour cette entreprise.
+  const { taux_frais_benef_defaut } = await getPlatformConfig();
+
   const entreprise = await prisma.entreprise.create({
     data: {
       nom: data.nom,
@@ -70,7 +75,7 @@ async function creer(data) {
       ville: data.ville || 'Cotonou',
       telephone_rh: data.telephone_rh,
       email_rh: data.email_rh,
-      taux_commission_defaut: data.taux_commission_defaut || 5.00,
+      taux_commission_defaut: data.taux_commission_defaut || taux_frais_benef_defaut,
     },
   });
 
