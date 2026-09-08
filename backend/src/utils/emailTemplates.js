@@ -1,5 +1,6 @@
 // Templates email TIKEXO — layout unifié + branding
 // Tous les emails sortants passent par ces fonctions.
+const { texteVersHtml } = require('./texteEmail');
 
 const COULEUR_PRIMAIRE = '#1A3C5E';
 const COULEUR_ACCENT   = '#2D9CDB';
@@ -648,23 +649,13 @@ function ticketSupportResolu(prenom, sujet) {
   return { html, text };
 }
 
-function echapperHtml(texte) {
-  return String(texte)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
 /**
  * Communication de masse envoyée depuis /admin/broadcast (annonce produit,
  * changement réel de fonctionnement...). Le corps est composé librement par
  * l'admin — échappé puis converti en paragraphes avant insertion dans le HTML.
  */
 function broadcastAnnonce(prenom, titre, corps, pieceJointeUrl) {
-  const corpsHtml = echapperHtml(corps)
-    .split(/\n{2,}/)
-    .map((p) => `<p style="color:#555;margin:0 0 16px;white-space:pre-line">${p}</p>`)
-    .join('');
+  const corpsHtml = texteVersHtml(corps);
 
   const html = layout({
     titre,
@@ -681,6 +672,7 @@ function broadcastAnnonce(prenom, titre, corps, pieceJointeUrl) {
 }
 
 module.exports = {
+  layout,
   pinReset,
   bienvenueBeneficiaire,
   invitationRh,

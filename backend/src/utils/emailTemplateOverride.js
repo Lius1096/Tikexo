@@ -3,7 +3,14 @@
 // donnée, le code utilise son modèle par défaut codé en dur (les fonctions
 // de emailTemplates.js, inchangées) — aucune régression possible si
 // l'admin n'a rien personnalisé.
+//
+// L'admin ne voit ni n'écrit jamais de HTML : il tape un message en texte
+// normal (comme un email classique, lignes vides entre les paragraphes),
+// habillé automatiquement dans le même gabarit de marque TIKEXO
+// (logo, couleurs, pied de page) que tous les autres emails.
 const prisma = require('../config/database');
+const { layout } = require('./emailTemplates');
+const { texteVersHtml } = require('./texteEmail');
 
 const CLES_VALIDES = ['BIENVENUE_ENTREPRISE', 'KYB_REJETE', 'KYB_APPROUVE'];
 
@@ -17,11 +24,11 @@ async function rendreEmail(cle, variables, genererParDefaut) {
   const override = await prisma.emailTemplate.findUnique({ where: { cle } });
   if (!override) return genererParDefaut();
 
-  return {
-    subject: interpoler(override.sujet, variables),
-    html: interpoler(override.corps_html, variables),
-    text: interpoler(override.corps_texte, variables),
-  };
+  const subject = interpoler(override.sujet, variables);
+  const message = interpoler(override.corps, variables);
+  const html = layout({ titre: subject, corps: texteVersHtml(message) });
+
+  return { subject, html, text: message };
 }
 
 module.exports = { rendreEmail, interpoler, CLES_VALIDES };

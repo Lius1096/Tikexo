@@ -21,14 +21,20 @@ const EMAIL_TEMPLATES_META = {
   BIENVENUE_ENTREPRISE: {
     label: 'Bienvenue — nouvelle entreprise inscrite',
     variables: ['nomEntreprise', 'nomContact', 'lienConnexion'],
+    sujetSuggere: 'Votre espace entreprise TIKEXO est prêt',
+    suggestion: 'Bonjour {{nomContact}},\n\nLe compte entreprise {{nomEntreprise}} a été créé avec succès sur TIKEXO. Il ne reste qu\'une étape avant d\'activer vos dotations : soumettre vos documents KYB.\n\nConnectez-vous à votre espace pour commencer : {{lienConnexion}}',
   },
   KYB_REJETE: {
     label: 'KYB rejeté (et rappel automatique)',
     variables: ['nomEntreprise', 'nomContact', 'motif', 'nomTypeDocument', 'lienKyb'],
+    sujetSuggere: 'TIKEXO — Un document a été rejeté, action requise',
+    suggestion: 'Bonjour {{nomContact}},\n\nUn ou plusieurs documents du dossier KYB de {{nomEntreprise}} ont été rejetés par l\'équipe TIKEXO.\n\nMotif : {{motif}}\n\nRendez-vous sur votre espace pour compléter le document : {{lienKyb}}',
   },
   KYB_APPROUVE: {
     label: 'KYB approuvé',
     variables: ['nomEntreprise', 'nomContact', 'telephone', 'lienConnexion'],
+    sujetSuggere: 'Votre KYB est approuvé — Activez votre accès RH',
+    suggestion: 'Bonjour {{nomContact}},\n\n{{nomEntreprise}} est maintenant vérifiée sur TIKEXO. Un code a été envoyé par SMS au {{telephone}} pour votre première connexion.\n\nConnectez-vous ici : {{lienConnexion}}',
   },
 };
 
@@ -477,10 +483,11 @@ async function listerEmailTemplates() {
       cle,
       label: meta.label,
       variables: meta.variables,
+      sujetSuggere: meta.sujetSuggere,
+      suggestion: meta.suggestion,
       personnalise: !!override,
       sujet: override?.sujet ?? null,
-      corps_html: override?.corps_html ?? null,
-      corps_texte: override?.corps_texte ?? null,
+      corps: override?.corps ?? null,
       updatedAt: override?.updatedAt ?? null,
     };
   });
@@ -490,15 +497,15 @@ async function upsertEmailTemplate(cle, data, adminId) {
   if (!EMAIL_TEMPLATES_META[cle]) {
     const err = new Error('Modèle email inconnu'); err.statusCode = 400; throw err;
   }
-  if (!data.sujet?.trim() || !data.corps_html?.trim() || !data.corps_texte?.trim()) {
-    const err = new Error('Sujet, corps HTML et corps texte requis'); err.statusCode = 400; throw err;
+  if (!data.sujet?.trim() || !data.corps?.trim()) {
+    const err = new Error('Sujet et message requis'); err.statusCode = 400; throw err;
   }
 
   const template = await prisma.emailTemplate.upsert({
     where: { cle },
-    update: { sujet: data.sujet.trim(), corps_html: data.corps_html.trim(), corps_texte: data.corps_texte.trim(), modifie_par: adminId },
+    update: { sujet: data.sujet.trim(), corps: data.corps.trim(), modifie_par: adminId },
     create: {
-      cle, sujet: data.sujet.trim(), corps_html: data.corps_html.trim(), corps_texte: data.corps_texte.trim(),
+      cle, sujet: data.sujet.trim(), corps: data.corps.trim(),
       variables: EMAIL_TEMPLATES_META[cle].variables, modifie_par: adminId,
     },
   });

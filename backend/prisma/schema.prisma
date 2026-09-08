@@ -814,12 +814,13 @@ model LandingConfig {
 // qu'aucune ligne n'existe pour une clé donnée, le code utilise son modèle
 // par défaut codé en dur (voir utils/emailTemplateOverride.js) — aucune
 // perte de contenu, aucun risque de casser un email si l'admin n'a rien
-// personnalisé.
+// personnalisé. `corps` est du texte brut avec {{variables}} — jamais de
+// HTML : l'admin n'a pas à connaître de balises, la mise en forme (gabarit
+// de marque TIKEXO, paragraphes) est appliquée automatiquement à l'envoi.
 model EmailTemplate {
   cle          String   @id
   sujet        String
-  corps_html   String
-  corps_texte  String
+  corps        String
   variables    String[]
   modifie_par  String
   updatedAt    DateTime @updatedAt

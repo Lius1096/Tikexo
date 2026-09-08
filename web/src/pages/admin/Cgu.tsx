@@ -68,14 +68,14 @@ export default function AdminCgu() {
         <div className="bg-white border border-slate-100 rounded-lg p-5 space-y-4 mb-6">
           <div>
             <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
-              Contenu (HTML) <span className="text-slate-400 font-normal">— utilisez des balises &lt;h2&gt; pour les titres de section et &lt;p&gt; pour les paragraphes</span>
+              Contenu <span className="text-slate-400 font-normal">— écrivez comme un document normal ; commencez une ligne par # pour un titre de section, laissez une ligne vide entre deux paragraphes</span>
             </label>
             <textarea
               value={contenu}
               onChange={(e) => setContenu(e.target.value)}
-              placeholder={!actuelle ? "Collez ici le texte complet des CGU (HTML) pour publier une première version personnalisée…" : undefined}
+              placeholder={!actuelle ? "Collez ici le texte complet des CGU pour publier une première version personnalisée…" : undefined}
               rows={18}
-              className="w-full font-mono text-xs resize-y border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
+              className="w-full text-sm leading-relaxed resize-y border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
             />
           </div>
 

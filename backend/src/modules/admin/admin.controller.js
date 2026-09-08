@@ -1,5 +1,6 @@
 // Contrôleur admin TIKEXO — zéro logique métier
 const service = require('./admin.service');
+const { texteStructureVersHtml } = require('../../utils/texteEmail');
 
 async function getDashboard(req, res, next) {
   try { res.json({ success: true, data: await service.getDashboard() }); } catch (e) { next(e); }
@@ -132,7 +133,11 @@ async function traiterDemandePlafond(req, res, next) {
 
 // Public — voir routes.js — pas de vérification de rôle admin ici.
 async function getCguPublique(req, res, next) {
-  try { res.json({ success: true, data: await service.getCguActuelle() }); } catch (e) { next(e); }
+  try {
+    const version = await service.getCguActuelle();
+    if (!version) return res.json({ success: true, data: null });
+    res.json({ success: true, data: { ...version, contenu_html: texteStructureVersHtml(version.contenu) } });
+  } catch (e) { next(e); }
 }
 
 module.exports = {

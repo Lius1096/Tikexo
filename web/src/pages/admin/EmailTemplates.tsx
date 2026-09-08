@@ -9,17 +9,18 @@ interface EmailTemplateRow {
   cle: string;
   label: string;
   variables: string[];
+  sujetSuggere: string;
+  suggestion: string;
   personnalise: boolean;
   sujet: string | null;
-  corps_html: string | null;
-  corps_texte: string | null;
+  corps: string | null;
   updatedAt: string | null;
 }
 
 export default function AdminEmailTemplates() {
   const qc = useQueryClient();
   const [ouvert, setOuvert] = useState<string | null>(null);
-  const [forms, setForms] = useState<Record<string, { sujet: string; corps_html: string; corps_texte: string }>>({});
+  const [forms, setForms] = useState<Record<string, { sujet: string; corps: string }>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-email-templates'],
@@ -27,7 +28,7 @@ export default function AdminEmailTemplates() {
   });
 
   const majMut = useMutation({
-    mutationFn: ({ cle, form }: { cle: string; form: { sujet: string; corps_html: string; corps_texte: string } }) =>
+    mutationFn: ({ cle, form }: { cle: string; form: { sujet: string; corps: string } }) =>
       api.put(`/admin/email-templates/${cle}`, form),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-email-templates'] }),
   });
@@ -44,9 +45,8 @@ export default function AdminEmailTemplates() {
       setForms((f) => ({
         ...f,
         [t.cle]: {
-          sujet: t.sujet ?? '',
-          corps_html: t.corps_html ?? `<p>Bonjour {{${t.variables[0] ?? 'prenom'}}},</p>\n<p>Votre message ici…</p>`,
-          corps_texte: t.corps_texte ?? `Bonjour {{${t.variables[0] ?? 'prenom'}}},\n\nVotre message ici…`,
+          sujet: t.sujet ?? t.sujetSuggere,
+          corps: t.corps ?? t.suggestion,
         },
       }));
     }
@@ -55,13 +55,13 @@ export default function AdminEmailTemplates() {
   const templates = data ?? [];
 
   return (
-    <div className="p-4 sm:p-6 max-w-3xl">
+    <div className="p-4 sm:p-6 max-w-2xl">
       <div className="flex items-center gap-2 mb-1">
         <Mail size={16} className="text-tikexo-primary" />
         <div className="text-[15px] font-medium text-slate-900">Emails personnalisables</div>
       </div>
       <div className="text-xs text-slate-500 mb-5">
-        Modifiez le contenu de ces emails sans déploiement. Tant qu'aucune personnalisation n'est enregistrée, le modèle par défaut de l'application est utilisé.
+        Écrivez le message comme un email normal — pas de code, pas de balise. Tant qu'aucune personnalisation n'est enregistrée, le modèle par défaut de l'application est utilisé.
       </div>
 
       {isLoading ? (
@@ -92,11 +92,14 @@ export default function AdminEmailTemplates() {
                   <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
                     <div className="flex items-start gap-1.5 bg-blue-50 text-blue-700 text-[11px] rounded-lg px-3 py-2">
                       <Info size={12} className="flex-shrink-0 mt-0.5" />
-                      <span>Variables disponibles : {t.variables.map((v) => `{{${v}}}`).join(', ')}</span>
+                      <span>
+                        Vous pouvez utiliser ces mots-clés dans le sujet et le message, ils seront remplacés automatiquement :{' '}
+                        {t.variables.map((v) => `{{${v}}}`).join(', ')}
+                      </span>
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Sujet</label>
+                      <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Sujet de l'email</label>
                       <input
                         type="text"
                         value={form.sujet}
@@ -106,22 +109,14 @@ export default function AdminEmailTemplates() {
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Corps HTML</label>
+                      <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
+                        Message <span className="text-slate-400 font-normal">— laissez une ligne vide entre deux paragraphes</span>
+                      </label>
                       <textarea
-                        value={form.corps_html}
-                        onChange={(e) => setForms((f) => ({ ...f, [t.cle]: { ...f[t.cle], corps_html: e.target.value } }))}
-                        rows={8}
-                        className="w-full font-mono text-xs resize-y border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-medium text-slate-700 mb-1.5">Corps texte (email sans HTML)</label>
-                      <textarea
-                        value={form.corps_texte}
-                        onChange={(e) => setForms((f) => ({ ...f, [t.cle]: { ...f[t.cle], corps_texte: e.target.value } }))}
-                        rows={4}
-                        className="w-full font-mono text-xs resize-y border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
+                        value={form.corps}
+                        onChange={(e) => setForms((f) => ({ ...f, [t.cle]: { ...f[t.cle], corps: e.target.value } }))}
+                        rows={10}
+                        className="w-full text-sm resize-y border border-slate-200 rounded-lg px-3 py-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
                       />
                     </div>
 

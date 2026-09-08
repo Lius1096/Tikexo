@@ -96,7 +96,7 @@ export default function CGU() {
   // contenu ci-dessus, codé en dur — aucune perte du texte légal actuel.
   const { data: cguPersonnalisee } = useQuery({
     queryKey: ['cgu-publique'],
-    queryFn: () => api.get('/cgu').then((r) => r.data.data as { contenu: string; version: number } | null),
+    queryFn: () => api.get('/cgu').then((r) => r.data.data as { contenu_html: string; version: number } | null),
   });
 
   return (
@@ -133,7 +133,7 @@ export default function CGU() {
           <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
             <div
               className="px-6 py-5 text-[12px] text-slate-600 leading-relaxed [&_p]:mb-3 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-slate-900 [&_h2]:mt-5 [&_h2]:mb-2"
-              dangerouslySetInnerHTML={{ __html: cguPersonnalisee.contenu }}
+              dangerouslySetInnerHTML={{ __html: cguPersonnalisee.contenu_html }}
             />
           </div>
         ) : (
