@@ -6,19 +6,26 @@ import api from '../../lib/api';
 
 const statutBadge: Record<string, string> = {
   EN_ATTENTE: 'bg-[#FAEEDA] text-[#854F0B]',
-  VALIDE: 'bg-[#EAF3DE] text-[#3B6D11]',
+  APPROUVE: 'bg-[#EAF3DE] text-[#3B6D11]',
   ECHOUE: 'bg-[#FCEBEB] text-[#A32D2D]',
-  REMBOURSE: 'bg-[#DBEAFE] text-[#185FA5]',
 };
+
+const FILTRES = [
+  { key: 'EN_ATTENTE', label: 'En attente' },
+  { key: 'APPROUVE',   label: 'Approuvées' },
+  { key: 'ECHOUE',     label: 'Échouées' },
+  { key: '',           label: 'Toutes' },
+] as const;
 
 const LIMIT = 10;
 
 export default function AdminFedaPay() {
   const [page, setPage] = useState(1);
+  const [filtre, setFiltre] = useState<typeof FILTRES[number]['key']>('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['fedapay-operations', page],
-    queryFn: () => api.get('/fedapay/operations', { params: { page, limit: LIMIT } }).then((r) => r.data.data),
+    queryKey: ['fedapay-operations', page, filtre],
+    queryFn: () => api.get('/fedapay/operations', { params: { page, limit: LIMIT, statut: filtre || undefined } }).then((r) => r.data.data),
   });
 
   const items: Array<{
@@ -30,17 +37,37 @@ export default function AdminFedaPay() {
   const total: number = data?.total ?? 0;
   const totalPages: number = data?.totalPages ?? 1;
 
+  function changerFiltre(f: typeof FILTRES[number]['key']) {
+    setFiltre(f);
+    setPage(1);
+  }
+
   return (
     <div className="p-[18px_20px]">
       <div className="text-[15px] font-medium text-slate-900 mb-0.5">FedaPay</div>
       <div className="text-xs text-slate-500 mb-4">Opérations de paiement via FedaPay · {total} au total</div>
+
+      <div className="flex flex-wrap items-center gap-1 mb-4">
+        {FILTRES.map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => changerFiltre(key)}
+            className={clsx(
+              'text-[11px] px-3 py-1.5 rounded-lg border transition-colors',
+              filtre === key ? 'bg-tikexo-primary text-white border-tikexo-primary' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <div className="bg-white border border-slate-100 rounded-lg px-4 py-8 text-center text-sm text-slate-400">Chargement…</div>
       ) : items.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-lg px-4 py-12 text-center">
           <Banknote size={28} className="text-slate-300 mx-auto mb-2" />
-          <div className="text-sm text-slate-400">Aucune opération FedaPay</div>
+          <div className="text-sm text-slate-400">Aucune opération {filtre ? FILTRES.find((f) => f.key === filtre)?.label.toLowerCase() : ''}</div>
         </div>
       ) : (
         <>
