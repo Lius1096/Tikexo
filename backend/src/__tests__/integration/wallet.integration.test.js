@@ -80,7 +80,7 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
     // La route HTTP ne fait qu'empiler le job en queue (traité par un worker en prod) —
     // on appelle directement le service pour tester le traitement, comme le fait le worker.
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    const payload = { transaction: { id: fedapayTxId, status: 'approved' } };
+    const payload = { object: 'transaction', entity: { id: fedapayTxId, status: 'approved' } };
     await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
     const walletApres = await prisma.wallet.findUnique({ where: { id: walletEntId } });
@@ -116,7 +116,7 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
     const soldeAvant = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
 
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    const payload = { transaction: { id: fedapayTxId, status: 'approved' } };
+    const payload = { object: 'transaction', entity: { id: fedapayTxId, status: 'approved' } };
     const result = await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
     expect(result.doublon).toBe(true);
@@ -143,7 +143,7 @@ describe('Wallet — Tests d\'intégration TIKEXO', () => {
     const soldeAvant = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
 
     process.env.FEDAPAY_WEBHOOK_SECRET = '';
-    const payload = { transaction: { id: fedapayTxId, status: 'declined' } };
+    const payload = { object: 'transaction', entity: { id: fedapayTxId, status: 'declined' } };
     await traiterWebhook(prisma, { payload, rawBody: JSON.stringify(payload), signature: '' });
 
     const soldeApres = parseFloat((await prisma.wallet.findUnique({ where: { id: walletEntId } })).solde);
