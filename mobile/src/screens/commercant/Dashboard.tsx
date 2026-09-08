@@ -8,7 +8,7 @@ import { TYPE_COMMERCANT_LABELS } from '../../lib/commercantConstants';
 import { colors, spacing, borderRadius, fontSize } from '../../design-system/tokens';
 import { Screen, Card, Button, ListRow, LoadingState } from '../../design-system/components';
 
-const SEUIL_PAYOUT = 1000;
+const SEUIL_TICKET_RETRAIT_DEFAUT = 50000;
 
 interface Fiche {
   id: string;
@@ -19,8 +19,8 @@ interface Fiche {
   ville: string;
   taux_commission: string;
   mode_reversement: string;
-  wallet: { solde: string } | null;
-  frais_payout_manuel_taux: number;
+  wallet: { solde: string; solde_reserve: string } | null;
+  seuil_ticket_retrait: number;
 }
 
 interface TransactionApercu {
@@ -62,26 +62,26 @@ export default function CommercantDashboard() {
   );
 
   const payoutMut = useMutation({
-    mutationFn: () => api.post('/commercants/moi/payout'),
+    mutationFn: () => api.post('/commercants/moi/tickets-retrait'),
     onSuccess: (r) => {
       setConfirmationOuverte(false);
       qc.invalidateQueries({ queryKey: ['commercant-moi'] });
       const montant = Number(r.data?.data?.montant ?? 0);
-      Alert.alert('TIKEXO', `Reversement envoyé, ${montant.toLocaleString('fr-FR')} XOF en route vers votre Mobile Money.`);
+      Alert.alert('TIKEXO', `Votre demande de retrait de ${montant.toLocaleString('fr-FR')} XOF a été enregistrée. Notre équipe la traitera manuellement et vous contactera pour le virement Mobile Money.`);
     },
     onError: (e: any) => {
       setConfirmationOuverte(false);
-      Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec de la demande de reversement - réessayez.');
+      Alert.alert('TIKEXO - Erreur', e?.response?.data?.error ?? 'Échec de la demande de retrait - réessayez.');
     },
   });
 
   if (isLoading) return <LoadingState />;
 
   const solde = Number(fiche?.wallet?.solde ?? 0);
+  const soldeReserve = Number(fiche?.wallet?.solde_reserve ?? 0);
+  const soldeDisponible = solde - soldeReserve;
+  const seuilTicketRetrait = fiche?.seuil_ticket_retrait ?? SEUIL_TICKET_RETRAIT_DEFAUT;
   const estActif = fiche?.statut === 'ACTIF';
-  const tauxFrais = fiche?.frais_payout_manuel_taux ?? 1.5;
-  const frais = Math.round(solde * (tauxFrais / 100));
-  const net = solde - frais;
   const transactions: TransactionApercu[] = txData?.items ?? [];
 
   return (
@@ -93,13 +93,13 @@ export default function CommercantDashboard() {
         <Text style={styles.label}>Solde à reverser</Text>
         <Text style={styles.solde}>{solde.toLocaleString('fr-FR')} XOF</Text>
         <Text style={styles.hint}>
-          Reversement automatique chaque jour ouvré · Mode : {fiche?.mode_reversement?.replace(/_/g, ' ') ?? '—'}
+          Retrait disponible à partir de {seuilTicketRetrait.toLocaleString('fr-FR')} XOF · traitement manuel par TIKEXO
         </Text>
         <Button
-          title="Demander un reversement anticipé"
+          title="Demander un retrait"
           variant="gold"
           onPress={() => setConfirmationOuverte(true)}
-          disabled={solde < SEUIL_PAYOUT || !estActif}
+          disabled={soldeDisponible < seuilTicketRetrait || !estActif}
           style={styles.btnPayout}
         />
       </Card>
@@ -178,25 +178,17 @@ export default function CommercantDashboard() {
           <Card style={styles.modalCarte}>
             <View style={styles.modalHeader}>
               <Ionicons name="flash" size={20} color={colors.gold} />
-              <Text style={styles.modalTitre}>Reversement anticipé</Text>
+              <Text style={styles.modalTitre}>Demande de retrait</Text>
             </View>
 
             <Text style={styles.modalTexte}>
-              Ce reversement est envoyé immédiatement, en dehors du passage automatique quotidien — des frais TIKEXO s'appliquent pour le couvrir.
+              Votre demande sera traitée manuellement par l'équipe TIKEXO, qui vous contactera pour le virement Mobile Money. Le montant est réservé dès la création de la demande.
             </Text>
 
             <View style={styles.recap}>
-              <View style={styles.recapLigne}>
-                <Text style={styles.recapLabel}>Solde actuel</Text>
-                <Text style={styles.recapValeur}>{solde.toLocaleString('fr-FR')} XOF</Text>
-              </View>
-              <View style={styles.recapLigne}>
-                <Text style={styles.recapLabel}>Frais TIKEXO ({tauxFrais}%)</Text>
-                <Text style={[styles.recapValeur, { color: colors.danger }]}>-{frais.toLocaleString('fr-FR')} XOF</Text>
-              </View>
               <View style={[styles.recapLigne, styles.recapLigneFinale]}>
-                <Text style={styles.recapLabelFinal}>Vous recevrez</Text>
-                <Text style={styles.recapValeurFinale}>{net.toLocaleString('fr-FR')} XOF</Text>
+                <Text style={styles.recapLabelFinal}>Montant demandé</Text>
+                <Text style={styles.recapValeurFinale}>{soldeDisponible.toLocaleString('fr-FR')} XOF</Text>
               </View>
             </View>
 

@@ -8,7 +8,7 @@ import {
 import api from '../../lib/api';
 import { fmt, fmtDate } from '../../utils/format';
 import { useToast } from '../../components/Toaster';
-import { TYPE_COMMERCANT_LABELS, DOC_TYPE_LABELS, DOC_STATUT, PAYOUT_STATUT } from '../../lib/commercantConstants';
+import { TYPE_COMMERCANT_LABELS, DOC_TYPE_LABELS, DOC_STATUT, TICKET_RETRAIT_STATUT } from '../../lib/commercantConstants';
 
 interface Fiche {
   id: string;
@@ -35,10 +35,11 @@ interface CommercantDocument {
   createdAt: string;
 }
 
-interface Payout {
+interface TicketRetrait {
   id: string;
   montant: string;
   statut: string;
+  motif_rejet?: string;
   createdAt: string;
 }
 
@@ -59,9 +60,9 @@ export default function CommercantProfil() {
     enabled: !!fiche?.id,
   });
 
-  const { data: payouts } = useQuery<Payout[]>({
-    queryKey: ['commercant-payouts', fiche?.id],
-    queryFn: () => api.get(`/commercants/${fiche!.id}/payouts`).then((r) => r.data.data),
+  const { data: ticketsRetrait } = useQuery<TicketRetrait[]>({
+    queryKey: ['commercant-tickets-retrait'],
+    queryFn: () => api.get('/commercants/moi/tickets-retrait').then((r) => r.data.data),
     enabled: !!fiche?.id,
   });
 
@@ -254,24 +255,27 @@ export default function CommercantProfil() {
         </div>
       )}
 
-      {/* Reversements */}
+      {/* Demandes de retrait */}
       {fiche && (
         <div className="bg-white rounded-xl border border-slate-100 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
             <Banknote size={14} className="text-slate-400" />
-            <span className="text-[13px] font-medium text-slate-900">Historique des reversements</span>
+            <span className="text-[13px] font-medium text-slate-900">Historique des retraits</span>
           </div>
-          {!payouts || payouts.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-400">Aucun reversement pour l'instant</div>
+          {!ticketsRetrait || ticketsRetrait.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-400">Aucune demande de retrait pour l'instant</div>
           ) : (
             <div className="divide-y divide-slate-50">
-              {payouts.map((p) => {
-                const st = PAYOUT_STATUT[p.statut] ?? { label: p.statut, cls: 'bg-slate-100 text-slate-600' };
+              {ticketsRetrait.map((t) => {
+                const st = TICKET_RETRAIT_STATUT[t.statut] ?? { label: t.statut, cls: 'bg-slate-100 text-slate-600' };
                 return (
-                  <div key={p.id} className="flex items-center justify-between px-4 py-3">
+                  <div key={t.id} className="flex items-center justify-between px-4 py-3">
                     <div>
-                      <div className="text-xs font-medium text-slate-800">{fmt(p.montant)}</div>
-                      <div className="text-[10px] text-slate-400">{fmtDate(p.createdAt)}</div>
+                      <div className="text-xs font-medium text-slate-800">{fmt(t.montant)}</div>
+                      <div className="text-[10px] text-slate-400">{fmtDate(t.createdAt)}</div>
+                      {t.statut === 'REJETE' && t.motif_rejet && (
+                        <div className="text-[10px] text-red-600 mt-0.5">{t.motif_rejet}</div>
+                      )}
                     </div>
                     <span className={clsx('text-[10px] px-2 py-0.5 rounded-full font-medium', st.cls)}>{st.label}</span>
                   </div>

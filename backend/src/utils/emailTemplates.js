@@ -205,16 +205,18 @@ function mutationTraitee(prenom, ancienneEntreprise, nouvelleEntreprise) {
  * Inscription entreprise confirmée
  */
 function inscriptionEntrepriseConfirmee(nomEntreprise, nomContact) {
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/entreprise/connexion`;
   const html = layout({
     titre: 'Votre espace entreprise est prêt',
     corps: `
       <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
       <p style="color:#555;margin:0 0 20px">
         Le compte entreprise <strong>${nomEntreprise}</strong> a été créé avec succès sur TIKEXO.
+        Il ne reste qu'une étape avant d'activer vos dotations : soumettre vos documents KYB.
       </p>
       <p style="color:#555;margin:0 0 16px">Prochaines étapes :</p>
       <ol style="color:#555;padding-left:20px;margin:0 0 20px">
-        <li style="margin-bottom:8px">Soumettez vos documents KYB pour activer les dotations</li>
+        <li style="margin-bottom:8px">Connectez-vous à votre espace et soumettez vos documents KYB</li>
         <li style="margin-bottom:8px">Enregistrez vos employés bénéficiaires</li>
         <li>Effectuez votre premier rechargement de wallet</li>
       </ol>
@@ -222,9 +224,10 @@ function inscriptionEntrepriseConfirmee(nomEntreprise, nomContact) {
         Besoin d'aide pour démarrer ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
       </p>
     `,
+    bouton: { label: 'Accéder à mon espace et soumettre mon KYB', url: lienConnexion },
   });
 
-  const text = `Bonjour ${nomContact},\n\nLe compte ${nomEntreprise} est prêt sur TIKEXO.\n\nProchaines étapes :\n1. Soumettre vos documents KYB\n2. Enregistrer vos employés\n3. Effectuer votre premier rechargement\n\nSupport : support@tikexo.kete.fr`;
+  const text = `Bonjour ${nomContact},\n\nLe compte ${nomEntreprise} est prêt sur TIKEXO.\n\nConnectez-vous pour démarrer : ${lienConnexion}\n\nProchaines étapes :\n1. Soumettre vos documents KYB\n2. Enregistrer vos employés\n3. Effectuer votre premier rechargement\n\nSupport : support@tikexo.kete.fr`;
 
   return { html, text };
 }
@@ -275,14 +278,15 @@ function kybApprouve(nomEntreprise, nomContact, telephone) {
 // nomTypeDocument est facultatif (le rappel cron n'a pas de document précis
 // en tête, seulement un dossier resté en attente) — le libellé lisible
 // ("Carte IFU", "Extrait RCCM"...) est résolu côté appelant.
-function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument) {
+function kybRejete(nomEntreprise, nomContact, raison, nomTypeDocument, estRelance) {
   // Autrefois : "envoyez les documents à support@tikexo.kete.fr" — faux, le seul
   // moyen réel de renvoyer un document est de le re-uploader depuis le
   // portail employeur, jamais par email.
   const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/employeur/kyb`;
+  const titre = estRelance ? 'Rappel — document KYB à compléter' : 'Document KYB rejeté — action requise';
 
   const html = layout({
-    titre: 'Document KYB rejeté — action requise',
+    titre,
     corps: `
       <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
       <p style="color:#555;margin:0 0 16px">
@@ -503,6 +507,60 @@ function commercantDocumentRejete(nomContact, typeDocument, motif) {
   return { html, text };
 }
 
+/**
+ * Ticket de retrait manuel traité — le virement Mobile Money a été effectué
+ * par un admin TIKEXO (preuve jointe côté espace admin) et le wallet
+ * commerçant a été débité du montant correspondant.
+ */
+function ticketRetraitTraite(nomContact, montant) {
+  const montantAffiche = `${Math.floor(montant).toLocaleString('fr-FR')} XOF`;
+  const html = layout({
+    titre: 'Retrait effectué',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
+      <div style="background:#f0fdf4;border-left:4px solid ${COULEUR_SUCCES};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0;color:${COULEUR_SUCCES};font-weight:600">
+          ✓ Votre retrait de ${montantAffiche} a été effectué par virement Mobile Money.
+        </p>
+      </div>
+      <p style="color:#555;margin:0">
+        Ce montant a été débité de votre wallet TIKEXO. Une question ? Contactez le support.
+      </p>
+    `,
+  });
+
+  const text = `Bonjour ${nomContact},\n\nVotre retrait de ${montantAffiche} a été effectué par virement Mobile Money et débité de votre wallet TIKEXO.`;
+
+  return { html, text };
+}
+
+/**
+ * Ticket de retrait manuel rejeté.
+ */
+function ticketRetraitRejete(nomContact, montant, motif) {
+  const montantAffiche = `${Math.floor(montant).toLocaleString('fr-FR')} XOF`;
+  const html = layout({
+    titre: 'Demande de retrait rejetée',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${nomContact},</p>
+      <p style="color:#555;margin:0 0 16px">
+        Votre demande de retrait de ${montantAffiche} n'a pas pu être traitée.
+      </p>
+      <div style="background:#fff5f5;border-left:4px solid ${COULEUR_ALERTE};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0 0 4px;color:#888;font-size:12px;text-transform:uppercase">Motif</p>
+        <p style="margin:0;color:${COULEUR_ALERTE}">${motif}</p>
+      </div>
+      <p style="color:#555;margin:0">
+        Le montant reste disponible dans votre wallet — vous pouvez ouvrir une nouvelle demande depuis votre espace commerçant.
+      </p>
+    `,
+  });
+
+  const text = `Bonjour ${nomContact},\n\nVotre demande de retrait de ${montantAffiche} a été rejetée.\n\nMotif : ${motif}\n\nLe montant reste disponible dans votre wallet.`;
+
+  return { html, text };
+}
+
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
@@ -519,4 +577,6 @@ module.exports = {
   commercantActive,
   commercantDocumentValide,
   commercantDocumentRejete,
+  ticketRetraitTraite,
+  ticketRetraitRejete,
 };

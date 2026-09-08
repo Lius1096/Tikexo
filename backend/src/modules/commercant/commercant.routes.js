@@ -54,7 +54,8 @@ router.get('/', ctrl.lister);
 router.post('/', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.creer);
 router.get('/moi', autoriser('COMMERCANT'), ctrl.getMoi);
 router.get('/moi/stats', autoriser('COMMERCANT'), ctrl.getMesStats);
-router.post('/moi/payout', autoriser('COMMERCANT'), ctrl.demanderPayout);
+router.post('/moi/tickets-retrait', autoriser('COMMERCANT'), ctrl.creerTicketRetrait);
+router.get('/moi/tickets-retrait', autoriser('COMMERCANT'), ctrl.getMesTicketsRetrait);
 router.post('/moi/documents', autoriser('COMMERCANT'), upload.single('fichier'), s3UploadMiddleware('commercant'), ctrl.uploaderDocument);
 router.get('/proximite', ctrl.parProximite);
 router.get('/nearby', ctrl.nearby);             // GET /api/v1/commercants/nearby
@@ -73,5 +74,17 @@ router.post('/:id/archiver', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.archive
 router.post('/:id/qrcode', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), checkCommercantProprietaire, ctrl.regenererQRCode);
 router.patch('/documents/:docId/valider', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.validerDocument);
 router.patch('/documents/:docId/rejeter', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.rejeterDocument);
+
+// Tickets de retrait manuel (admin) — voir commercant.service.js#validerTicketRetrait.
+router.get('/tickets-retrait', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.getTicketsRetrait);
+router.get('/tickets-retrait/:id/preuve-url', autoriser('SUPER_ADMIN', 'ADMIN_OPS', 'COMMERCANT'), ctrl.getUrlPreuveTicketRetrait);
+router.patch(
+  '/tickets-retrait/:id/valider',
+  autoriser('SUPER_ADMIN', 'ADMIN_OPS'),
+  upload.single('preuve'),
+  s3UploadMiddleware('retraits'),
+  ctrl.validerTicketRetrait
+);
+router.patch('/tickets-retrait/:id/rejeter', autoriser('SUPER_ADMIN', 'ADMIN_OPS'), ctrl.rejeterTicketRetrait);
 
 module.exports = router;

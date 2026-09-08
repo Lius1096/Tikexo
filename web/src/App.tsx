@@ -40,6 +40,7 @@ import AdminMutations from './pages/admin/Mutations';
 import AdminCartes from './pages/admin/Cartes';
 import AdminFedaPay from './pages/admin/FedaPay';
 import AdminPlafondDemandes from './pages/admin/PlafondDemandes';
+import AdminTicketsRetrait from './pages/admin/TicketsRetrait';
 import AdminAntiFraude from './pages/admin/AntiFraude';
 import AdminAuditLog from './pages/admin/AuditLog';
 import AdminStatistiques from './pages/admin/Statistiques';
@@ -160,6 +161,7 @@ export default function App() {
         <Route path="cartes" element={<AdminCartes />} />
         <Route path="fedapay" element={<AdminFedaPay />} />
         <Route path="plafonds" element={<AdminPlafondDemandes />} />
+        <Route path="tickets-retrait" element={<AdminTicketsRetrait />} />
         <Route path="antifraude" element={<AdminAntiFraude />} />
         <Route path="audit" element={<AdminAuditLog />} />
         <Route path="statistiques" element={<AdminStatistiques />} />

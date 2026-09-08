@@ -354,7 +354,7 @@ async function _envoyerRelanceRejet(dossier) {
   await envoyerEmail({
     to: ent.email_rh,
     subject: 'TIKEXO — Rappel : document KYB toujours à compléter',
-    ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument),
+    ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument, true),
   }).catch((err) => logger.warn('TIKEXO — Mail relance KYB échoué', { err: err.message }));
 
   return true;

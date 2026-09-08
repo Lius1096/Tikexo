@@ -37,6 +37,13 @@ export const PAYOUT_STATUT: Record<string, { label: string; cls: string }> = {
   ECHOUE:     { label: 'Échoué',     cls: 'bg-red-50 text-red-700' },
 };
 
+// enum StatutTicketRetrait (schema.prisma)
+export const TICKET_RETRAIT_STATUT: Record<string, { label: string; cls: string }> = {
+  EN_ATTENTE: { label: 'En attente de traitement', cls: 'bg-amber-50 text-amber-700' },
+  TRAITE:     { label: 'Traité',                   cls: 'bg-emerald-50 text-emerald-700' },
+  REJETE:     { label: 'Rejeté',                   cls: 'bg-red-50 text-red-700' },
+};
+
 // enum TypeCommercantDocument (schema.prisma)
 export const DOC_TYPE_LABELS: Record<string, string> = {
   PIECE_IDENTITE_GERANT: "Pièce d'identité du gérant",

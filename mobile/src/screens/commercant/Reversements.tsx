@@ -7,43 +7,42 @@ import { colors, spacing, borderRadius, fontSize } from '../../design-system/tok
 import { Screen, Card, ListRow, Badge, statutTone, EmptyState, LoadingState } from '../../design-system/components';
 
 export default function Reversements() {
-  // /fedapay/operations est réservé aux admins TIKEXO côté backend — un
-  // commerçant recevait 403. /commercants/:id/payouts est le bon endpoint,
-  // protégé par checkCommercantProprietaire (le commerçant ne voit que les
-  // siens).
   const { data: commercant } = useQuery({
     queryKey: ['mon-commercant'],
     queryFn: () => api.get('/commercants/moi').then((r) => r.data.data),
   });
 
-  const { data: operations, isLoading } = useQuery({
-    queryKey: ['commercant-payouts', commercant?.id],
-    queryFn: () => api.get(`/commercants/${commercant.id}/payouts`).then((r) => r.data.data),
+  // Les retraits passent désormais par un ticket traité manuellement par
+  // TIKEXO (preuve de virement à l'appui), en attendant l'intégration
+  // FedaPay "checkout envoi multiple".
+  const { data: tickets, isLoading } = useQuery({
+    queryKey: ['commercant-tickets-retrait'],
+    queryFn: () => api.get('/commercants/moi/tickets-retrait').then((r) => r.data.data),
     enabled: !!commercant?.id,
   });
 
   return (
     <Screen scroll contentContainerStyle={styles.content}>
-      <Text style={styles.titre}>Mes Reversements TIKEXO</Text>
+      <Text style={styles.titre}>Mes retraits TIKEXO</Text>
       <Card variant="info" style={styles.infoBox}>
         <Ionicons name="information-circle" size={20} color={colors.primary} style={styles.infoIcon} />
         <Text style={styles.infoText}>
-          TIKEXO effectue les reversements automatiquement sur votre Mobile Money selon votre mode choisi.
+          Chaque demande de retrait est traitée manuellement par l'équipe TIKEXO, qui vous contacte pour le virement Mobile Money.
         </Text>
       </Card>
 
       {isLoading || !commercant ? (
         <LoadingState inline />
-      ) : (operations || []).length === 0 ? (
-        <EmptyState icon="cash-outline" title="Aucun reversement pour l'instant" />
+      ) : (tickets || []).length === 0 ? (
+        <EmptyState icon="cash-outline" title="Aucune demande de retrait pour l'instant" />
       ) : (
-        (operations || []).map((op: { id: string; montant: string; statut: string; createdAt: string }) => (
+        (tickets || []).map((t: { id: string; montant: string; statut: string; motif_rejet?: string; createdAt: string }) => (
           <ListRow
-            key={op.id}
+            key={t.id}
             icon="cash"
-            title={`${Number(op.montant).toLocaleString('fr-FR')} XOF`}
-            subtitle={new Date(op.createdAt).toLocaleDateString('fr-FR')}
-            rightSecondary={<Badge label={op.statut} tone={statutTone(op.statut)} />}
+            title={`${Number(t.montant).toLocaleString('fr-FR')} XOF`}
+            subtitle={t.statut === 'REJETE' && t.motif_rejet ? t.motif_rejet : new Date(t.createdAt).toLocaleDateString('fr-FR')}
+            rightSecondary={<Badge label={t.statut} tone={statutTone(t.statut)} />}
             style={styles.row}
           />
         ))

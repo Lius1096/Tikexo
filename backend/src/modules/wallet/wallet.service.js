@@ -146,6 +146,26 @@ async function prelevierCommissionDotation(prisma, { walletBenefId, montantNum, 
   });
 }
 
+// Un bénéficiaire ne peut recevoir qu'un seul crédit (DOTATION) par mois
+// calendaire, quelle que soit son origine (dotation auto ou manuelle RH) —
+// en cas d'erreur de montant, la correction passe par le support, jamais
+// par un second crédit dans le même mois.
+async function verifierPasDejaDoteCeMois(walletBenefId) {
+  const debutMois = new Date();
+  debutMois.setDate(1);
+  debutMois.setHours(0, 0, 0, 0);
+
+  const dejaDote = await prisma.ledgerEntry.findFirst({
+    where: { wallet_destination_id: walletBenefId, type: 'DOTATION', createdAt: { gte: debutMois } },
+  });
+  if (dejaDote) {
+    const err = new Error(
+      'Ce bénéficiaire a déjà reçu un crédit ce mois-ci. Un seul rechargement par bénéficiaire est autorisé par mois. En cas d\'erreur de montant, contactez le support TIKEXO pour une correction.'
+    );
+    err.statusCode = 409; err.code = 'BENEFICIAIRE_DEJA_DOTE_CE_MOIS'; throw err;
+  }
+}
+
 // Rechargement individuel — wallet entreprise → wallet bénéficiaire
 async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
   const montantNum = parseFloat(montant);
@@ -165,8 +185,13 @@ async function crediterBenef(entrepriseId, beneficiaireId, montant, adminId) {
   }
   const soldeDisponible = parseFloat(walletEnt.solde) - parseFloat(walletEnt.solde_reserve);
   if (soldeDisponible < montantNum) {
-    const err = new Error('Solde disponible insuffisant dans le wallet entreprise'); err.statusCode = 400; err.code = 'SOLDE_INSUFFISANT'; throw err;
+    const err = new Error(
+      `Solde insuffisant dans le wallet entreprise pour recharger ce bénéficiaire. Nécessaire : ${montantNum.toLocaleString('fr-FR')} XOF, disponible : ${Math.floor(soldeDisponible).toLocaleString('fr-FR')} XOF. Rechargez le wallet entreprise depuis Paramètres > Wallet.`
+    );
+    err.statusCode = 400; err.code = 'SOLDE_INSUFFISANT'; throw err;
   }
+
+  await verifierPasDejaDoteCeMois(walletBenef.id);
 
   const { transfererEntreWallets } = require('../../utils/ledger');
   await transfererEntreWallets(prisma, walletEnt.id, walletBenef.id, montantNum, 'DOTATION', {
@@ -221,6 +246,15 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
   });
   const walletMap = new Map(walletsBenef.map((w) => [w.user_id, w.id]));
 
+  const debutMois = new Date();
+  debutMois.setDate(1);
+  debutMois.setHours(0, 0, 0, 0);
+  const dejaDotesCeMois = await prisma.ledgerEntry.findMany({
+    where: { wallet_destination_id: { in: [...walletMap.values()] }, type: 'DOTATION', createdAt: { gte: debutMois } },
+    select: { wallet_destination_id: true },
+  });
+  const walletsDejaDotes = new Set(dejaDotesCeMois.map((d) => d.wallet_destination_id));
+
   const { transfererEntreWallets } = require('../../utils/ledger');
   const resultats = [];
   let totalTransfere = 0;
@@ -230,6 +264,10 @@ async function crediterGroupe(entrepriseId, credits, adminId) {
     const walletDestId = walletMap.get(credit.beneficiaireId);
     if (!walletDestId || !montantNum || montantNum < 100) {
       resultats.push({ beneficiaireId: credit.beneficiaireId, statut: 'IGNORE', raison: !walletDestId ? 'Wallet introuvable' : 'Montant < 100' });
+      continue;
+    }
+    if (walletsDejaDotes.has(walletDestId)) {
+      resultats.push({ beneficiaireId: credit.beneficiaireId, statut: 'IGNORE', raison: 'Déjà crédité ce mois-ci — contactez le support en cas d\'erreur' });
       continue;
     }
     try {

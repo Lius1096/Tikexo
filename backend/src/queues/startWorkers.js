@@ -22,10 +22,20 @@ function startWorkers() {
     jobId: 'cron-archiver-mutations',
   });
 
-  cronQueue.add('payout-batch-commercants', {}, {
-    repeat: { pattern: '0 8 * * 1-5' },
-    jobId: 'cron-payout-batch',
-  });
+  // Désactivé — remplacé par le flux de ticket de retrait manuel (voir
+  // commercant.service.js#creerTicketRetrait) en attendant l'intégration
+  // FedaPay "checkout envoi multiple" (cf. NOTES-FEDAPAY.md). Le job
+  // jobBatchingPayouts et fedapay.service.js#declencherPayout restent en
+  // place pour une réactivation future, mais ne sont plus planifiés.
+  // cronQueue.add('payout-batch-commercants', {}, {
+  //   repeat: { pattern: '0 8 * * 1-5' },
+  //   jobId: 'cron-payout-batch',
+  // });
+  // Retire la planification déjà enregistrée dans Redis par un démarrage
+  // précédent — sans ça, commenter le .add() ci-dessus ne suffit pas à
+  // arrêter un job répétitif déjà connu de BullMQ.
+  cronQueue.removeRepeatable('payout-batch-commercants', { pattern: '0 8 * * 1-5' }, 'cron-payout-batch')
+    .catch((err) => logger.warn('[TIKEXO QUEUES] Nettoyage cron-payout-batch échoué', { err: err.message }));
 
   cronQueue.add('kyb-deadline-check', {}, {
     repeat: { pattern: '0 8 * * *' },

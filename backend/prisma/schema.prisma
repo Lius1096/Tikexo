@@ -265,6 +265,7 @@ model Commercant {
   transactions            Transaction[]
   fedapayPayouts          FedapayOperation[]
   documents               CommercantDocument[]
+  ticketsRetrait          TicketRetrait[]
 
   @@index([statut])
   @@index([ville, statut])
@@ -294,6 +295,31 @@ model CommercantDocument {
   commercant     Commercant             @relation(fields: [commercant_id], references: [id])
 
   @@index([commercant_id])
+  @@index([statut])
+}
+
+// Demande de retrait manuelle — en attendant l'intégration FedaPay "checkout
+// envoi multiple", tout reversement anticipé passe par un ticket que le
+// commerçant ouvre lui-même (dès SEUIL_TICKET_RETRAIT atteint côté service),
+// traité manuellement par un admin TIKEXO qui joint une preuve de paiement
+// (capture Mobile Money) ; la validation débite alors directement le wallet
+// commerçant. Remplace l'ancien déclenchement direct de FedaPay.Payout par
+// le commerçant (cf. fedapay.service.js#declencherPayout, conservé mais plus
+// appelé depuis ce flux).
+model TicketRetrait {
+  id            String              @id @default(cuid())
+  commercant_id String
+  montant       Decimal             @db.Decimal(12,2)
+  statut        StatutTicketRetrait @default(EN_ATTENTE)
+  preuve_url    String?
+  motif_rejet   String?
+  traite_par    String?
+  createdAt     DateTime            @default(now())
+  traite_at     DateTime?
+
+  commercant    Commercant          @relation(fields: [commercant_id], references: [id])
+
+  @@index([commercant_id, statut])
   @@index([statut])
 }
 
@@ -648,6 +674,12 @@ enum StatutDemandePlafond {
   EN_ATTENTE
   APPROUVEE
   REJETEE
+}
+
+enum StatutTicketRetrait {
+  EN_ATTENTE
+  TRAITE
+  REJETE
 }
 
 enum StatutDotation {

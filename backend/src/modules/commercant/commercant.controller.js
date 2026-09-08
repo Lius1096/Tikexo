@@ -84,14 +84,43 @@ async function getMesStats(req, res, next) {
   } catch (e) { next(e); }
 }
 
-async function demanderPayout(req, res, next) {
+// Remplace l'ancien déclenchement direct d'un payout FedaPay par le
+// commerçant — voir commercant.service.js#creerTicketRetrait.
+async function creerTicketRetrait(req, res, next) {
   try {
-    const { declencherPayout } = require('../fedapay/fedapay.service');
     const prisma = require('../../config/database');
     const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
-    const result = await declencherPayout(prisma, commercant.id, { manuel: true });
-    res.json({ success: true, data: result });
+    const data = await service.creerTicketRetrait(commercant.id);
+    res.status(201).json({ success: true, data });
   } catch (e) { next(e); }
+}
+
+async function getMesTicketsRetrait(req, res, next) {
+  try {
+    const prisma = require('../../config/database');
+    const commercant = await prisma.commercant.findUniqueOrThrow({ where: { user_id: req.user.id } });
+    res.json({ success: true, data: await service.listerMesTicketsRetrait(commercant.id) });
+  } catch (e) { next(e); }
+}
+
+async function getTicketsRetrait(req, res, next) {
+  try { res.json({ success: true, data: await service.listerTicketsRetrait(req.query) }); } catch (e) { next(e); }
+}
+
+async function getUrlPreuveTicketRetrait(req, res, next) {
+  try { res.json({ success: true, data: await service.getUrlPreuveTicketRetrait(req.params.id, req.user) }); } catch (e) { next(e); }
+}
+
+async function validerTicketRetrait(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'La preuve de virement (image ou PDF) est obligatoire' });
+    const data = await service.validerTicketRetrait(req.user.id, req.params.id, req.file.url);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function rejeterTicketRetrait(req, res, next) {
+  try { res.json({ success: true, data: await service.rejeterTicketRetrait(req.user.id, req.params.id, req.body.motif) }); } catch (e) { next(e); }
 }
 
 async function uploaderDocument(req, res, next) {
@@ -130,6 +159,8 @@ async function getPayouts(req, res, next) {
 
 module.exports = {
   lister, creer, getById, modifier, valider, activer, suspendre, archiver, parProximite, nearby, fiche,
-  fichePublique, regenererQRCode, getMoi, getMesStats, demanderPayout, uploaderDocument, getDocuments,
+  fichePublique, regenererQRCode, getMoi, getMesStats, uploaderDocument, getDocuments,
   validerDocument, rejeterDocument, getTransactions, getPayouts, getUrlDocument,
+  creerTicketRetrait, getMesTicketsRetrait, getTicketsRetrait, getUrlPreuveTicketRetrait,
+  validerTicketRetrait, rejeterTicketRetrait,
 };

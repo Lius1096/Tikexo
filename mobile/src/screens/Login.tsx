@@ -9,7 +9,18 @@ import { useAuth } from '../context/AuthContext';
 import { colors, spacing, borderRadius, fontSize } from '../design-system/tokens';
 import { Card, Button, LinkButton, Wordmark } from '../design-system/components';
 
-type Etape = 'login' | 'forgot-email' | 'forgot-code';
+type Etape = 'login' | 'forgot-email' | 'forgot-code' | 'activation-token' | 'activation-form';
+
+// Le lien d'invitation reçu par email pointe vers la page web
+// (https://tikexo.kete.fr/invitation?token=...) — tant que l'app mobile n'a
+// pas de deep link configuré (Universal/App Links sur ce domaine), l'usager
+// qui n'a que l'app doit pouvoir coller ce lien ici pour en extraire le token.
+function extraireToken(saisie: string): string {
+  const valeur = saisie.trim();
+  const match = valeur.match(/[?&]token=([^&\s]+)/);
+  if (match) return decodeURIComponent(match[1]);
+  return valeur;
+}
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -24,6 +35,13 @@ export default function LoginScreen() {
   const [code, setCode] = useState('');
   const [nouveauMdp, setNouveauMdp] = useState('');
   const [resetOk, setResetOk] = useState(false);
+
+  const [activationInput, setActivationInput] = useState('');
+  const [activationToken, setActivationToken] = useState('');
+  const [activationUser, setActivationUser] = useState<{ prenom: string; nom: string; email_pro: string } | null>(null);
+  const [activationEmailPerso, setActivationEmailPerso] = useState('');
+  const [activationMdp, setActivationMdp] = useState('');
+  const [activationConfirm, setActivationConfirm] = useState('');
 
   async function handleLogin() {
     if (!email.trim() || !motDePasse) { setErreur('Entrez votre email et votre mot de passe.'); return; }
@@ -50,6 +68,46 @@ export default function LoginScreen() {
       setEtape('forgot-code');
     } catch (e: any) {
       setErreur(e?.response?.data?.error || "Erreur lors de l'envoi. Vérifiez votre email.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleActivationTokenSubmit() {
+    const token = extraireToken(activationInput);
+    if (!token) { setErreur('Collez le lien reçu par email, ou le code d\'invitation.'); return; }
+    setErreur(''); setLoading(true);
+    try {
+      const res = await api.get(`/auth/invitation/${token}`);
+      setActivationToken(token);
+      setActivationUser(res.data.data);
+      setActivationEmailPerso('');
+      setActivationMdp('');
+      setActivationConfirm('');
+      setEtape('activation-form');
+    } catch (e: any) {
+      setErreur(e?.response?.data?.error || 'Lien d\'invitation invalide ou expiré.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleActivationFormSubmit() {
+    if (!activationEmailPerso.trim()) { setErreur('Entrez votre email personnel.'); return; }
+    if (activationMdp.length < 8) { setErreur('Le mot de passe doit contenir au moins 8 caractères.'); return; }
+    if (activationMdp !== activationConfirm) { setErreur('Les mots de passe ne correspondent pas.'); return; }
+    setErreur(''); setLoading(true);
+    const emailNorm = activationEmailPerso.trim().toLowerCase();
+    try {
+      await api.post('/auth/invitation/complete', {
+        token: activationToken,
+        email_perso: emailNorm,
+        mot_de_passe: activationMdp,
+      });
+      // Compte activé — connexion automatique avec les nouvelles identifiants
+      await login(emailNorm, activationMdp);
+    } catch (e: any) {
+      setErreur(e?.response?.data?.error || 'Échec de l\'activation du compte — réessayez.');
     } finally {
       setLoading(false);
     }
@@ -122,6 +180,12 @@ export default function LoginScreen() {
               {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
 
               <Button title="Se connecter" onPress={handleLogin} loading={loading} />
+
+              <LinkButton
+                title="Première connexion ? Activer mon compte"
+                onPress={() => { setActivationInput(''); setEtape('activation-token'); setErreur(''); }}
+                style={styles.activationLien}
+              />
             </>
           )}
 
@@ -182,6 +246,70 @@ export default function LoginScreen() {
               )}
             </>
           )}
+
+          {etape === 'activation-token' && (
+            <>
+              <LinkButton title="← Retour" onPress={() => { setEtape('login'); setErreur(''); }} style={styles.retourWrap} />
+              <Text style={styles.titre}>Activer mon compte</Text>
+              <Text style={styles.description}>
+                Ouvrez l'email d'invitation TIKEXO reçu de votre employeur, puis collez ici le lien qu'il contient (ou le code d'invitation).
+              </Text>
+              <Text style={styles.champLabel}>LIEN OU CODE D'INVITATION</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="https://tikexo.kete.fr/invitation?token=..."
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={activationInput}
+                onChangeText={(t) => { setActivationInput(t); setErreur(''); }}
+              />
+              {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
+              <Button title="Continuer" onPress={handleActivationTokenSubmit} loading={loading} />
+            </>
+          )}
+
+          {etape === 'activation-form' && activationUser && (
+            <>
+              <LinkButton title="← Retour" onPress={() => { setEtape('activation-token'); setErreur(''); }} style={styles.retourWrap} />
+              <Text style={styles.titre}>Bienvenue, {activationUser.prenom} !</Text>
+              <Text style={styles.description}>
+                Complétez votre profil pour accéder à votre wallet TIKEXO.
+              </Text>
+              <Text style={styles.champLabel}>EMAIL PROFESSIONNEL</Text>
+              <TextInput style={[styles.input, styles.inputDesactive]} value={activationUser.email_pro} editable={false} />
+              <Text style={styles.champLabel}>EMAIL PERSONNEL (SERA VOTRE IDENTIFIANT)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="ex : kofi@gmail.com"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={activationEmailPerso}
+                onChangeText={(t) => { setActivationEmailPerso(t); setErreur(''); }}
+              />
+              <Text style={styles.champLabel}>MOT DE PASSE</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="8 caractères minimum"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={activationMdp}
+                onChangeText={(t) => { setActivationMdp(t); setErreur(''); }}
+              />
+              <Text style={styles.champLabel}>CONFIRMER LE MOT DE PASSE</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Répétez le mot de passe"
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={activationConfirm}
+                onChangeText={(t) => { setActivationConfirm(t); setErreur(''); }}
+              />
+              {!!erreur && <Text style={styles.erreur}>{erreur}</Text>}
+              <Button title="Activer mon compte" onPress={handleActivationFormSubmit} loading={loading} />
+            </>
+          )}
         </Card>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -209,6 +337,8 @@ const styles = StyleSheet.create({
   },
   inputCode: { textAlign: 'center', letterSpacing: 6, fontVariant: ['tabular-nums'] },
   lienWrap: { alignItems: 'flex-end', marginBottom: spacing.md },
+  activationLien: { alignItems: 'center', marginTop: spacing.md },
+  inputDesactive: { color: colors.dark + '66' },
   retourWrap: { marginBottom: spacing.md },
   erreur: { color: colors.danger, fontSize: fontSize.xs, backgroundColor: '#FEF2F2', borderRadius: borderRadius.sm, padding: spacing.sm, marginBottom: spacing.md },
   succesWrap: { alignItems: 'center', paddingVertical: spacing.lg },

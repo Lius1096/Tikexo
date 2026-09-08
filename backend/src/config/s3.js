@@ -3,6 +3,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/clien
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
 let _client = null;
+let _clientPresign = null;
 
 function getClient() {
   if (!_client && process.env.S3_ENDPOINT) {
@@ -17,6 +18,30 @@ function getClient() {
     });
   }
   return _client;
+}
+
+// Client dédié à la génération d'URLs présignées, construit avec l'endpoint
+// PUBLIC (S3_PUBLIC_URL) plutôt que l'endpoint interne (S3_ENDPOINT, ex.
+// "http://minio:9000" — un nom de service Docker injoignable depuis un
+// navigateur). Signer avec le bon host dès le départ est nécessaire : le host
+// fait partie des en-têtes signés SigV4, réécrire l'URL après signature
+// invaliderait la signature. En dev, S3_PUBLIC_URL est vide donc on retombe
+// sur S3_ENDPOINT (déjà "http://localhost:9000", joignable depuis le
+// navigateur de l'admin).
+function getPresignClient() {
+  const endpoint = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
+  if (!_clientPresign && endpoint) {
+    _clientPresign = new S3Client({
+      region: process.env.S3_REGION || 'auto',
+      endpoint,
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY,
+        secretAccessKey: process.env.S3_SECRET_KEY,
+      },
+      forcePathStyle: true,
+    });
+  }
+  return _clientPresign;
 }
 
 async function uploadBuffer(buffer, key, mimeType) {
@@ -55,7 +80,7 @@ function cleDepuisUrl(fichierUrl) {
 // signature, l'URL brute stockée en base n'est ni publique ni même
 // joignable depuis un navigateur (endpoint MinIO interne au réseau docker).
 async function getSignedDownloadUrl(fichierUrl, expiresIn = 300) {
-  const client = getClient();
+  const client = getPresignClient();
   const cle = client ? cleDepuisUrl(fichierUrl) : null;
   if (!client || !cle) return fichierUrl; // dev local sans S3 : chemin déjà servable tel quel
 

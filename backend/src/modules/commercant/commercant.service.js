@@ -12,8 +12,14 @@ const {
   commercantActive,
   commercantDocumentValide,
   commercantDocumentRejete,
+  ticketRetraitTraite,
+  ticketRetraitRejete,
 } = require('../../utils/emailTemplates');
 const { getSignedDownloadUrl } = require('../../config/s3');
+
+// Seuil de solde disponible à partir duquel un commerçant peut ouvrir une
+// demande de retrait manuel (ticket) — cf. TicketRetrait dans schema.prisma.
+const SEUIL_TICKET_RETRAIT = parseFloat(process.env.TIKEXO_SEUIL_TICKET_RETRAIT || '50000');
 
 const ROLES_ADMIN_COMMERCANT = ['SUPER_ADMIN', 'ADMIN_OPS'];
 const {
@@ -542,13 +548,227 @@ async function getByUserId(userId) {
     where: { user_id: userId },
     include: {
       user: {
-        select: { wallet: { select: { id: true, solde: true, currency: true, statut: true } } },
+        select: { wallet: { select: { id: true, solde: true, solde_reserve: true, currency: true, statut: true } } },
       },
     },
   });
   if (!result) return null;
   const { user, ...rest } = result;
-  return { ...rest, wallet: user?.wallet ?? null, frais_payout_manuel_taux: TAUX_FRAIS_PAYOUT_MANUEL };
+  return {
+    ...rest,
+    wallet: user?.wallet ?? null,
+    frais_payout_manuel_taux: TAUX_FRAIS_PAYOUT_MANUEL,
+    seuil_ticket_retrait: SEUIL_TICKET_RETRAIT,
+  };
+}
+
+// ── Tickets de retrait manuel ────────────────────────────────────────────
+// En attendant l'intégration FedaPay "checkout envoi multiple" (voir
+// NOTES-FEDAPAY.md), tout retrait commerçant passe par un ticket traité
+// manuellement par un admin TIKEXO avec preuve de virement Mobile Money à
+// l'appui — remplace le déclenchement direct d'un payout FedaPay par le
+// commerçant (fedapay.service.js#declencherPayout, conservé mais plus
+// appelé depuis ce flux ; jobBatchingPayouts n'est plus planifié non plus,
+// voir queues/startWorkers.js).
+async function creerTicketRetrait(commercantId) {
+  const { verrouillerWallet } = require('../../utils/ledger');
+
+  const { ticket, userId } = await prisma.$transaction(async (tx) => {
+    const commercant = await tx.commercant.findUniqueOrThrow({
+      where: { id: commercantId },
+      include: { user: { select: { wallet: true } } },
+    });
+
+    if (commercant.statut !== 'ACTIF') {
+      const err = new Error('Compte marchand suspendu — retrait indisponible');
+      err.statusCode = 422; err.code = 'COMMERCANT_NON_ACTIF'; throw err;
+    }
+
+    const wallet = commercant.user.wallet;
+    if (!wallet) {
+      const err = new Error('Wallet introuvable'); err.statusCode = 404; throw err;
+    }
+
+    const ticketEnAttente = await tx.ticketRetrait.findFirst({
+      where: { commercant_id: commercantId, statut: 'EN_ATTENTE' },
+    });
+    if (ticketEnAttente) {
+      const err = new Error('Une demande de retrait est déjà en cours de traitement — contactez le support si besoin de la modifier');
+      err.statusCode = 409; err.code = 'TICKET_DEJA_EN_COURS'; throw err;
+    }
+
+    // Verrou pessimiste — empêche un double-clic (ou deux appels concurrents)
+    // de réserver deux fois le même solde disponible.
+    const walletVerrouille = await verrouillerWallet(tx, wallet.id);
+    const soldeDisponible = Math.floor(
+      parseFloat(walletVerrouille.solde.toString()) - parseFloat(walletVerrouille.solde_reserve.toString())
+    );
+
+    if (soldeDisponible < SEUIL_TICKET_RETRAIT) {
+      const err = new Error(
+        `Solde disponible insuffisant pour un retrait. Minimum requis : ${SEUIL_TICKET_RETRAIT.toLocaleString('fr-FR')} XOF, disponible : ${Math.max(soldeDisponible, 0).toLocaleString('fr-FR')} XOF.`
+      );
+      err.statusCode = 422; err.code = 'SOLDE_INSUFFISANT_TICKET'; throw err;
+    }
+
+    const nouveauTicket = await tx.ticketRetrait.create({
+      data: { commercant_id: commercantId, montant: soldeDisponible },
+    });
+
+    await tx.$executeRaw`
+      UPDATE "Wallet" SET solde_reserve = solde_reserve + ${soldeDisponible}::numeric, "updatedAt" = NOW()
+      WHERE id = ${wallet.id}
+    `;
+
+    return { ticket: nouveauTicket, userId: commercant.user_id };
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: userId, action: 'TICKET_RETRAIT_CREE', entite: 'TicketRetrait', entite_id: ticket.id, apres: { montant: parseFloat(ticket.montant.toString()), commercantId } },
+  });
+
+  return ticket;
+}
+
+async function listerMesTicketsRetrait(commercantId) {
+  return prisma.ticketRetrait.findMany({
+    where: { commercant_id: commercantId },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  });
+}
+
+async function listerTicketsRetrait(filtres = {}) {
+  const where = filtres.statut ? { statut: filtres.statut } : {};
+  return prisma.ticketRetrait.findMany({
+    where,
+    include: { commercant: { select: { id: true, nom: true, mobile_money_numero: true, mobile_money_operateur: true } } },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+async function getTicketRetraitAvecContact(ticketId) {
+  return prisma.ticketRetrait.findUniqueOrThrow({
+    where: { id: ticketId },
+    include: {
+      commercant: {
+        include: { user: { select: { id: true, email_perso: true, nom: true, prenom: true, wallet: true } } },
+      },
+    },
+  });
+}
+
+async function getUrlPreuveTicketRetrait(ticketId, requester) {
+  const ticket = await prisma.ticketRetrait.findUniqueOrThrow({
+    where: { id: ticketId },
+    include: { commercant: { select: { user_id: true } } },
+  });
+  const estAdmin = ROLES_ADMIN_COMMERCANT.includes(requester.role);
+  const estProprietaire = requester.id === ticket.commercant.user_id;
+  if (!estAdmin && !estProprietaire) {
+    const err = new Error('Accès refusé à ce ticket'); err.statusCode = 403; throw err;
+  }
+  if (!ticket.preuve_url) {
+    const err = new Error('Aucune preuve disponible pour ce ticket'); err.statusCode = 404; throw err;
+  }
+  const url = await getSignedDownloadUrl(ticket.preuve_url);
+  return { url };
+}
+
+async function validerTicketRetrait(adminId, ticketId, preuveUrl) {
+  if (!preuveUrl) {
+    const err = new Error('La preuve de virement est obligatoire pour valider un retrait');
+    err.statusCode = 400; err.code = 'PREUVE_REQUISE'; throw err;
+  }
+
+  const avant = await getTicketRetraitAvecContact(ticketId);
+  if (avant.statut !== 'EN_ATTENTE') {
+    const err = new Error('Ce ticket a déjà été traité'); err.statusCode = 409; throw err;
+  }
+
+  const walletId = avant.commercant.user.wallet.id;
+  const montant = parseFloat(avant.montant.toString());
+
+  const { debiterWallet } = require('../../utils/ledger');
+  await debiterWallet(prisma, walletId, montant, 'PAYOUT', { ticket_retrait_id: ticketId, manuel: true });
+
+  // La réservation faite à la création du ticket n'a plus lieu d'être : le
+  // montant vient d'être réellement débité du solde.
+  await prisma.$executeRaw`
+    UPDATE "Wallet" SET solde_reserve = GREATEST(0, solde_reserve - ${montant}::numeric), "updatedAt" = NOW()
+    WHERE id = ${walletId}
+  `;
+
+  const ticket = await prisma.ticketRetrait.update({
+    where: { id: ticketId },
+    data: { statut: 'TRAITE', preuve_url: preuveUrl, traite_par: adminId, traite_at: new Date() },
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'TICKET_RETRAIT_TRAITE', entite: 'TicketRetrait', entite_id: ticketId, apres: { montant } },
+  });
+
+  const contact = avant.commercant.user;
+  if (contact.email_perso) {
+    const nomContact = `${contact.prenom || ''} ${contact.nom || ''}`.trim() || avant.commercant.nom;
+    const { html, text } = ticketRetraitTraite(nomContact, montant);
+    envoyerEmailAsync({ to: contact.email_perso, subject: 'TIKEXO — Retrait effectué', html, text })
+      .catch((e) => logger.warn('TIKEXO — Email ticket retrait traité échoué', { err: e.message, ticketId }));
+  }
+
+  require('../notification/notification.service').creerEtNotifier(contact.id, {
+    titre: 'Retrait effectué',
+    corps: `Votre retrait de ${Math.floor(montant).toLocaleString('fr-FR')} XOF a été effectué`,
+    type: 'REVERSEMENT',
+  }).catch(() => {});
+
+  return ticket;
+}
+
+async function rejeterTicketRetrait(adminId, ticketId, motif) {
+  if (!motif || motif.trim().length < 10) {
+    const err = new Error('Le motif de rejet doit contenir au moins 10 caractères');
+    err.statusCode = 400; err.code = 'MOTIF_TROP_COURT'; throw err;
+  }
+
+  const avant = await getTicketRetraitAvecContact(ticketId);
+  if (avant.statut !== 'EN_ATTENTE') {
+    const err = new Error('Ce ticket a déjà été traité'); err.statusCode = 409; throw err;
+  }
+
+  const walletId = avant.commercant.user.wallet.id;
+  const montant = parseFloat(avant.montant.toString());
+
+  // Libère la réservation — le montant redevient disponible dans le wallet.
+  await prisma.$executeRaw`
+    UPDATE "Wallet" SET solde_reserve = GREATEST(0, solde_reserve - ${montant}::numeric), "updatedAt" = NOW()
+    WHERE id = ${walletId}
+  `;
+
+  const ticket = await prisma.ticketRetrait.update({
+    where: { id: ticketId },
+    data: { statut: 'REJETE', motif_rejet: motif.trim(), traite_par: adminId, traite_at: new Date() },
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'TICKET_RETRAIT_REJETE', entite: 'TicketRetrait', entite_id: ticketId, apres: { motif: motif.trim() } },
+  });
+
+  const contact = avant.commercant.user;
+  if (contact.email_perso) {
+    const nomContact = `${contact.prenom || ''} ${contact.nom || ''}`.trim() || avant.commercant.nom;
+    const { html, text } = ticketRetraitRejete(nomContact, montant, motif.trim());
+    envoyerEmailAsync({ to: contact.email_perso, subject: 'TIKEXO — Demande de retrait rejetée', html, text })
+      .catch((e) => logger.warn('TIKEXO — Email ticket retrait rejeté échoué', { err: e.message, ticketId }));
+  }
+
+  require('../notification/notification.service').creerEtNotifier(contact.id, {
+    titre: 'Demande de retrait rejetée',
+    corps: motif.trim(),
+    type: 'REVERSEMENT',
+  }).catch(() => {});
+
+  return ticket;
 }
 
 module.exports = {
@@ -556,4 +776,6 @@ module.exports = {
   rechercherCommercantsProches, getFicheCommercant, getFichePublique, parProximite,
   regenererQRCode, ajouterDocument, getDocuments, validerDocument, rejeterDocument,
   getTransactions, getPayouts, getUrlDocument,
+  creerTicketRetrait, listerMesTicketsRetrait, listerTicketsRetrait,
+  getUrlPreuveTicketRetrait, validerTicketRetrait, rejeterTicketRetrait,
 };

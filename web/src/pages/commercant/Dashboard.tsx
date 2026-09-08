@@ -5,7 +5,7 @@ import api from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { fmt } from '../../utils/format';
 
-const SEUIL_PAYOUT = 1000;
+const SEUIL_TICKET_RETRAIT_DEFAUT = 50000;
 
 export default function CommercantDashboard() {
   const { user } = useAuth();
@@ -13,13 +13,13 @@ export default function CommercantDashboard() {
   const [payoutMsg, setPayoutMsg] = useState<string | null>(null);
 
   const payoutMutation = useMutation({
-    mutationFn: () => api.post('/commercants/moi/payout').then((r) => r.data),
+    mutationFn: () => api.post('/commercants/moi/tickets-retrait').then((r) => r.data),
     onSuccess: () => {
-      setPayoutMsg('Reversement initié, vous recevrez les fonds sur votre Mobile Money.');
+      setPayoutMsg('Votre demande de retrait a été enregistrée. Elle sera traitée manuellement par notre équipe, qui vous contactera pour le virement Mobile Money.');
       queryClient.invalidateQueries({ queryKey: ['commercant-moi'] });
     },
     onError: (err: any) => {
-      setPayoutMsg(err?.response?.data?.error ?? 'Échec de la demande de reversement — réessayez.');
+      setPayoutMsg(err?.response?.data?.error ?? 'Échec de la demande de retrait — réessayez.');
     },
   });
 
@@ -42,6 +42,9 @@ export default function CommercantDashboard() {
   });
 
   const solde = parseFloat(fiche?.wallet?.solde ?? 0);
+  const soldeReserve = parseFloat(fiche?.wallet?.solde_reserve ?? 0);
+  const soldeDisponible = solde - soldeReserve;
+  const seuilTicketRetrait = fiche?.seuil_ticket_retrait ?? SEUIL_TICKET_RETRAIT_DEFAUT;
   const transactions: any[] = txData?.items ?? [];
   const estActif = fiche?.statut === 'ACTIF';
 
@@ -83,16 +86,21 @@ export default function CommercantDashboard() {
           </div>
           <button
             onClick={() => { setPayoutMsg(null); payoutMutation.mutate(); }}
-            disabled={payoutMutation.isPending || solde < SEUIL_PAYOUT || !estActif}
-            title={!estActif ? 'Indisponible tant que votre compte n\'est pas actif' : undefined}
+            disabled={payoutMutation.isPending || soldeDisponible < seuilTicketRetrait || !estActif}
+            title={!estActif ? 'Indisponible tant que votre compte n\'est pas actif' : soldeDisponible < seuilTicketRetrait ? `Retrait possible à partir de ${fmt(seuilTicketRetrait)} XOF` : undefined}
             className="flex items-center gap-1.5 bg-tikexo-gold/90 hover:bg-tikexo-gold disabled:opacity-40 disabled:cursor-not-allowed text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
           >
             {payoutMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <ArrowUpRight size={12} />}
-            Demander reversement
+            Demander un retrait
           </button>
         </div>
         {payoutMsg && (
           <div className="mt-3 text-[11px] text-white/70 bg-white/10 rounded-lg px-3 py-2">{payoutMsg}</div>
+        )}
+        {soldeDisponible < seuilTicketRetrait && estActif && (
+          <div className="mt-3 text-[11px] text-white/50">
+            Le retrait se débloque à partir de {fmt(seuilTicketRetrait)} XOF disponibles.
+          </div>
         )}
       </div>
 
