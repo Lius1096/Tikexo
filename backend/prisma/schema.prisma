@@ -547,6 +547,7 @@ model Broadcast {
   corps            String
   type             TypeNotification
   canaux           String[]
+  piece_jointe_url String?
   nb_destinataires Int
   createdAt        DateTime       @default(now())
 
@@ -835,6 +836,7 @@ model TicketSupportMessage {
   // recharger l'auteur à chaque fois pour connaître son rôle.
   auteur_role Role
   message     String
+  piece_jointe_url String?
   createdAt   DateTime @default(now())
 
   ticket      TicketSupport @relation(fields: [ticket_id], references: [id])

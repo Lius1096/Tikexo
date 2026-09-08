@@ -389,11 +389,13 @@ async function envoyerBroadcast(data, adminId) {
     });
   }
 
+  const pieceJointeUrl = data.pieceJointeUrl?.trim() || null;
+
   if (canaux.includes('EMAIL')) {
     for (const d of destinataires) {
       const email = d.email_perso || d.email_pro;
       if (!email) continue;
-      const { html, text } = broadcastAnnonce(d.prenom, titre.trim(), corps.trim());
+      const { html, text } = broadcastAnnonce(d.prenom, titre.trim(), corps.trim(), pieceJointeUrl);
       envoyerEmailAsync({ to: email, subject: `TIKEXO — ${titre.trim()}`, html, text })
         .catch((e) => logger.warn('TIKEXO — Email broadcast échoué', { err: e.message, to: email }));
     }
@@ -404,6 +406,7 @@ async function envoyerBroadcast(data, adminId) {
       envoye_par: adminId,
       cible,
       entreprise_ids: entrepriseIds,
+      piece_jointe_url: pieceJointeUrl,
       titre: titre.trim(),
       corps: corps.trim(),
       type,

@@ -16,7 +16,7 @@ function cheminEspace(role) {
   return '/beneficiaire/support';
 }
 
-async function creerTicket(userId, { categorie, sujet, message }) {
+async function creerTicket(userId, { categorie, sujet, message, pieceJointeUrl }) {
   if (!sujet || !sujet.trim()) {
     const err = new Error('Le sujet est requis'); err.statusCode = 400; throw err;
   }
@@ -35,7 +35,7 @@ async function creerTicket(userId, { categorie, sujet, message }) {
       data: { user_id: userId, categorie: categorieFinale, sujet: sujet.trim() },
     });
     await tx.ticketSupportMessage.create({
-      data: { ticket_id: t.id, auteur_id: userId, auteur_role: user.role, message: message.trim() },
+      data: { ticket_id: t.id, auteur_id: userId, auteur_role: user.role, message: message.trim(), piece_jointe_url: pieceJointeUrl || null },
     });
     return t;
   });
@@ -99,7 +99,7 @@ async function getTicketAutorise(ticketId, requester) {
   return ticket;
 }
 
-async function ajouterMessage(ticketId, auteur, message) {
+async function ajouterMessage(ticketId, auteur, message, pieceJointeUrl) {
   if (!message || !message.trim()) {
     const err = new Error('Le message est requis'); err.statusCode = 400; throw err;
   }
@@ -112,7 +112,7 @@ async function ajouterMessage(ticketId, auteur, message) {
   const estAdmin = ROLES_ADMIN.includes(auteur.role);
 
   await prisma.ticketSupportMessage.create({
-    data: { ticket_id: ticketId, auteur_id: auteur.id, auteur_role: auteur.role, message: message.trim() },
+    data: { ticket_id: ticketId, auteur_id: auteur.id, auteur_role: auteur.role, message: message.trim(), piece_jointe_url: pieceJointeUrl || null },
   });
 
   // Un admin qui répond passe le ticket en cours ; l'auteur qui répond à un
@@ -145,6 +145,26 @@ async function ajouterMessage(ticketId, auteur, message) {
   }
 
   return getTicketAutorise(ticketId, auteur);
+}
+
+// Vérifie l'accès à la pièce jointe d'un message via son ticket parent —
+// même règle que getTicketAutorise (admin ou auteur du ticket).
+async function getMessageAutorise(messageId, requester) {
+  const msg = await prisma.ticketSupportMessage.findUniqueOrThrow({
+    where: { id: messageId },
+    include: { ticket: { select: { user_id: true } } },
+  });
+
+  const estAdmin = ROLES_ADMIN.includes(requester.role);
+  const estProprietaire = requester.id === msg.ticket.user_id;
+  if (!estAdmin && !estProprietaire) {
+    const err = new Error('Accès refusé à cette pièce jointe'); err.statusCode = 403; throw err;
+  }
+  if (!msg.piece_jointe_url) {
+    const err = new Error('Aucune pièce jointe pour ce message'); err.statusCode = 404; throw err;
+  }
+
+  return msg;
 }
 
 async function changerStatutTicket(ticketId, adminId, statut) {
@@ -185,6 +205,7 @@ module.exports = {
   listerMesTickets,
   listerTicketsAdmin,
   getTicketAutorise,
+  getMessageAutorise,
   ajouterMessage,
   changerStatutTicket,
 };

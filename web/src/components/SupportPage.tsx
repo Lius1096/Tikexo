@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { MessageCircle, Plus, X, Send, ShieldCheck } from 'lucide-react';
+import { MessageCircle, Plus, X, Send, ShieldCheck, Paperclip } from 'lucide-react';
 import api from '../lib/api';
 import { fmtDateHeure } from '../utils/format';
 
@@ -10,6 +10,7 @@ interface Message {
   message: string;
   auteur_role: string;
   createdAt: string;
+  piece_jointe_url: string | null;
   auteur: { id: string; nom: string; prenom: string; role: string };
 }
 
@@ -50,6 +51,8 @@ export default function SupportPage() {
   const [erreurCreation, setErreurCreation] = useState<string | null>(null);
   const [ticketOuvertId, setTicketOuvertId] = useState<string | null>(null);
   const [reponse, setReponse] = useState('');
+  const [fichierCreation, setFichierCreation] = useState<File | null>(null);
+  const [fichierReponse, setFichierReponse] = useState<File | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['mes-tickets-support'],
@@ -68,10 +71,18 @@ export default function SupportPage() {
   };
 
   const creerMut = useMutation({
-    mutationFn: () => api.post('/support/tickets', nouveauForm),
+    mutationFn: () => {
+      const fd = new FormData();
+      fd.append('categorie', nouveauForm.categorie);
+      fd.append('sujet', nouveauForm.sujet);
+      fd.append('message', nouveauForm.message);
+      if (fichierCreation) fd.append('piece_jointe', fichierCreation);
+      return api.post('/support/tickets', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
     onSuccess: (r) => {
       setCreationOuverte(false);
       setNouveauForm({ categorie: 'AUTRE', sujet: '', message: '' });
+      setFichierCreation(null);
       setErreurCreation(null);
       qc.invalidateQueries({ queryKey: ['mes-tickets-support'] });
       setTicketOuvertId(r.data.data.id);
@@ -80,9 +91,18 @@ export default function SupportPage() {
   });
 
   const repondreMut = useMutation({
-    mutationFn: () => api.post(`/support/tickets/${ticketOuvertId}/messages`, { message: reponse }),
-    onSuccess: () => { setReponse(''); invalidate(); },
+    mutationFn: () => {
+      const fd = new FormData();
+      fd.append('message', reponse);
+      if (fichierReponse) fd.append('piece_jointe', fichierReponse);
+      return api.post(`/support/tickets/${ticketOuvertId}/messages`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    onSuccess: () => { setReponse(''); setFichierReponse(null); invalidate(); },
   });
+
+  function voirPieceJointe(messageId: string) {
+    window.open(`${api.defaults.baseURL}/support/messages/${messageId}/fichier`, '_blank');
+  }
 
   const tickets = data ?? [];
   const formValide = !!nouveauForm.sujet.trim() && !!nouveauForm.message.trim();
@@ -174,6 +194,21 @@ export default function SupportPage() {
                   className="w-full resize-none border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
                 />
               </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
+                  Pièce jointe <span className="text-slate-400 font-normal">(optionnel)</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs text-slate-500 border border-dashed border-slate-300 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-slate-50">
+                  <Paperclip size={14} />
+                  {fichierCreation ? fichierCreation.name : 'Joindre une capture ou un document'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                    className="hidden"
+                    onChange={(e) => setFichierCreation(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
               {erreurCreation && <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erreurCreation}</div>}
               <button
                 onClick={() => creerMut.mutate()}
@@ -217,6 +252,17 @@ export default function SupportPage() {
                         estAdmin ? 'bg-slate-100 text-slate-800' : 'bg-tikexo-primary text-white'
                       )}>
                         {m.message}
+                        {m.piece_jointe_url && (
+                          <button
+                            onClick={() => voirPieceJointe(m.id)}
+                            className={clsx(
+                              'flex items-center gap-1 mt-1.5 text-[11px] underline',
+                              estAdmin ? 'text-slate-500' : 'text-white/80'
+                            )}
+                          >
+                            <Paperclip size={11} /> Pièce jointe
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 px-1">
                         {estAdmin && <ShieldCheck size={10} />}
@@ -229,21 +275,40 @@ export default function SupportPage() {
             </div>
 
             {ticketDetail?.statut !== 'FERME' && (
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-2 flex-shrink-0">
-                <textarea
-                  value={reponse}
-                  onChange={(e) => setReponse(e.target.value)}
-                  placeholder="Votre message…"
-                  rows={1}
-                  className="flex-1 resize-none text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-tikexo-primary"
-                />
-                <button
-                  onClick={() => repondreMut.mutate()}
-                  disabled={!reponse.trim() || repondreMut.isPending}
-                  className="flex-shrink-0 bg-tikexo-primary text-white p-2.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
-                >
-                  <Send size={15} />
-                </button>
+              <div className="px-4 py-3 border-t border-slate-100 flex-shrink-0">
+                {fichierReponse && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1.5">
+                    <Paperclip size={11} /> {fichierReponse.name}
+                    <button onClick={() => setFichierReponse(null)} className="text-slate-400 hover:text-red-500">
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <label className="flex-shrink-0 text-slate-400 hover:text-tikexo-primary p-2 cursor-pointer">
+                    <Paperclip size={16} />
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                      className="hidden"
+                      onChange={(e) => setFichierReponse(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <textarea
+                    value={reponse}
+                    onChange={(e) => setReponse(e.target.value)}
+                    placeholder="Votre message…"
+                    rows={1}
+                    className="flex-1 resize-none text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-tikexo-primary"
+                  />
+                  <button
+                    onClick={() => repondreMut.mutate()}
+                    disabled={!reponse.trim() || repondreMut.isPending}
+                    className="flex-shrink-0 bg-tikexo-primary text-white p-2.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  >
+                    <Send size={15} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

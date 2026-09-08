@@ -660,7 +660,7 @@ function echapperHtml(texte) {
  * changement réel de fonctionnement...). Le corps est composé librement par
  * l'admin — échappé puis converti en paragraphes avant insertion dans le HTML.
  */
-function broadcastAnnonce(prenom, titre, corps) {
+function broadcastAnnonce(prenom, titre, corps, pieceJointeUrl) {
   const corpsHtml = echapperHtml(corps)
     .split(/\n{2,}/)
     .map((p) => `<p style="color:#555;margin:0 0 16px;white-space:pre-line">${p}</p>`)
@@ -672,9 +672,10 @@ function broadcastAnnonce(prenom, titre, corps) {
       <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
       ${corpsHtml}
     `,
+    ...(pieceJointeUrl ? { bouton: { url: pieceJointeUrl, label: 'Voir la pièce jointe' } } : {}),
   });
 
-  const text = `Bonjour ${prenom},\n\n${corps}`;
+  const text = `Bonjour ${prenom},\n\n${corps}${pieceJointeUrl ? `\n\nPièce jointe : ${pieceJointeUrl}` : ''}`;
 
   return { html, text };
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { Send, Megaphone, Building2, Users, Utensils, CheckCircle2 } from 'lucide-react';
+import { Send, Megaphone, Building2, Users, Utensils, CheckCircle2, Paperclip, X, Loader2 } from 'lucide-react';
 import api from '../../lib/api';
 import { fmtDateHeure } from '../../utils/format';
 
@@ -35,6 +35,9 @@ export default function AdminBroadcast() {
   const [corps, setCorps] = useState('');
   const [type, setType] = useState<'SYSTEME' | 'MARKETING'>('SYSTEME');
   const [canaux, setCanaux] = useState<string[]>(['NOTIFICATION', 'EMAIL']);
+  const [pieceJointeUrl, setPieceJointeUrl] = useState<string | null>(null);
+  const [pieceJointeNom, setPieceJointeNom] = useState<string | null>(null);
+  const [uploadEnCours, setUploadEnCours] = useState(false);
   const [succes, setSucces] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -52,11 +55,11 @@ export default function AdminBroadcast() {
   });
 
   const envoyerMut = useMutation({
-    mutationFn: () => api.post('/admin/broadcast', { cible, entrepriseIds, titre, corps, type, canaux }),
+    mutationFn: () => api.post('/admin/broadcast', { cible, entrepriseIds, titre, corps, type, canaux, pieceJointeUrl }),
     onSuccess: (r) => {
       setSucces(`Envoyé à ${r.data.data.nb_destinataires} destinataire${r.data.data.nb_destinataires > 1 ? 's' : ''}.`);
       setErreur(null);
-      setTitre(''); setCorps(''); setEntrepriseIds([]);
+      setTitre(''); setCorps(''); setEntrepriseIds([]); setPieceJointeUrl(null); setPieceJointeNom(null);
       qc.invalidateQueries({ queryKey: ['admin-broadcasts'] });
       setTimeout(() => setSucces(null), 5000);
     },
@@ -68,6 +71,25 @@ export default function AdminBroadcast() {
   }
   function toggleEntreprise(id: string) {
     setEntrepriseIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  async function handleFichier(e: React.ChangeEvent<HTMLInputElement>) {
+    const fichier = e.target.files?.[0];
+    e.target.value = '';
+    if (!fichier) return;
+    setUploadEnCours(true);
+    setErreur(null);
+    try {
+      const fd = new FormData();
+      fd.append('piece_jointe', fichier);
+      const res = await api.post('/admin/broadcast/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setPieceJointeUrl(res.data.data.url);
+      setPieceJointeNom(fichier.name);
+    } catch {
+      setErreur("Échec de l'envoi de la pièce jointe — réessayez.");
+    } finally {
+      setUploadEnCours(false);
+    }
   }
 
   function handleEnvoyer() {
@@ -145,6 +167,27 @@ export default function AdminBroadcast() {
             rows={5}
             className="w-full resize-none border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-tikexo-primary/20 focus:border-tikexo-primary"
           />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-medium text-slate-700 mb-1.5">
+            Pièce jointe <span className="text-slate-400 font-normal">(optionnel — image ou PDF)</span>
+          </label>
+          {pieceJointeNom ? (
+            <div className="flex items-center gap-2 text-xs text-slate-600 border border-slate-200 rounded-lg px-3 py-2">
+              <Paperclip size={13} className="flex-shrink-0" />
+              <span className="truncate flex-1">{pieceJointeNom}</span>
+              <button onClick={() => { setPieceJointeUrl(null); setPieceJointeNom(null); }} className="text-slate-400 hover:text-red-500 flex-shrink-0">
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <label className="flex items-center gap-2 text-xs text-slate-500 border border-dashed border-slate-300 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-slate-50">
+              {uploadEnCours ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />}
+              {uploadEnCours ? 'Envoi en cours…' : 'Joindre un fichier'}
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" className="hidden" onChange={handleFichier} disabled={uploadEnCours} />
+            </label>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">

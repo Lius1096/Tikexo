@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { MessageCircle, X, Send, User, ShieldCheck } from 'lucide-react';
+import { MessageCircle, X, Send, User, ShieldCheck, Paperclip } from 'lucide-react';
 import api from '../../lib/api';
 import { fmtDateHeure } from '../../utils/format';
 
@@ -10,6 +10,7 @@ interface Message {
   message: string;
   auteur_role: string;
   createdAt: string;
+  piece_jointe_url: string | null;
   auteur: { id: string; nom: string; prenom: string; role: string };
 }
 
@@ -48,6 +49,7 @@ export default function AdminSupport() {
   const [filtre, setFiltre] = useState<typeof FILTRES[number]['key']>('OUVERT');
   const [ticketOuvertId, setTicketOuvertId] = useState<string | null>(null);
   const [reponse, setReponse] = useState('');
+  const [fichierReponse, setFichierReponse] = useState<File | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-support-tickets', filtre],
@@ -66,9 +68,18 @@ export default function AdminSupport() {
   };
 
   const repondreMut = useMutation({
-    mutationFn: () => api.post(`/support/tickets/${ticketOuvertId}/messages`, { message: reponse }),
-    onSuccess: () => { setReponse(''); invalidate(); },
+    mutationFn: () => {
+      const fd = new FormData();
+      fd.append('message', reponse);
+      if (fichierReponse) fd.append('piece_jointe', fichierReponse);
+      return api.post(`/support/tickets/${ticketOuvertId}/messages`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+    },
+    onSuccess: () => { setReponse(''); setFichierReponse(null); invalidate(); },
   });
+
+  function voirPieceJointe(messageId: string) {
+    window.open(`${api.defaults.baseURL}/support/messages/${messageId}/fichier`, '_blank');
+  }
 
   const statutMut = useMutation({
     mutationFn: (statut: string) => api.patch(`/support/tickets/${ticketOuvertId}/statut`, { statut }),
@@ -172,6 +183,17 @@ export default function AdminSupport() {
                         estAdmin ? 'bg-tikexo-primary text-white' : 'bg-slate-100 text-slate-800'
                       )}>
                         {m.message}
+                        {m.piece_jointe_url && (
+                          <button
+                            onClick={() => voirPieceJointe(m.id)}
+                            className={clsx(
+                              'flex items-center gap-1 mt-1.5 text-[11px] underline',
+                              estAdmin ? 'text-white/80' : 'text-slate-500'
+                            )}
+                          >
+                            <Paperclip size={11} /> Pièce jointe
+                          </button>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 px-1">
                         {estAdmin ? <ShieldCheck size={10} /> : <User size={10} />}
@@ -184,21 +206,40 @@ export default function AdminSupport() {
             </div>
 
             {ticketDetail?.statut !== 'FERME' && (
-              <div className="px-4 py-3 border-t border-slate-100 flex items-center gap-2 flex-shrink-0">
-                <textarea
-                  value={reponse}
-                  onChange={(e) => setReponse(e.target.value)}
-                  placeholder="Votre réponse…"
-                  rows={1}
-                  className="flex-1 resize-none text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-tikexo-primary"
-                />
-                <button
-                  onClick={() => repondreMut.mutate()}
-                  disabled={!reponse.trim() || repondreMut.isPending}
-                  className="flex-shrink-0 bg-tikexo-primary text-white p-2.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
-                >
-                  <Send size={15} />
-                </button>
+              <div className="px-4 py-3 border-t border-slate-100 flex-shrink-0">
+                {fichierReponse && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-slate-500 mb-1.5">
+                    <Paperclip size={11} /> {fichierReponse.name}
+                    <button onClick={() => setFichierReponse(null)} className="text-slate-400 hover:text-red-500">
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <label className="flex-shrink-0 text-slate-400 hover:text-tikexo-primary p-2 cursor-pointer">
+                    <Paperclip size={16} />
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif,application/pdf"
+                      className="hidden"
+                      onChange={(e) => setFichierReponse(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <textarea
+                    value={reponse}
+                    onChange={(e) => setReponse(e.target.value)}
+                    placeholder="Votre réponse…"
+                    rows={1}
+                    className="flex-1 resize-none text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-tikexo-primary"
+                  />
+                  <button
+                    onClick={() => repondreMut.mutate()}
+                    disabled={!reponse.trim() || repondreMut.isPending}
+                    className="flex-shrink-0 bg-tikexo-primary text-white p-2.5 rounded-lg disabled:opacity-40 hover:opacity-90 transition-opacity"
+                  >
+                    <Send size={15} />
+                  </button>
+                </div>
               </div>
             )}
           </div>

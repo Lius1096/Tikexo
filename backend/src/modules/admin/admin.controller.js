@@ -76,6 +76,20 @@ async function getBroadcasts(req, res, next) {
   try { res.json({ success: true, data: await service.listerBroadcasts(req.query) }); } catch (e) { next(e); }
 }
 
+// Retourne toujours une URL passant par le proxy public /media/broadcast
+// (jamais l'URL S3 brute, potentiellement injoignable — cf. S3_ENDPOINT
+// interne au réseau docker en prod) : cette pièce jointe doit s'afficher
+// dans un email, sans authentification possible côté destinataire.
+async function uploadPieceJointeBroadcast(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, error: 'Aucun fichier reçu' });
+    const url = process.env.S3_ENDPOINT
+      ? `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/media/broadcast/${req.file.filename}`
+      : req.file.url;
+    res.status(201).json({ success: true, data: { url } });
+  } catch (e) { next(e); }
+}
+
 async function listerDemandesPlafond(req, res, next) {
   try {
     const entrepriseService = require('../entreprise/entreprise.service');
@@ -97,4 +111,5 @@ module.exports = {
   bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets,
   getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude,
   listerDemandesPlafond, traiterDemandePlafond, envoyerBroadcast, getBroadcasts,
+  uploadPieceJointeBroadcast,
 };

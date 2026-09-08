@@ -86,6 +86,7 @@ const CONTENT_TYPES_PAR_EXTENSION = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.avif': 'image/avif',
+  '.pdf': 'application/pdf',
 };
 
 function contentTypeDepuisExtension(key) {

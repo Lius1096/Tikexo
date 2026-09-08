@@ -155,6 +155,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/landing', landingRoutes);
 app.use('/uploads/landing', express.static(require('path').join(__dirname, '../uploads/landing')));
+app.use('/uploads/broadcast', express.static(require('path').join(__dirname, '../uploads/broadcast')));
 
 // Proxy MinIO pour les images landing publiques — restreint au préfixe
 // `landing/` : le bucket contient aussi des documents KYB privés (préfixe
@@ -172,6 +173,26 @@ app.get('/media/landing/*', async (req, res) => {
       return res.status(404).end();
     }
     console.error('[TIKEXO MEDIA] erreur proxy /media:', err.message);
+    res.status(502).end();
+  }
+});
+
+// Même principe pour les pièces jointes de communication de masse
+// (préfixe `broadcast/`) : elles doivent rester accessibles sans
+// authentification pour s'afficher correctement dans les emails envoyés.
+app.get('/media/broadcast/*', async (req, res) => {
+  const key = `broadcast/${req.params[0]}`;
+  try {
+    const { body, contentType, contentLength } = await obtenirObjetMedia(key);
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    if (contentLength) res.set('Content-Length', String(contentLength));
+    body.pipe(res);
+  } catch (err) {
+    if (err.name === 'NoSuchKey' || err.$metadata?.httpStatusCode === 404) {
+      return res.status(404).end();
+    }
+    console.error('[TIKEXO MEDIA] erreur proxy /media/broadcast:', err.message);
     res.status(502).end();
   }
 });
