@@ -648,6 +648,37 @@ function ticketSupportResolu(prenom, sujet) {
   return { html, text };
 }
 
+function echapperHtml(texte) {
+  return String(texte)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Communication de masse envoyée depuis /admin/broadcast (annonce produit,
+ * changement réel de fonctionnement...). Le corps est composé librement par
+ * l'admin — échappé puis converti en paragraphes avant insertion dans le HTML.
+ */
+function broadcastAnnonce(prenom, titre, corps) {
+  const corpsHtml = echapperHtml(corps)
+    .split(/\n{2,}/)
+    .map((p) => `<p style="color:#555;margin:0 0 16px;white-space:pre-line">${p}</p>`)
+    .join('');
+
+  const html = layout({
+    titre,
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      ${corpsHtml}
+    `,
+  });
+
+  const text = `Bonjour ${prenom},\n\n${corps}`;
+
+  return { html, text };
+}
+
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
@@ -670,4 +701,5 @@ module.exports = {
   ticketSupportCree,
   ticketSupportReponse,
   ticketSupportResolu,
+  broadcastAnnonce,
 };

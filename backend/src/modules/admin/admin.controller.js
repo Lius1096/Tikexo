@@ -65,6 +65,17 @@ async function acquitterAlerteFraude(req, res, next) {
   } catch (e) { next(e); }
 }
 
+async function envoyerBroadcast(req, res, next) {
+  try {
+    const data = await service.envoyerBroadcast(req.body, req.user.id);
+    res.status(201).json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function getBroadcasts(req, res, next) {
+  try { res.json({ success: true, data: await service.listerBroadcasts(req.query) }); } catch (e) { next(e); }
+}
+
 async function listerDemandesPlafond(req, res, next) {
   try {
     const entrepriseService = require('../entreprise/entreprise.service');
@@ -85,5 +96,5 @@ module.exports = {
   getDashboard, getAuditLogs, getUtilisateurs, inviterAdminTikexo, changerRoleAdmin,
   bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets,
   getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude,
-  listerDemandesPlafond, traiterDemandePlafond,
+  listerDemandesPlafond, traiterDemandePlafond, envoyerBroadcast, getBroadcasts,
 };

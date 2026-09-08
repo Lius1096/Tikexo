@@ -42,6 +42,7 @@ model User {
   mutations             Mutation[]
   ticketsSupport        TicketSupport[]
   messagesSupport       TicketSupportMessage[]
+  broadcastsEnvoyes     Broadcast[]
 
   @@index([telephone])
   @@index([email_perso])
@@ -533,6 +534,27 @@ model Notification {
   @@index([user_id, lu])
 }
 
+// Historique des communications de masse envoyées depuis /admin/broadcast
+// (une ou plusieurs entreprises, tous les bénéficiaires, ou tous les
+// commerçants) — répond au même besoin que les annonces produit envoyées
+// par les plateformes concurrentes (Pluxy...) lors d'un changement réel.
+model Broadcast {
+  id               String         @id @default(cuid())
+  envoye_par       String
+  cible            CibleBroadcast
+  entreprise_ids   String[]
+  titre            String
+  corps            String
+  type             TypeNotification
+  canaux           String[]
+  nb_destinataires Int
+  createdAt        DateTime       @default(now())
+
+  admin            User           @relation(fields: [envoye_par], references: [id])
+
+  @@index([createdAt])
+}
+
 // ── ENUMS ─────────────────────────────────────────────────────────────
 
 enum Role {
@@ -767,6 +789,12 @@ enum StatutTicketSupport {
   EN_COURS
   RESOLU
   FERME
+}
+
+enum CibleBroadcast {
+  BENEFICIAIRES
+  ENTREPRISES
+  COMMERCANTS
 }
 
 model LandingConfig {

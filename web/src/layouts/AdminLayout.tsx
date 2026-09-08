@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
   CreditCard, Banknote, ShieldAlert, FileText, BarChart2, Settings,
-  Bell, LogOut, Globe, Menu, X, TrendingUp, HandCoins, UserCog, MessageCircle,
+  Bell, LogOut, Globe, Menu, X, TrendingUp, HandCoins, UserCog, MessageCircle, Megaphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,6 +27,7 @@ const NAV = [
       { path: '/admin/plafonds', label: 'Demandes plafond', icon: TrendingUp, dot: true },
       { path: '/admin/tickets-retrait', label: 'Retraits commerçants', icon: HandCoins, dot: true },
       { path: '/admin/support', label: 'Support client', icon: MessageCircle, dot: true },
+      { path: '/admin/broadcast', label: 'Communication', icon: Megaphone },
     ],
   },
   {

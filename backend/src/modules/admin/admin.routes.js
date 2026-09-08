@@ -23,5 +23,7 @@ router.get('/configuration', ctrl.getConfiguration);
 router.put('/configuration', ctrl.majConfiguration);
 router.get('/demandes-plafond', ctrl.listerDemandesPlafond);
 router.post('/demandes-plafond/:id/traiter', ctrl.traiterDemandePlafond);
+router.get('/broadcast', ctrl.getBroadcasts);
+router.post('/broadcast', ctrl.envoyerBroadcast);
 
 module.exports = router;

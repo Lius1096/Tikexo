@@ -3,8 +3,13 @@ const crypto = require('crypto');
 const prisma = require('../../config/database');
 const { getPlatformConfig, majPlatformConfig } = require('../../utils/platformConfig');
 const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
-const { envoyerEmail } = require('../../utils/email');
-const { invitationAdminTikexo } = require('../../utils/emailTemplates');
+const { envoyerEmail, envoyerEmailAsync } = require('../../utils/email');
+const { invitationAdminTikexo, broadcastAnnonce } = require('../../utils/emailTemplates');
+const { logger } = require('../../middlewares/errorHandler');
+
+const CIBLES_BROADCAST = ['BENEFICIAIRES', 'ENTREPRISES', 'COMMERCANTS'];
+const TYPES_BROADCAST = ['SYSTEME', 'MARKETING'];
+const CANAUX_BROADCAST = ['NOTIFICATION', 'EMAIL'];
 
 const ROLES_ADMIN_TIKEXO = ['SUPER_ADMIN', 'ADMIN_OPS'];
 
@@ -334,6 +339,109 @@ async function getAlertesFraude({ limit = 10 } = {}) {
   };
 }
 
+// Communication de masse — entreprises sélectionnées (ou toutes), tous les
+// bénéficiaires (globalement ou d'entreprises précises), ou tous les
+// commerçants. Notification in-app (createMany, une requête) et/ou email
+// (mis en file via envoyerEmailAsync, jamais bloquant même pour des
+// milliers de destinataires).
+async function envoyerBroadcast(data, adminId) {
+  const { cible, titre, corps } = data;
+  const entrepriseIds = Array.isArray(data.entrepriseIds) ? data.entrepriseIds : [];
+
+  if (!titre?.trim() || !corps?.trim()) {
+    const err = new Error('Titre et message requis'); err.statusCode = 400; throw err;
+  }
+  if (!CIBLES_BROADCAST.includes(cible)) {
+    const err = new Error('Cible invalide'); err.statusCode = 400; throw err;
+  }
+
+  let where;
+  if (cible === 'BENEFICIAIRES') {
+    where = { role: 'BENEFICIAIRE', statut: 'ACTIF' };
+    if (entrepriseIds.length) {
+      where.liensBeneficiaire = { some: { entreprise_id: { in: entrepriseIds }, statut: 'ACTIF' } };
+    }
+  } else if (cible === 'ENTREPRISES') {
+    where = {
+      statut: 'ACTIF',
+      entrepriseAdmin: entrepriseIds.length ? { entreprise_id: { in: entrepriseIds } } : { isNot: null },
+    };
+  } else {
+    where = { role: 'COMMERCANT', statut: 'ACTIF' };
+  }
+
+  const destinataires = await prisma.user.findMany({
+    where,
+    select: { id: true, prenom: true, email_perso: true, email_pro: true },
+  });
+
+  if (destinataires.length === 0) {
+    const err = new Error('Aucun destinataire ne correspond à ces critères'); err.statusCode = 400; throw err;
+  }
+
+  const type = TYPES_BROADCAST.includes(data.type) ? data.type : 'SYSTEME';
+  let canaux = Array.isArray(data.canaux) ? data.canaux.filter((c) => CANAUX_BROADCAST.includes(c)) : [];
+  if (canaux.length === 0) canaux = ['NOTIFICATION'];
+
+  if (canaux.includes('NOTIFICATION')) {
+    await prisma.notification.createMany({
+      data: destinataires.map((d) => ({ user_id: d.id, titre: titre.trim(), corps: corps.trim(), type })),
+    });
+  }
+
+  if (canaux.includes('EMAIL')) {
+    for (const d of destinataires) {
+      const email = d.email_perso || d.email_pro;
+      if (!email) continue;
+      const { html, text } = broadcastAnnonce(d.prenom, titre.trim(), corps.trim());
+      envoyerEmailAsync({ to: email, subject: `TIKEXO — ${titre.trim()}`, html, text })
+        .catch((e) => logger.warn('TIKEXO — Email broadcast échoué', { err: e.message, to: email }));
+    }
+  }
+
+  const broadcast = await prisma.broadcast.create({
+    data: {
+      envoye_par: adminId,
+      cible,
+      entreprise_ids: entrepriseIds,
+      titre: titre.trim(),
+      corps: corps.trim(),
+      type,
+      canaux,
+      nb_destinataires: destinataires.length,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      user_id: adminId,
+      action: 'BROADCAST_ENVOYE',
+      entite: 'Broadcast',
+      entite_id: broadcast.id,
+      apres: { cible, nb_destinataires: destinataires.length, canaux },
+    },
+  });
+
+  return broadcast;
+}
+
+async function listerBroadcasts({ page = 1, limit = 20 } = {}) {
+  const p = parseInt(page, 10) || 1;
+  const l = parseInt(limit, 10) || 20;
+
+  const [total, items] = await Promise.all([
+    prisma.broadcast.count(),
+    prisma.broadcast.findMany({
+      include: { admin: { select: { nom: true, prenom: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip: (p - 1) * l,
+      take: l,
+    }),
+  ]);
+
+  return { items, total, page: p, totalPages: Math.ceil(total / l) };
+}
+
 module.exports = {
   getDashboard,
   getAuditLogs,
@@ -348,4 +456,6 @@ module.exports = {
   getConfiguration,
   majConfiguration,
   acquitterAlerteFraude,
+  envoyerBroadcast,
+  listerBroadcasts,
 };
