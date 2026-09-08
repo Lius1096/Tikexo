@@ -8,8 +8,6 @@ on:
 
 env:
   NODE_VERSION: '20'
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   # ── 1. Lint ────────────────────────────────────────────────────────────────
@@ -273,6 +271,11 @@ jobs:
           echo "Audit web : OK"
 
   # ── 7. Build Docker ───────────────────────────────────────────────────────
+  # Garde-fou : vérifie que le Dockerfile backend reste buildable. Le VPS ne
+  # consomme pas cette image (il build depuis les sources, voir deploy-
+  # production ci-dessous) donc on ne pousse pas vers ghcr.io — l'installation
+  # GitHub Actions de cette org n'a de toute façon pas le droit de créer des
+  # packages ("installation not allowed to Create organization package").
   build-docker:
     name: Build image Docker
     runs-on: ubuntu-latest
@@ -288,30 +291,12 @@ jobs:
       - name: Configurer Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Connexion au registry GitHub
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extraire les métadonnées Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build et push image backend
+      - name: Build image backend (sans push)
         uses: docker/build-push-action@v5
         with:
           context: backend
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          push: false
+          tags: tikexo-backend:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
