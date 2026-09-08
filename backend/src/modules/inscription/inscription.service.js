@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { logger } = require('../../middlewares/errorHandler');
 const { envoyerEmail } = require('../../utils/email');
 const { inscriptionEntrepriseConfirmee } = require('../../utils/emailTemplates');
+const { rendreEmail } = require('../../utils/emailTemplateOverride');
 const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
 const { normaliserIfu, validerIfu, normaliserRccm, validerRccm } = require('../../utils/identifiants');
 const { getPlatformConfig } = require('../../utils/platformConfig');
@@ -226,12 +227,17 @@ async function inscrire({ entreprise: e, admin: a }) {
     logger.error('TIKEXO — Création dossier KYB échouée après inscription', { entrepriseId: ent.id, err: err.message });
   }
 
-  // Email de confirmation
-  envoyerEmail({
-    to: email,
-    subject: 'Votre espace entreprise TIKEXO est prêt',
-    ...inscriptionEntrepriseConfirmee(ent.nom, `${a.prenom} ${a.nom}`),
-  }).catch((err) => logger.warn('TIKEXO — Mail inscription échoué', { err: err.message, email }));
+  // Email de confirmation — personnalisable depuis /admin/email-templates
+  // (clé BIENVENUE_ENTREPRISE), retombe sur le modèle codé en dur sinon.
+  const nomContact = `${a.prenom} ${a.nom}`;
+  const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/entreprise/connexion`;
+  rendreEmail(
+    'BIENVENUE_ENTREPRISE',
+    { nomEntreprise: ent.nom, nomContact, lienConnexion },
+    () => ({ subject: 'Votre espace entreprise TIKEXO est prêt', ...inscriptionEntrepriseConfirmee(ent.nom, nomContact) })
+  )
+    .then((rendu) => envoyerEmail({ to: email, subject: rendu.subject, html: rendu.html, text: rendu.text }))
+    .catch((err) => logger.warn('TIKEXO — Mail inscription échoué', { err: err.message, email }));
 
   return {
     entreprise_id: ent.id,

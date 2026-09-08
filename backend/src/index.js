@@ -150,6 +150,9 @@ app.use('/api/v1/dotations', dotationRoutes);
 app.use('/api/v1/fedapay', fedapayRoutes);
 app.use('/api/v1/mutations', mutationRoutes);
 app.use('/api/v1/admin', adminRoutes);
+// Public — les CGU doivent être lisibles sans authentification (page
+// d'inscription, pied de page). Voir admin.routes.js pour la publication.
+app.get('/api/v1/cgu', require('./modules/admin/admin.controller').getCguPublique);
 app.use('/api/v1/cartes', carteRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/support', supportRoutes);

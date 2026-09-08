@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { RGPD, texteRetentionPersonnelles, texteRetentionFinancieres } from '../utils/rgpd';
 import { EDITEUR, PROPRIETAIRE } from '../utils/legal';
+import api from '../lib/api';
 
 function getSections() {
   return [
@@ -90,6 +92,13 @@ export default function CGU() {
   const navigate = useNavigate();
   const sections = getSections();
 
+  // Tant qu'aucune version n'a été publiée depuis /admin/cgu, on affiche le
+  // contenu ci-dessus, codé en dur — aucune perte du texte légal actuel.
+  const { data: cguPersonnalisee } = useQuery({
+    queryKey: ['cgu-publique'],
+    queryFn: () => api.get('/cgu').then((r) => r.data.data as { contenu: string; version: number } | null),
+  });
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -119,17 +128,26 @@ export default function CGU() {
           </div>
         </div>
 
-        {/* Sections */}
-        {sections.map((s) => (
-          <div key={s.titre} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-[13px] font-semibold text-slate-900">{s.titre}</h2>
-            </div>
-            <div className="px-6 py-5">
-              <p className="text-[12px] text-slate-600 leading-relaxed whitespace-pre-line">{s.contenu}</p>
-            </div>
+        {/* Sections — contenu personnalisé depuis /admin/cgu si publié, sinon texte par défaut */}
+        {cguPersonnalisee ? (
+          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+            <div
+              className="px-6 py-5 text-[12px] text-slate-600 leading-relaxed [&_p]:mb-3 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:text-slate-900 [&_h2]:mt-5 [&_h2]:mb-2"
+              dangerouslySetInnerHTML={{ __html: cguPersonnalisee.contenu }}
+            />
           </div>
-        ))}
+        ) : (
+          sections.map((s) => (
+            <div key={s.titre} className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <h2 className="text-[13px] font-semibold text-slate-900">{s.titre}</h2>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-[12px] text-slate-600 leading-relaxed whitespace-pre-line">{s.contenu}</p>
+              </div>
+            </div>
+          ))
+        )}
 
         {/* Footer */}
         <div className="text-center pb-8">

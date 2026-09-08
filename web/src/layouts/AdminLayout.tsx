@@ -5,6 +5,7 @@ import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
   CreditCard, Banknote, ShieldAlert, FileText, BarChart2, Settings,
   Bell, LogOut, Globe, Menu, X, TrendingUp, HandCoins, UserCog, MessageCircle, Megaphone,
+  Mail, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -44,6 +45,8 @@ const NAV = [
       { path: '/admin/landing-crm', label: 'Landing CRM', icon: Globe },
       { path: '/admin/configuration', label: 'Configuration', icon: Settings },
       { path: '/admin/equipe', label: 'Équipe TIKEXO', icon: UserCog },
+      { path: '/admin/email-templates', label: 'Emails personnalisables', icon: Mail },
+      { path: '/admin/cgu', label: 'CGU', icon: ShieldCheck },
     ],
   },
 ];

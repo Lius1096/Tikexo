@@ -5,6 +5,7 @@ const prisma = require('../../config/database');
 const { logger } = require('../../middlewares/errorHandler');
 const { envoyerEmail } = require('../../utils/email');
 const { kybApprouve, kybRejete } = require('../../utils/emailTemplates');
+const { rendreEmail } = require('../../utils/emailTemplateOverride');
 const { creerOtp } = require('../../utils/otp');
 const { envoyerOtpSms } = require('../../config/sms');
 
@@ -258,12 +259,19 @@ async function validerDossierComplet(adminId, dossier) {
     }
   }
 
-  // Email de confirmation avec instructions de connexion
+  // Email de confirmation avec instructions de connexion — personnalisable
+  // depuis /admin/email-templates (clé KYB_APPROUVE).
   if (ent?.email_rh) {
     const contact = ent.admins[0]?.user;
     const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
-    const telephone = contact?.telephone || ent.telephone_rh;
-    envoyerEmail({ to: ent.email_rh, subject: 'Votre KYB est approuvé — Activez votre accès RH', ...kybApprouve(ent.nom, nomContact, telephone) })
+    const telAffiche = contact?.telephone || ent.telephone_rh || 'votre numéro enregistré';
+    const lienConnexion = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/entreprise/connexion`;
+    rendreEmail(
+      'KYB_APPROUVE',
+      { nomEntreprise: ent.nom, nomContact, telephone: telAffiche, lienConnexion },
+      () => ({ subject: 'Votre KYB est approuvé — Activez votre accès RH', ...kybApprouve(ent.nom, nomContact, telAffiche) })
+    )
+      .then((rendu) => envoyerEmail({ to: ent.email_rh, subject: rendu.subject, html: rendu.html, text: rendu.text }))
       .catch((err) => logger.warn('TIKEXO — Mail KYB approuvé échoué', { err: err.message }));
   }
 
@@ -319,11 +327,15 @@ async function rejeterDocument(adminId, documentId, motif) {
     const contact = ent.admins[0]?.user;
     const nomContact = contact ? `${contact.prenom} ${contact.nom}` : ent.nom;
     const nomTypeDocument = LABEL_TYPE_DOCUMENT[doc.type] || doc.type;
-    envoyerEmail({
-      to: ent.email_rh,
-      subject: 'TIKEXO — Un document a été rejeté, action requise',
-      ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument),
-    }).catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
+    const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/employeur/kyb`;
+    // Personnalisable depuis /admin/email-templates (clé KYB_REJETE).
+    rendreEmail(
+      'KYB_REJETE',
+      { nomEntreprise: ent.nom, nomContact, motif, nomTypeDocument: nomTypeDocument || '', lienKyb },
+      () => ({ subject: 'TIKEXO — Un document a été rejeté, action requise', ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument) })
+    )
+      .then((rendu) => envoyerEmail({ to: ent.email_rh, subject: rendu.subject, html: rendu.html, text: rendu.text }))
+      .catch((err) => logger.warn('TIKEXO — Mail KYB rejeté échoué', { err: err.message }));
   }
 
   logger.warn('TIKEXO — Document KYB rejeté', { documentId, motif, adminId });
@@ -350,11 +362,16 @@ async function _envoyerRelanceRejet(dossier) {
   const nomTypeDocument = dernierDocRejete ? (LABEL_TYPE_DOCUMENT[dernierDocRejete.type] || dernierDocRejete.type) : null;
   const motif = dernierDocRejete?.motif_rejet || 'Consultez votre espace employeur pour le détail.';
 
-  await envoyerEmail({
-    to: ent.email_rh,
-    subject: 'TIKEXO — Rappel : document KYB toujours à compléter',
-    ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument, true),
-  }).catch((err) => logger.warn('TIKEXO — Mail relance KYB échoué', { err: err.message }));
+  const lienKyb = `${process.env.FRONTEND_URL || 'https://tikexo.kete.fr'}/employeur/kyb`;
+  // Même clé KYB_REJETE que le rejet initial (voir enregistrerDocument
+  // ci-dessus) — un admin qui personnalise ce modèle personnalise les deux.
+  const rendu = await rendreEmail(
+    'KYB_REJETE',
+    { nomEntreprise: ent.nom, nomContact, motif, nomTypeDocument: nomTypeDocument || '', lienKyb },
+    () => ({ subject: 'TIKEXO — Rappel : document KYB toujours à compléter', ...kybRejete(ent.nom, nomContact, motif, nomTypeDocument, true) })
+  );
+  await envoyerEmail({ to: ent.email_rh, subject: rendu.subject, html: rendu.html, text: rendu.text })
+    .catch((err) => logger.warn('TIKEXO — Mail relance KYB échoué', { err: err.message }));
 
   return true;
 }

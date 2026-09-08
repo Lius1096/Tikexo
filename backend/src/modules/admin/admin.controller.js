@@ -90,6 +90,30 @@ async function uploadPieceJointeBroadcast(req, res, next) {
   } catch (e) { next(e); }
 }
 
+async function getEmailTemplates(req, res, next) {
+  try { res.json({ success: true, data: await service.listerEmailTemplates() }); } catch (e) { next(e); }
+}
+
+async function majEmailTemplate(req, res, next) {
+  try { res.json({ success: true, data: await service.upsertEmailTemplate(req.params.cle, req.body, req.user.id) }); } catch (e) { next(e); }
+}
+
+async function reinitialiserEmailTemplate(req, res, next) {
+  try { res.json({ success: true, data: await service.supprimerEmailTemplate(req.params.cle, req.user.id) }); } catch (e) { next(e); }
+}
+
+async function getCguAdmin(req, res, next) {
+  try { res.json({ success: true, data: await service.getCguActuelle() }); } catch (e) { next(e); }
+}
+
+async function getCguHistorique(req, res, next) {
+  try { res.json({ success: true, data: await service.listerVersionsCgu() }); } catch (e) { next(e); }
+}
+
+async function publierCgu(req, res, next) {
+  try { res.status(201).json({ success: true, data: await service.publierCgu(req.body.contenu, req.user.id) }); } catch (e) { next(e); }
+}
+
 async function listerDemandesPlafond(req, res, next) {
   try {
     const entrepriseService = require('../entreprise/entreprise.service');
@@ -106,10 +130,16 @@ async function traiterDemandePlafond(req, res, next) {
   } catch (e) { next(e); }
 }
 
+// Public — voir routes.js — pas de vérification de rôle admin ici.
+async function getCguPublique(req, res, next) {
+  try { res.json({ success: true, data: await service.getCguActuelle() }); } catch (e) { next(e); }
+}
+
 module.exports = {
   getDashboard, getAuditLogs, getUtilisateurs, inviterAdminTikexo, changerRoleAdmin,
   bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets,
   getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude,
   listerDemandesPlafond, traiterDemandePlafond, envoyerBroadcast, getBroadcasts,
-  uploadPieceJointeBroadcast,
+  uploadPieceJointeBroadcast, getEmailTemplates, majEmailTemplate, reinitialiserEmailTemplate,
+  getCguAdmin, getCguHistorique, publierCgu, getCguPublique,
 };

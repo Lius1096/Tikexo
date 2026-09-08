@@ -43,6 +43,8 @@ model User {
   ticketsSupport        TicketSupport[]
   messagesSupport       TicketSupportMessage[]
   broadcastsEnvoyes     Broadcast[]
+  emailTemplatesModifies EmailTemplate[]
+  cguVersionsPubliees    CGUVersion[]
 
   @@index([telephone])
   @@index([email_perso])
@@ -805,6 +807,41 @@ model LandingConfig {
   updated_at DateTime @updatedAt
 
   @@map("landing_config")
+}
+
+// Personnalisation admin d'un email transactionnel, sans déploiement. `cle`
+// identifie le point d'envoi dans le code (ex: "BIENVENUE_ENTREPRISE"). Tant
+// qu'aucune ligne n'existe pour une clé donnée, le code utilise son modèle
+// par défaut codé en dur (voir utils/emailTemplateOverride.js) — aucune
+// perte de contenu, aucun risque de casser un email si l'admin n'a rien
+// personnalisé.
+model EmailTemplate {
+  cle          String   @id
+  sujet        String
+  corps_html   String
+  corps_texte  String
+  variables    String[]
+  modifie_par  String
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  admin        User     @relation(fields: [modifie_par], references: [id])
+}
+
+// Historique des versions des CGU publiées depuis /admin/cgu. La page
+// publique /cgu affiche toujours la dernière version ; tant qu'aucune n'a
+// été publiée, elle affiche le texte codé en dur existant (aucune perte du
+// contenu légal actuel, aucune migration de données risquée).
+model CGUVersion {
+  id          String   @id @default(cuid())
+  version     Int
+  contenu     String
+  publie_par  String
+  createdAt   DateTime @default(now())
+
+  admin       User     @relation(fields: [publie_par], references: [id])
+
+  @@index([createdAt])
 }
 
 // Support client structuré, ouvert par un employeur, un bénéficiaire ou un

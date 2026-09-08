@@ -44,6 +44,8 @@ import AdminPlafondDemandes from './pages/admin/PlafondDemandes';
 import AdminEquipeTikexo from './pages/admin/EquipeTikexo';
 import AdminSupport from './pages/admin/Support';
 import AdminBroadcast from './pages/admin/Broadcast';
+import AdminEmailTemplates from './pages/admin/EmailTemplates';
+import AdminCgu from './pages/admin/Cgu';
 import AdminTicketsRetrait from './pages/admin/TicketsRetrait';
 import AdminAntiFraude from './pages/admin/AntiFraude';
 import AdminAuditLog from './pages/admin/AuditLog';
@@ -175,6 +177,8 @@ export default function App() {
         <Route path="equipe" element={<AdminEquipeTikexo />} />
         <Route path="support" element={<AdminSupport />} />
         <Route path="broadcast" element={<AdminBroadcast />} />
+        <Route path="email-templates" element={<AdminEmailTemplates />} />
+        <Route path="cgu" element={<AdminCgu />} />
         <Route path="landing-crm" element={<LandingCRM />} />
       </Route>
 

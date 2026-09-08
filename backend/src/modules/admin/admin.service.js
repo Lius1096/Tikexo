@@ -13,6 +13,25 @@ const CANAUX_BROADCAST = ['NOTIFICATION', 'EMAIL'];
 
 const ROLES_ADMIN_TIKEXO = ['SUPER_ADMIN', 'ADMIN_OPS'];
 
+// Emails personnalisables depuis /admin/email-templates (voir
+// utils/emailTemplateOverride.js) — liste volontairement restreinte aux
+// emails de contenu/annonce ; les emails de sécurité (OTP, réinitialisation
+// mot de passe) restent codés en dur pour ne jamais casser l'authentification.
+const EMAIL_TEMPLATES_META = {
+  BIENVENUE_ENTREPRISE: {
+    label: 'Bienvenue — nouvelle entreprise inscrite',
+    variables: ['nomEntreprise', 'nomContact', 'lienConnexion'],
+  },
+  KYB_REJETE: {
+    label: 'KYB rejeté (et rappel automatique)',
+    variables: ['nomEntreprise', 'nomContact', 'motif', 'nomTypeDocument', 'lienKyb'],
+  },
+  KYB_APPROUVE: {
+    label: 'KYB approuvé',
+    variables: ['nomEntreprise', 'nomContact', 'telephone', 'lienConnexion'],
+  },
+};
+
 async function getConfiguration() {
   return getPlatformConfig();
 }
@@ -445,6 +464,92 @@ async function listerBroadcasts({ page = 1, limit = 20 } = {}) {
   return { items, total, page: p, totalPages: Math.ceil(total / l) };
 }
 
+// ── Personnalisation des emails transactionnels ─────────────────────────
+async function listerEmailTemplates() {
+  const overrides = await prisma.emailTemplate.findMany({
+    where: { cle: { in: Object.keys(EMAIL_TEMPLATES_META) } },
+  });
+  const parCle = new Map(overrides.map((o) => [o.cle, o]));
+
+  return Object.entries(EMAIL_TEMPLATES_META).map(([cle, meta]) => {
+    const override = parCle.get(cle);
+    return {
+      cle,
+      label: meta.label,
+      variables: meta.variables,
+      personnalise: !!override,
+      sujet: override?.sujet ?? null,
+      corps_html: override?.corps_html ?? null,
+      corps_texte: override?.corps_texte ?? null,
+      updatedAt: override?.updatedAt ?? null,
+    };
+  });
+}
+
+async function upsertEmailTemplate(cle, data, adminId) {
+  if (!EMAIL_TEMPLATES_META[cle]) {
+    const err = new Error('Modèle email inconnu'); err.statusCode = 400; throw err;
+  }
+  if (!data.sujet?.trim() || !data.corps_html?.trim() || !data.corps_texte?.trim()) {
+    const err = new Error('Sujet, corps HTML et corps texte requis'); err.statusCode = 400; throw err;
+  }
+
+  const template = await prisma.emailTemplate.upsert({
+    where: { cle },
+    update: { sujet: data.sujet.trim(), corps_html: data.corps_html.trim(), corps_texte: data.corps_texte.trim(), modifie_par: adminId },
+    create: {
+      cle, sujet: data.sujet.trim(), corps_html: data.corps_html.trim(), corps_texte: data.corps_texte.trim(),
+      variables: EMAIL_TEMPLATES_META[cle].variables, modifie_par: adminId,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'EMAIL_TEMPLATE_PERSONNALISE', entite: 'EmailTemplate', entite_id: cle },
+  });
+
+  return template;
+}
+
+async function supprimerEmailTemplate(cle, adminId) {
+  if (!EMAIL_TEMPLATES_META[cle]) {
+    const err = new Error('Modèle email inconnu'); err.statusCode = 400; throw err;
+  }
+  await prisma.emailTemplate.deleteMany({ where: { cle } });
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'EMAIL_TEMPLATE_REINITIALISE', entite: 'EmailTemplate', entite_id: cle },
+  });
+  return { reinitialise: true };
+}
+
+// ── CGU ──────────────────────────────────────────────────────────────────
+async function getCguActuelle() {
+  return prisma.cGUVersion.findFirst({ orderBy: { version: 'desc' } });
+}
+
+async function listerVersionsCgu() {
+  return prisma.cGUVersion.findMany({
+    include: { admin: { select: { nom: true, prenom: true } } },
+    orderBy: { version: 'desc' },
+    take: 20,
+  });
+}
+
+async function publierCgu(contenu, adminId) {
+  if (!contenu?.trim()) {
+    const err = new Error('Le contenu des CGU est requis'); err.statusCode = 400; throw err;
+  }
+  const derniere = await prisma.cGUVersion.findFirst({ orderBy: { version: 'desc' } });
+  const version = await prisma.cGUVersion.create({
+    data: { version: (derniere?.version ?? 0) + 1, contenu: contenu.trim(), publie_par: adminId },
+  });
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'CGU_PUBLIEE', entite: 'CGUVersion', entite_id: version.id, apres: { version: version.version } },
+  });
+
+  return version;
+}
+
 module.exports = {
   getDashboard,
   getAuditLogs,
@@ -461,4 +566,10 @@ module.exports = {
   acquitterAlerteFraude,
   envoyerBroadcast,
   listerBroadcasts,
+  listerEmailTemplates,
+  upsertEmailTemplate,
+  supprimerEmailTemplate,
+  getCguActuelle,
+  listerVersionsCgu,
+  publierCgu,
 };

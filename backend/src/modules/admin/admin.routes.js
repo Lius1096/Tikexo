@@ -50,5 +50,11 @@ router.post('/demandes-plafond/:id/traiter', ctrl.traiterDemandePlafond);
 router.get('/broadcast', ctrl.getBroadcasts);
 router.post('/broadcast', ctrl.envoyerBroadcast);
 router.post('/broadcast/upload', uploadPieceJointe.single('piece_jointe'), s3UploadMiddleware('broadcast'), ctrl.uploadPieceJointeBroadcast);
+router.get('/email-templates', ctrl.getEmailTemplates);
+router.put('/email-templates/:cle', ctrl.majEmailTemplate);
+router.delete('/email-templates/:cle', ctrl.reinitialiserEmailTemplate);
+router.get('/cgu', ctrl.getCguAdmin);
+router.get('/cgu/historique', ctrl.getCguHistorique);
+router.post('/cgu', ctrl.publierCgu);
 
 module.exports = router;
