@@ -14,17 +14,24 @@ jest.mock('../../config/fedapay', () => ({
 jest.mock('../../utils/ledger', () => ({
   crediterWallet: jest.fn().mockResolvedValue({ id: 'entry-1' }),
   debiterWallet: jest.fn().mockResolvedValue({ id: 'entry-2' }),
+  // declencherPayout verrouille le wallet commerçant via verrouillerWallet
+  // (SELECT ... FOR UPDATE) avant de lire son solde.
+  verrouillerWallet: jest.fn(),
 }));
 
 const crypto = require('crypto');
 const { creerCollecte, traiterWebhook, declencherPayout, jobBatchingPayouts } = require('../../modules/fedapay/fedapay.service');
-const { crediterWallet } = require('../../utils/ledger');
+const { crediterWallet, verrouillerWallet } = require('../../utils/ledger');
 
 const prismaMock = {
   $executeRaw: jest.fn().mockResolvedValue(1),
+  // declencherPayout enveloppe sa logique dans prisma.$transaction(tx => ...)
+  // depuis l'ajout du verrou pessimiste sur le wallet — tx == prismaMock ici.
+  $transaction: jest.fn((fn) => fn(prismaMock)),
   fedapayOperation: {
     create: jest.fn(),
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     count: jest.fn(),
   },
   wallet: {
@@ -89,7 +96,7 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
       prismaMock.entreprise.findUnique.mockResolvedValue({ nom: 'Entreprise Test', email_rh: null });
 
       await traiterWebhook(prismaMock, {
-        payload: { transaction: { id: '12345', status: 'approved' } },
+        payload: { object: 'transaction', entity: { id: '12345', status: 'approved' } },
         rawBody: '',
         signature: '',
       });
@@ -106,7 +113,8 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
       });
 
       const result = await traiterWebhook(prismaMock, {
-        payload: { transaction: { id: '99999', status: 'approved' } },
+        payload: { object: 'transaction', entity: { id: '99999', status: 'approved' } },
+        rawBody: '',
         signature: '',
       });
 
@@ -124,7 +132,8 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
       });
 
       await traiterWebhook(prismaMock, {
-        payload: { transaction: { id: '54321', status: 'declined' } },
+        payload: { object: 'transaction', entity: { id: '54321', status: 'declined' } },
+        rawBody: '',
         signature: '',
       });
 
@@ -137,10 +146,13 @@ describe('fedapay.service.js — intégration FedaPay TIKEXO', () => {
       prismaMock.commercant.findUniqueOrThrow.mockResolvedValue({
         id: 'comm-1',
         nom: 'Restaurant Test',
+        statut: 'ACTIF',
         mobile_money_numero: '+22997000000',
         mobile_money_operateur: 'MTN',
-        user: { wallet: { solde: 500 } },
+        user: { wallet: { id: 'w-comm-1', solde: 500 } },
       });
+      verrouillerWallet.mockResolvedValue({ id: 'w-comm-1', solde: 500 });
+      prismaMock.fedapayOperation.findFirst.mockResolvedValue(null);
 
       await expect(declencherPayout(prismaMock, 'comm-1')).rejects.toThrow('insuffisant');
     });

@@ -15,6 +15,10 @@ const prismaTransactionMock = jest.fn();
 const prismaMock = {
   $transaction: jest.fn((fn) => fn(prismaMock)),
   $executeRaw: jest.fn().mockResolvedValue(1),
+  // verrouillerWallet() verrouille le wallet SOURCE via $queryRaw (SELECT ...
+  // FOR UPDATE), pas via wallet.findUniqueOrThrow — celui-ci ne sert plus
+  // que pour le wallet DESTINATION (creerEcritureLedger, étape 3).
+  $queryRaw: jest.fn(),
   wallet: {
     findUniqueOrThrow: jest.fn(),
     findUnique: jest.fn(),
@@ -40,9 +44,8 @@ describe('ledger.js — moteur wallet TIKEXO', () => {
   describe('creerEcritureLedger', () => {
     it('crée LedgerEntry et met à jour les 2 soldes', async () => {
       prismaMock.ledgerEntry.create.mockResolvedValue({ id: 'entry-1', montant: 1000 });
-      prismaMock.wallet.findUniqueOrThrow
-        .mockResolvedValueOnce({ id: 'w-source', solde: 5000, statut: 'ACTIF' })
-        .mockResolvedValueOnce({ id: 'w-dest', solde: 0, statut: 'ACTIF' });
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ id: 'w-source', solde: 5000, statut: 'ACTIF' }]);
+      prismaMock.wallet.findUniqueOrThrow.mockResolvedValueOnce({ id: 'w-dest', solde: 0, statut: 'ACTIF' });
       prismaMock.$executeRaw.mockResolvedValue(1);
 
       const entry = await creerEcritureLedger(prismaMock, {
@@ -63,7 +66,7 @@ describe('ledger.js — moteur wallet TIKEXO', () => {
 
     it('lève SoldeInsuffisantError si solde source < montant', async () => {
       prismaMock.ledgerEntry.create.mockResolvedValue({ id: 'entry-2' });
-      prismaMock.wallet.findUniqueOrThrow.mockResolvedValue({ id: 'w-pauvre', solde: 100, statut: 'ACTIF' });
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ id: 'w-pauvre', solde: 100, statut: 'ACTIF' }]);
 
       await expect(
         creerEcritureLedger(prismaMock, {
@@ -85,9 +88,8 @@ describe('ledger.js — moteur wallet TIKEXO', () => {
   describe('transfererEntreWallets', () => {
     it('rollback complet si crédit destination échoue', async () => {
       prismaMock.ledgerEntry.create.mockResolvedValue({ id: 'e1' });
-      prismaMock.wallet.findUniqueOrThrow
-        .mockResolvedValueOnce({ id: 'w-s', solde: 5000, statut: 'ACTIF' })
-        .mockResolvedValueOnce({ id: 'w-d', solde: 0, statut: 'GELE' });
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ id: 'w-s', solde: 5000, statut: 'ACTIF' }]);
+      prismaMock.wallet.findUniqueOrThrow.mockResolvedValueOnce({ id: 'w-d', solde: 0, statut: 'GELE' });
 
       await expect(
         transfererEntreWallets(prismaMock, 'w-s', 'w-d', 1000, 'DOTATION')
