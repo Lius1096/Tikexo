@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine, CreditCard, Menu, X, Repeat } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, User, LogOut, Utensils, ScanLine, CreditCard, Menu, X, Repeat, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { path: '/beneficiaire/transactions',  label: 'Transactions',  icon: ArrowLeftRight },
   { path: '/beneficiaire/commercants',   label: 'Restaurants',   icon: Utensils },
   { path: '/beneficiaire/profil',        label: 'Profil',        icon: User },
+  { path: '/beneficiaire/support',       label: 'Support',       icon: MessageCircle },
 ];
 
 // Bottom nav shows only most-used items on mobile

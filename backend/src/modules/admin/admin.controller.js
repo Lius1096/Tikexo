@@ -22,6 +22,20 @@ async function debloquerUtilisateur(req, res, next) {
     res.json({ success: true, data });
   } catch (e) { next(e); }
 }
+
+async function inviterAdminTikexo(req, res, next) {
+  try {
+    const data = await service.inviterAdminTikexo(req.body, req.user.id);
+    res.status(201).json({ success: true, data });
+  } catch (e) { next(e); }
+}
+
+async function changerRoleAdmin(req, res, next) {
+  try {
+    const data = await service.changerRoleAdmin(req.params.id, req.user.id, req.body.role);
+    res.json({ success: true, data });
+  } catch (e) { next(e); }
+}
 async function getStatsTransactions(req, res, next) {
   try { res.json({ success: true, data: await service.getStatsTransactions(req.query) }); } catch (e) { next(e); }
 }
@@ -67,4 +81,9 @@ async function traiterDemandePlafond(req, res, next) {
   } catch (e) { next(e); }
 }
 
-module.exports = { getDashboard, getAuditLogs, getUtilisateurs, bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets, getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude, listerDemandesPlafond, traiterDemandePlafond };
+module.exports = {
+  getDashboard, getAuditLogs, getUtilisateurs, inviterAdminTikexo, changerRoleAdmin,
+  bloquerUtilisateur, debloquerUtilisateur, getStatsTransactions, getStatsWallets,
+  getAlertesFraude, getConfiguration, majConfiguration, acquitterAlerteFraude,
+  listerDemandesPlafond, traiterDemandePlafond,
+};

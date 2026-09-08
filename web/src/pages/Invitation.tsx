@@ -17,6 +17,7 @@ export default function Invitation() {
   const [errMsg, setErrMsg] = useState('');
   const [userData, setUserData] = useState<{ prenom: string; nom: string; email_pro: string; role: string } | null>(null);
   const isRh = userData?.role === 'GESTIONNAIRE_RH' || userData?.role === 'ADMIN_RH';
+  const isAdminTikexo = userData?.role === 'SUPER_ADMIN' || userData?.role === 'ADMIN_OPS';
 
   const [emailPerso, setEmailPerso] = useState('');
   const [motDePasse, setMotDePasse] = useState('');
@@ -64,7 +65,8 @@ export default function Invitation() {
       // Invitation validée — login automatique avec les nouvelles credentials
       await login(emailNorm, motDePasse);
       setStep('success');
-      setTimeout(() => navigate(isRh ? '/employeur' : '/beneficiaire'), 2000);
+      const destination = isAdminTikexo ? '/admin' : isRh ? '/employeur' : '/beneficiaire';
+      setTimeout(() => navigate(destination), 2000);
     } catch (err: any) {
       setFormErr(err.response?.data?.error || 'Échec de la validation de l\'invitation — réessayez.');
     } finally {
@@ -78,7 +80,9 @@ export default function Invitation() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="text-white font-bold tracking-[4px] text-2xl mb-1">TIKEXO</div>
-          <div className="text-white/60 text-xs tracking-widest">{isRh ? 'ESPACE RH' : 'ESPACE SALARIÉ'}</div>
+          <div className="text-white/60 text-xs tracking-widest">
+            {isAdminTikexo ? 'ESPACE ADMIN TIKEXO' : isRh ? 'ESPACE RH' : 'ESPACE SALARIÉ'}
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
@@ -111,7 +115,9 @@ export default function Invitation() {
               <div className="text-center mb-2">
                 <h2 className="text-slate-800 font-bold text-xl">Bienvenue, {userData.prenom} !</h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  {isRh
+                  {isAdminTikexo
+                    ? 'Complétez votre profil pour accéder à votre espace admin TIKEXO.'
+                    : isRh
                     ? 'Complétez votre profil pour accéder à votre espace RH.'
                     : 'Complétez votre profil pour accéder à votre wallet repas.'}
                 </p>

@@ -1,6 +1,12 @@
 // Service admin TIKEXO
+const crypto = require('crypto');
 const prisma = require('../../config/database');
 const { getPlatformConfig, majPlatformConfig } = require('../../utils/platformConfig');
+const { normaliserTelephone, validerTelephone } = require('../../utils/telephone');
+const { envoyerEmail } = require('../../utils/email');
+const { invitationAdminTikexo } = require('../../utils/emailTemplates');
+
+const ROLES_ADMIN_TIKEXO = ['SUPER_ADMIN', 'ADMIN_OPS'];
 
 async function getConfiguration() {
   return getPlatformConfig();
@@ -85,7 +91,7 @@ async function getUtilisateurs({ page = 1, limit = 20, role, statut } = {}) {
   const p = parseInt(page, 10) || 1;
   const l = parseInt(limit, 10) || 20;
   const where = {};
-  if (role) where.role = role;
+  if (role) where.role = role.includes(',') ? { in: role.split(',') } : role;
   if (statut) where.statut = statut;
 
   const [total, items] = await Promise.all([
@@ -94,7 +100,7 @@ async function getUtilisateurs({ page = 1, limit = 20, role, statut } = {}) {
       where,
       select: {
         id: true, nom: true, prenom: true, telephone: true,
-        email_perso: true, role: true, statut: true, createdAt: true,
+        email_perso: true, email_pro: true, role: true, statut: true, createdAt: true,
       },
       skip: (p - 1) * l,
       take: l,
@@ -105,7 +111,106 @@ async function getUtilisateurs({ page = 1, limit = 20, role, statut } = {}) {
   return { items, total, page: p, totalPages: Math.ceil(total / l) };
 }
 
+// Invite un nouveau membre de l'équipe TIKEXO (SUPER_ADMIN ou ADMIN_OPS).
+// Même principe que entreprise.service.js#inviterRh : le compte est créé
+// INACTIF avec un token d'invitation, et complète son profil (email
+// personnel + mot de passe) via la page /invitation déjà existante — aucun
+// nouveau flux d'activation à construire.
+async function inviterAdminTikexo(data, invitePar) {
+  if (!ROLES_ADMIN_TIKEXO.includes(data.role)) {
+    const err = new Error('Rôle invalide — SUPER_ADMIN ou ADMIN_OPS uniquement');
+    err.statusCode = 400; throw err;
+  }
+
+  const telephone = normaliserTelephone(data.telephone);
+  if (!validerTelephone(telephone)) {
+    const err = new Error('Numéro de téléphone invalide — format attendu : +229 01 XX XX XX XX');
+    err.statusCode = 400; throw err;
+  }
+  const existantTel = await prisma.user.findUnique({ where: { telephone } });
+  if (existantTel) {
+    const err = new Error('Ce numéro est déjà utilisé par un autre compte TIKEXO');
+    err.statusCode = 409; throw err;
+  }
+
+  const emailPro = data.email_pro?.trim();
+  if (!emailPro || !emailPro.includes('@')) {
+    const err = new Error('Email professionnel invalide — requis pour envoyer l\'invitation');
+    err.statusCode = 400; throw err;
+  }
+  const existantEmail = await prisma.user.findUnique({ where: { email_pro: emailPro } });
+  if (existantEmail) {
+    const err = new Error('Cet email professionnel est déjà utilisé');
+    err.statusCode = 409; throw err;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+
+  const user = await prisma.user.create({
+    data: {
+      telephone,
+      nom: data.nom,
+      prenom: data.prenom,
+      email_pro: emailPro,
+      role: data.role,
+      statut: 'INACTIF',
+      invitation_token: token,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      user_id: invitePar,
+      action: 'INVITATION_ADMIN_TIKEXO',
+      entite: 'User',
+      entite_id: user.id,
+      apres: { nom: data.nom, prenom: data.prenom, email_pro: emailPro, role: data.role },
+    },
+  });
+
+  const frontendUrl = process.env.FRONTEND_URL || 'https://tikexo.kete.fr';
+  const lienInvitation = `${frontendUrl}/invitation?token=${token}`;
+  const { html, text } = invitationAdminTikexo(data.prenom, data.role, lienInvitation);
+  envoyerEmail({
+    to: emailPro,
+    subject: 'Invitation TIKEXO — Espace admin',
+    html, text,
+    expediteur: 'hello',
+  }).catch((err) => console.error('[EMAIL INVITATION ADMIN TIKEXO] Échec envoi vers', emailPro, err.message));
+
+  return {
+    id: user.id, nom: user.nom, prenom: user.prenom,
+    email_pro: user.email_pro, role: user.role, statut: user.statut,
+  };
+}
+
+async function changerRoleAdmin(userId, adminId, nouveauRole) {
+  if (!ROLES_ADMIN_TIKEXO.includes(nouveauRole)) {
+    const err = new Error('Rôle invalide — SUPER_ADMIN ou ADMIN_OPS uniquement');
+    err.statusCode = 400; throw err;
+  }
+  const cible = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  if (!ROLES_ADMIN_TIKEXO.includes(cible.role)) {
+    const err = new Error('Cet utilisateur n\'est pas un compte admin TIKEXO'); err.statusCode = 400; throw err;
+  }
+  if (userId === adminId && nouveauRole !== 'SUPER_ADMIN') {
+    const err = new Error('Vous ne pouvez pas retirer votre propre rôle de super administrateur');
+    err.statusCode = 400; throw err;
+  }
+
+  await prisma.$executeRaw`UPDATE "User" SET role = ${nouveauRole}::"Role", "updatedAt" = NOW() WHERE id = ${userId}`;
+
+  await prisma.auditLog.create({
+    data: { user_id: adminId, action: 'ADMIN_TIKEXO_ROLE_MODIFIE', entite: 'User', entite_id: userId, apres: { role: nouveauRole } },
+  });
+
+  return { id: userId, role: nouveauRole };
+}
+
 async function bloquerUtilisateur(userId, adminId, motif) {
+  if (userId === adminId) {
+    const err = new Error('Vous ne pouvez pas bloquer votre propre compte'); err.statusCode = 400; throw err;
+  }
   await prisma.$executeRaw`
     UPDATE "User" SET statut = 'BLOQUE', "updatedAt" = NOW() WHERE id = ${userId}
   `;
@@ -233,6 +338,8 @@ module.exports = {
   getDashboard,
   getAuditLogs,
   getUtilisateurs,
+  inviterAdminTikexo,
+  changerRoleAdmin,
   bloquerUtilisateur,
   debloquerUtilisateur,
   getStatsTransactions,

@@ -6,6 +6,7 @@ import { EmployeurLayout } from './layouts/EmployeurLayout';
 import { BeneficiaireLayout } from './layouts/BeneficiaireLayout';
 import { CommercantLayout } from './layouts/CommercantLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import SupportPage from './components/SupportPage';
 import Login from './pages/Login';
 import Landing from './pages/Landing';
 import Inscription from './pages/Inscription';
@@ -40,6 +41,8 @@ import AdminMutations from './pages/admin/Mutations';
 import AdminCartes from './pages/admin/Cartes';
 import AdminFedaPay from './pages/admin/FedaPay';
 import AdminPlafondDemandes from './pages/admin/PlafondDemandes';
+import AdminEquipeTikexo from './pages/admin/EquipeTikexo';
+import AdminSupport from './pages/admin/Support';
 import AdminTicketsRetrait from './pages/admin/TicketsRetrait';
 import AdminAntiFraude from './pages/admin/AntiFraude';
 import AdminAuditLog from './pages/admin/AuditLog';
@@ -124,6 +127,7 @@ export default function App() {
         <Route path="commercants" element={<BeneficiaireCommercants />} />
         <Route path="scanner" element={<BeneficiaireScanner />} />
         <Route path="carte" element={<BeneficiaireCarte />} />
+        <Route path="support" element={<SupportPage />} />
       </Route>
 
       <Route
@@ -141,6 +145,7 @@ export default function App() {
         <Route path="encaissements" element={<CommercantEncaissements />} />
         <Route path="qrcode" element={<CommercantQRCode />} />
         <Route path="profil" element={<CommercantProfil />} />
+        <Route path="support" element={<SupportPage />} />
       </Route>
 
       <Route
@@ -166,6 +171,8 @@ export default function App() {
         <Route path="audit" element={<AdminAuditLog />} />
         <Route path="statistiques" element={<AdminStatistiques />} />
         <Route path="configuration" element={<AdminConfiguration />} />
+        <Route path="equipe" element={<AdminEquipeTikexo />} />
+        <Route path="support" element={<AdminSupport />} />
         <Route path="landing-crm" element={<LandingCRM />} />
       </Route>
 
@@ -190,6 +197,7 @@ export default function App() {
         <Route path="parametres" element={<EmployeurParametres />} />
         <Route path="equipe-rh" element={<EmployeurEquipeRh />} />
         <Route path="kyb" element={<EmployeurKyb />} />
+        <Route path="support" element={<SupportPage />} />
       </Route>
     </Routes>
   );

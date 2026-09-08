@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import {
   LayoutDashboard, Building2, Utensils, Users, ArrowLeftRight,
   CreditCard, Banknote, ShieldAlert, FileText, BarChart2, Settings,
-  Bell, LogOut, Globe, Menu, X, TrendingUp, HandCoins,
+  Bell, LogOut, Globe, Menu, X, TrendingUp, HandCoins, UserCog, MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,6 +26,7 @@ const NAV = [
       { path: '/admin/fedapay', label: 'FedaPay', icon: Banknote },
       { path: '/admin/plafonds', label: 'Demandes plafond', icon: TrendingUp, dot: true },
       { path: '/admin/tickets-retrait', label: 'Retraits commerçants', icon: HandCoins, dot: true },
+      { path: '/admin/support', label: 'Support client', icon: MessageCircle, dot: true },
     ],
   },
   {
@@ -41,6 +42,7 @@ const NAV = [
       { path: '/admin/statistiques', label: 'Statistiques', icon: BarChart2 },
       { path: '/admin/landing-crm', label: 'Landing CRM', icon: Globe },
       { path: '/admin/configuration', label: 'Configuration', icon: Settings },
+      { path: '/admin/equipe', label: 'Équipe TIKEXO', icon: UserCog },
     ],
   },
 ];

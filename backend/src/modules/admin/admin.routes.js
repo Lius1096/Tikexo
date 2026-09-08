@@ -11,6 +11,10 @@ router.get('/audit-logs', ctrl.getAuditLogs);
 router.get('/utilisateurs', ctrl.getUtilisateurs);
 router.post('/utilisateurs/:id/bloquer', ctrl.bloquerUtilisateur);
 router.post('/utilisateurs/:id/debloquer', ctrl.debloquerUtilisateur);
+// Gestion de l'équipe TIKEXO elle-même — réservée aux SUPER_ADMIN, un
+// ADMIN_OPS ne doit pas pouvoir créer un compte ou changer un rôle.
+router.post('/admins', autoriser('SUPER_ADMIN'), ctrl.inviterAdminTikexo);
+router.patch('/admins/:id/role', autoriser('SUPER_ADMIN'), ctrl.changerRoleAdmin);
 router.get('/stats/transactions', ctrl.getStatsTransactions);
 router.get('/stats/wallets', ctrl.getStatsWallets);
 router.get('/alertes-fraude', ctrl.getAlertesFraude);

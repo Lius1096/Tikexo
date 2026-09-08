@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
 import {
   LayoutDashboard, Wallet, Users, CalendarCheck, CreditCard,
-  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X, UserCog, Repeat,
+  BarChart2, FileSpreadsheet, Settings, LogOut, ShieldCheck, Lock, Menu, X, UserCog, Repeat, MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
@@ -46,6 +46,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
     items: [
       { path: '/employeur/equipe-rh', label: 'Équipe RH', icon: UserCog, adminOnly: true },
       { path: '/employeur/kyb', label: 'Vérification KYB', icon: ShieldCheck },
+      { path: '/employeur/support', label: 'Support', icon: MessageCircle },
     ],
   },
 ];

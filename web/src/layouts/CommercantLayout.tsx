@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { clsx } from 'clsx';
-import { LayoutDashboard, ArrowLeftRight, QrCode, User, LogOut, ShoppingBag, Menu, X, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, QrCode, User, LogOut, ShoppingBag, Menu, X, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
 
@@ -19,6 +19,7 @@ const NAV = [
   { path: '/commercant/encaissements', label: 'Encaissements',  icon: ArrowLeftRight },
   { path: '/commercant/qrcode',       label: 'QR Vitrine',      icon: QrCode },
   { path: '/commercant/profil',       label: 'Mon profil',      icon: User },
+  { path: '/commercant/support',      label: 'Support',         icon: MessageCircle },
 ];
 
 const BOTTOM_NAV = [

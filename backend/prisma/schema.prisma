@@ -40,6 +40,8 @@ model User {
   commercant            Commercant?
   transactions          Transaction[]
   mutations             Mutation[]
+  ticketsSupport        TicketSupport[]
+  messagesSupport       TicketSupportMessage[]
 
   @@index([telephone])
   @@index([email_perso])
@@ -726,6 +728,7 @@ enum TypeNotification {
   DOTATION
   REVERSEMENT
   KYC
+  SUPPORT
 }
 
 enum StatutKyb {
@@ -749,6 +752,23 @@ enum StatutKybDocument {
   REJETE
 }
 
+enum CategorieSupport {
+  WALLET
+  DOTATION
+  KYB
+  PAIEMENT
+  RETRAIT
+  COMPTE
+  AUTRE
+}
+
+enum StatutTicketSupport {
+  OUVERT
+  EN_COURS
+  RESOLU
+  FERME
+}
+
 model LandingConfig {
   id         String   @id @default(cuid())
   section    String   @unique
@@ -756,6 +776,43 @@ model LandingConfig {
   updated_at DateTime @updatedAt
 
   @@map("landing_config")
+}
+
+// Support client structuré, ouvert par un employeur, un bénéficiaire ou un
+// commerçant. Remplace la simple adresse email support@tikexo.kete.fr citée
+// un peu partout dans le code (messages d'erreur, emails) sans qu'aucun
+// système ne trace réellement ces demandes.
+model TicketSupport {
+  id         String              @id @default(cuid())
+  user_id    String
+  categorie  CategorieSupport    @default(AUTRE)
+  sujet      String
+  statut     StatutTicketSupport @default(OUVERT)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  user       User                    @relation(fields: [user_id], references: [id])
+  messages   TicketSupportMessage[]
+
+  @@index([user_id, statut])
+  @@index([statut])
+}
+
+model TicketSupportMessage {
+  id          String   @id @default(cuid())
+  ticket_id   String
+  auteur_id   String
+  // Snapshot du rôle au moment de l'envoi (le rôle de l'auteur en base peut
+  // changer plus tard) — sert à afficher "Vous" / "TIKEXO" dans le fil sans
+  // recharger l'auteur à chaque fois pour connaître son rôle.
+  auteur_role Role
+  message     String
+  createdAt   DateTime @default(now())
+
+  ticket      TicketSupport @relation(fields: [ticket_id], references: [id])
+  auteur      User          @relation(fields: [auteur_id], references: [id])
+
+  @@index([ticket_id, createdAt])
 }
 
 // Réglages globaux de la plateforme, modifiables depuis /admin/configuration.

@@ -152,6 +152,33 @@ function invitationRh(prenom, entreprise, lienInvitation) {
 }
 
 /**
+ * Invitation d'un membre de l'équipe TIKEXO (SUPER_ADMIN ou ADMIN_OPS)
+ */
+function invitationAdminTikexo(prenom, role, lienInvitation) {
+  const labelRole = role === 'SUPER_ADMIN' ? 'Super administrateur' : 'Administrateur opérations';
+  const html = layout({
+    titre: `Bienvenue dans l'équipe TIKEXO, ${prenom} !`,
+    corps: `
+      <p style="color:#555;margin:0 0 16px">
+        Vous avez été invité(e) à rejoindre l'équipe TIKEXO avec le rôle <strong>${labelRole}</strong>.
+      </p>
+      <div style="background:#f0f7ff;border:1px solid #bdd7f0;border-radius:10px;padding:16px 20px;margin:0 0 20px">
+        <p style="color:#1A3C5E;font-weight:600;margin:0 0 8px;font-size:14px">Une seule étape pour accéder à votre espace</p>
+        <p style="color:#555;margin:0;font-size:13px">Cliquez sur le bouton ci-dessous pour définir votre email et votre mot de passe.</p>
+      </div>
+      <p style="color:#888;font-size:12px;margin:0">
+        Ce lien est personnel, ne le partagez pas. Des questions ? <a href="mailto:support@tikexo.kete.fr" style="color:${COULEUR_ACCENT}">support@tikexo.kete.fr</a>
+      </p>
+    `,
+    bouton: { url: lienInvitation, label: 'Activer mon compte admin' },
+  });
+
+  const text = `Bienvenue dans l'équipe TIKEXO, ${prenom} !\n\nVous avez été invité(e) avec le rôle ${labelRole}.\n\nActivez votre compte :\n${lienInvitation}\n\nCe lien est personnel, ne le partagez pas.\nSupport : support@tikexo.kete.fr`;
+
+  return { html, text };
+}
+
+/**
  * Réinitialisation de mot de passe
  */
 function resetMotDePasse(prenom, code) {
@@ -561,10 +588,71 @@ function ticketRetraitRejete(nomContact, montant, motif) {
   return { html, text };
 }
 
+/**
+ * Ticket support créé — accusé de réception.
+ */
+function ticketSupportCree(prenom, sujet) {
+  const html = layout({
+    titre: 'Votre demande a bien été reçue',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      <p style="color:#555;margin:0 0 16px">
+        Votre demande « ${sujet} » a été enregistrée. Notre équipe vous répondra directement dans le fil de discussion.
+      </p>
+      <p style="color:#888;font-size:12px;margin:0">Vous recevrez un email dès qu'une réponse sera disponible.</p>
+    `,
+  });
+
+  const text = `Bonjour ${prenom},\n\nVotre demande « ${sujet} » a été enregistrée. Notre équipe vous répondra directement dans le fil de discussion.`;
+
+  return { html, text };
+}
+
+/**
+ * Réponse admin sur un ticket support.
+ */
+function ticketSupportReponse(prenom, sujet, lienEspace) {
+  const html = layout({
+    titre: 'Nouvelle réponse à votre demande',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      <p style="color:#555;margin:0 0 20px">
+        L'équipe TIKEXO a répondu à votre demande « ${sujet} ».
+      </p>
+    `,
+    bouton: { url: lienEspace, label: 'Voir la réponse' },
+  });
+
+  const text = `Bonjour ${prenom},\n\nL'équipe TIKEXO a répondu à votre demande « ${sujet} ».\n\nVoir la réponse : ${lienEspace}`;
+
+  return { html, text };
+}
+
+/**
+ * Ticket support marqué résolu par un admin.
+ */
+function ticketSupportResolu(prenom, sujet) {
+  const html = layout({
+    titre: 'Votre demande est résolue',
+    corps: `
+      <p style="color:#555;margin:0 0 16px">Bonjour ${prenom},</p>
+      <div style="background:#f0fdf4;border-left:4px solid ${COULEUR_SUCCES};border-radius:6px;padding:16px;margin:0 0 20px">
+        <p style="margin:0;color:${COULEUR_SUCCES}">✓ Votre demande « ${sujet} » a été marquée comme résolue.</p>
+      </div>
+      <p style="color:#888;font-size:12px;margin:0">Si le problème persiste, répondez dans le fil pour rouvrir la demande.</p>
+    `,
+  });
+
+  const text = `Bonjour ${prenom},\n\nVotre demande « ${sujet} » a été marquée comme résolue.\n\nSi le problème persiste, répondez dans le fil pour rouvrir la demande.`;
+
+  return { html, text };
+}
+
 module.exports = {
   pinReset,
   bienvenueBeneficiaire,
   invitationRh,
+  invitationAdminTikexo,
   resetMotDePasse,
   reactivationCompte,
   mutationTraitee,
@@ -579,4 +667,7 @@ module.exports = {
   commercantDocumentRejete,
   ticketRetraitTraite,
   ticketRetraitRejete,
+  ticketSupportCree,
+  ticketSupportReponse,
+  ticketSupportResolu,
 };
